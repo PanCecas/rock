@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Mazazo"
+frames_windup = 38
+frames_activo = 6
+frames_recuperacion = 36
+dano = 18.0
+dano_poise = 14.0
+empuje = Vector3(0, 1, 7)
+alcance = 2.8
+radio = 1.4
+arco_grados = 80.0
+avance = 0.0
+hitstop = 0.09
+shake = 0.8
+autoencarar = false
+color_vfx = &"carmesi"

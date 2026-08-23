@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Contra de parry"
+anim = &"combat/parry_counter"
+frames_windup = 2
+frames_activo = 5
+frames_recuperacion = 12
+dano = 24.0
+dano_poise = 40.0
+empuje = Vector3(0, 1, 6)
+rompe_guardia = true
+alcance = 2.6
+radio = 1.3
+avance = 6.0
+hitstop = 0.12
+shake = 1.0
+frame_cadena = 99
+color_vfx = &"blanco_tiza"

@@ -10,12 +10,26 @@ extends CharacterBody3D
 @export var visual_path: NodePath = ^"Visual"
 @export var collider_path: NodePath = ^"Collider"
 
+@export_group("Ataques")
+## Primer golpe de la cadena ligera. Los demás cuelgan de `siguiente`.
+@export var ataque_ligero: AttackData
+@export var ataque_pesado: AttackData
+@export var ataque_aereo: AttackData
+@export var ataque_plunge: AttackData
+## Contraataque que solo se abre tras un parry perfecto.
+@export var ataque_contra: AttackData
+
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
 @onready var suelo: GroundSensor = $GroundSensor
 @onready var borde: LedgeSensor = $LedgeSensor
 @onready var pared: WallSensor = $WallSensor
 @onready var fsm: StateMachine = $StateMachine
+@onready var hitbox: Hitbox = $Hitbox
+@onready var hurtbox: Hurtbox = $Hurtbox
+@onready var salud: HealthComponent = $Salud
+@onready var poise: PoiseComponent = $Poise
+@onready var targeting: TargetingSystem = $Targeting
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -80,6 +94,8 @@ func _physics_process(delta: float) -> void:
 
 	# 2) Sensores: la FSM decide sobre datos frescos, nunca sobre los del frame anterior.
 	var frente := direccion_frontal()
+	var cam := camara()
+	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	suelo.sondear()
 	pared.sondear(frente)
 	if tiempo_sin_borde <= 0.0:
@@ -281,6 +297,68 @@ func camara() -> Camera3D:
 	return get_viewport().get_camera_3d()
 
 
+# --- Combate ------------------------------------------------------------------
+
+## Punto de entrada de TODO el daño que recibe el jugador. Lo llama la Hurtbox.
+##
+## El orden importa: i-frames primero (un dash bien medido lo esquiva todo), luego
+## el estado activo por si está parrieando, y solo entonces el daño.
+func recibir_golpe(golpe: Golpe) -> int:
+	if not salud.vivo:
+		return Golpe.Resultado.INMUNE
+	if iframes > 0.0:
+		return Golpe.Resultado.INMUNE
+
+	if fsm.actual != null and fsm.actual.has_method("interceptar"):
+		var r: int = fsm.actual.interceptar(golpe)
+		if r != Golpe.Resultado.IMPACTO:
+			return r
+
+	salud.aplicar(golpe.dano())
+	var quiebre := poise.aplicar(golpe.poise())
+
+	HitstopManager.golpe(golpe.datos.hitstop if golpe.datos else 0.05, [self, golpe.atacante])
+	EventBus.camara_shake.emit(0.9, 0.16)
+	CombatFX.impacto(get_parent(), golpe.punto + Vector3.UP * 0.9, color_de(&"carmesi"), 1.1)
+	EventBus.hit_landed.emit(golpe.atacante, self, golpe.dano())
+
+	if not salud.vivo:
+		EventBus.player_died.emit(&"combate")
+		_revivir()
+		return Golpe.Resultado.IMPACTO
+
+	fsm.cambiar(&"Hitstun", {
+		"empuje": golpe.empuje_mundo() * (1.6 if quiebre else 1.0),
+		"duracion": 0.4 if quiebre else 0.22,
+		"desde": golpe.direccion,
+	})
+	return Golpe.Resultado.IMPACTO
+
+
+func esta_vivo() -> bool:
+	return salud.vivo
+
+
+## Resuelve un nombre de color de la Palette. Ningún hex a mano (CLAUDE.md #9).
+func color_de(nombre: StringName) -> Color:
+	var p := GameState.palette
+	if p == null:
+		return Color.WHITE
+	var v: Variant = p.get(nombre)
+	return v if v is Color else Color.WHITE
+
+
+## En el Gym morir no tiene consecuencias: vuelves entero. La muerte de verdad
+## llega con los colosos.
+func _revivir() -> void:
+	salud.actual = salud.maxima
+	salud.vivo = true
+	stamina.llenar()
+	global_position = Vector3(0.0, 2.0, 4.0)
+	velocity = Vector3.ZERO
+	fsm.cambiar(&"Fall")
+
+
 # --- Interno ------------------------------------------------------------------
 
 func _actualizar_visual(delta: float) -> void:
@@ -327,5 +405,10 @@ func _debug() -> void:
 	DebugOverlay.set_line("pared", pared.debug_line())
 	DebugOverlay.set_line("borde", borde.debug_line())
 	DebugOverlay.set_line("superficie", superficie.debug_line())
+	DebugOverlay.set_line("vida", "%s %.0f%%   poise %.0f%%%s" % [
+		"█".repeat(int(salud.fraccion() * 10.0)).rpad(10, "░"),
+		salud.fraccion() * 100.0, poise.fraccion() * 100.0,
+		"  QUEBRADA" if poise.rota else ""])
+	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])

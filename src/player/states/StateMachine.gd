@@ -63,11 +63,17 @@ func physics_update(delta: float) -> void:
 
 
 ## Cambia de estado. `msg` pasa datos sin acoplar los estados entre sí.
-func cambiar(nombre: StringName, msg: Dictionary = {}) -> void:
+##
+## `reentrar` permite volver a entrar en el estado en el que ya estamos. Existe
+## por las cadenas de combate: encadenar el segundo golpe es entrar OTRA VEZ en
+## Attack con otro AttackData, y el guardia contra auto-transiciones se lo comía
+## en silencio. Se pide explícitamente para que un bucle accidental siga siendo
+## imposible por defecto.
+func cambiar(nombre: StringName, msg: Dictionary = {}, reentrar: bool = false) -> void:
 	if not _estados.has(nombre):
 		push_error("StateMachine: estado desconocido '%s'" % nombre)
 		return
-	if actual != null and actual.name == nombre:
+	if actual != null and actual.name == nombre and not reentrar:
 		return
 
 	var siguiente: PlayerState = _estados[nombre]

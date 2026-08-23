@@ -5,6 +5,7 @@ extends SceneTree
 const TOMAS := [
 	{"nombre": "gym", "pos": Vector3(0, 2, 4), "yaw": 0.0},
 	{"nombre": "circuito", "pos": Vector3(-70, 2, -20), "yaw": 180.0},
+	{"nombre": "arena", "pos": Vector3(45, 0.5, -40), "yaw": 0.0},
 ]
 
 var _main: Node

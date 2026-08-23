@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=46 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -7,10 +7,21 @@
 [ext_resource type="Script" path="res://src/player/sensors/GroundSensor.gd" id="s_ground"]
 [ext_resource type="Script" path="res://src/player/sensors/LedgeSensor.gd" id="s_ledge"]
 [ext_resource type="Script" path="res://src/player/sensors/WallSensor.gd" id="s_wall"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="c_hit"]
+[ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="c_hurt"]
+[ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="c_hp"]
+[ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="c_poise"]
+[ext_resource type="Script" path="res://src/combat/TargetingSystem.gd" id="c_target"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_L1.tres" id="a_ligero"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_pesado.tres" id="a_pesado"]
+[ext_resource type="Resource" path="res://content/data/attacks/aereo_1.tres" id="a_aereo"]
+[ext_resource type="Resource" path="res://content/data/attacks/plunge.tres" id="a_plunge"]
+[ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
 [ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
 [ext_resource type="Script" path="res://src/player/states/GroupAirborne.gd" id="g_air"]
 [ext_resource type="Script" path="res://src/player/states/GroupAttached.gd" id="g_att"]
+[ext_resource type="Script" path="res://src/player/states/GroupCombat.gd" id="g_com"]
 [ext_resource type="Script" path="res://src/player/states/StateIdle.gd" id="st_idle"]
 [ext_resource type="Script" path="res://src/player/states/StateMove.gd" id="st_move"]
 [ext_resource type="Script" path="res://src/player/states/StateSlide.gd" id="st_slide"]
@@ -24,6 +35,11 @@
 [ext_resource type="Script" path="res://src/player/states/StateLedgeClimb.gd" id="st_lclimb"]
 [ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
 [ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
+[ext_resource type="Script" path="res://src/player/states/StateAttack.gd" id="st_atk"]
+[ext_resource type="Script" path="res://src/player/states/StateAirAttack.gd" id="st_air_atk"]
+[ext_resource type="Script" path="res://src/player/states/StatePlunge.gd" id="st_plunge"]
+[ext_resource type="Script" path="res://src/player/states/StateParry.gd" id="st_parry"]
+[ext_resource type="Script" path="res://src/player/states/StateHitstun.gd" id="st_stun"]
 
 [sub_resource type="CapsuleShape3D" id="Shape_body"]
 radius = 0.35
@@ -53,6 +69,11 @@ script = ExtResource("ctrl")
 tuning = ExtResource("tuning")
 visual_path = NodePath("Visual")
 collider_path = NodePath("Collider")
+ataque_ligero = ExtResource("a_ligero")
+ataque_pesado = ExtResource("a_pesado")
+ataque_aereo = ExtResource("a_aereo")
+ataque_plunge = ExtResource("a_plunge")
+ataque_contra = ExtResource("a_contra")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
@@ -82,6 +103,30 @@ script = ExtResource("s_ledge")
 
 [node name="WallSensor" type="Node" parent="."]
 script = ExtResource("s_wall")
+
+[node name="Salud" type="Node" parent="."]
+script = ExtResource("c_hp")
+
+[node name="Poise" type="Node" parent="."]
+script = ExtResource("c_poise")
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("c_hit")
+equipo = 0
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 64
+collision_mask = 0
+script = ExtResource("c_hurt")
+equipo = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("Shape_body")
+
+[node name="Targeting" type="Node" parent="."]
+script = ExtResource("c_target")
+equipo = 0
 
 [node name="StateMachine" type="Node" parent="."]
 script = ExtResource("fsm")
@@ -131,6 +176,24 @@ script = ExtResource("st_lclimb")
 
 [node name="Climb" type="Node" parent="StateMachine/Attached"]
 script = ExtResource("st_climb")
+
+[node name="Combat" type="Node" parent="StateMachine"]
+script = ExtResource("g_com")
+
+[node name="Attack" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_atk")
+
+[node name="AirAttack" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_air_atk")
+
+[node name="Plunge" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_plunge")
+
+[node name="Parry" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_parry")
+
+[node name="Hitstun" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_stun")
 
 [node name="Dash" type="Node" parent="StateMachine"]
 script = ExtResource("st_dash")

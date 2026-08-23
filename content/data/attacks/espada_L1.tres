@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_L2.tres" id="2_n"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Ligero 1"
+anim = &"combat/atk_L1"
+frames_windup = 5
+frames_activo = 4
+frames_recuperacion = 10
+dano = 8.0
+dano_poise = 10.0
+empuje = Vector3(0, 0, 3)
+alcance = 2.2
+radio = 1.1
+avance = 3.5
+hitstop = 0.05
+shake = 0.35
+frame_cadena = 8
+siguiente = ExtResource("2_n")

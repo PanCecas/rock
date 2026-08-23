@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Picado"
+anim = &"combat/atk_plunge_impact"
+frames_windup = 0
+frames_activo = 1
+frames_recuperacion = 18
+dano = 22.0
+dano_poise = 28.0
+empuje = Vector3(0, 2, 5)
+rompe_guardia = true
+alcance = 0.5
+radio = 2.8
+arco_grados = 180.0
+altura = 0.4
+max_objetivos = 6
+avance = 0.0
+hitstop = 0.1
+shake = 1.2
+frame_cadena = 99
+color_vfx = &"blanco_tiza"

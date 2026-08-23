@@ -74,24 +74,40 @@ alcanza los 12 estados. Lo que falta es lo unico que no se puede automatizar:
    siempre igual, el dash frenaba en seco al aterrizar, la capsula se atascaba en
    las esquinas interiores, y saltar colgado de un canto solo sabia subir.
 
-## FASE 2 — Combate · 3–4 semanas
-**Objetivo:** 30 segundos de combo que se sientan bien contra una cápsula.
+## FASE 2 — Combate · ~~3-4 semanas~~ **HECHA**
+**Objetivo:** 30 segundos de combo que se sientan bien contra una capsula.
 
-- [ ] `HitBox` / `HurtBox` / `DamageResolver`
-- [ ] `AttackData` como Resource + cadena ligera de 3 golpes
-- [ ] `HitstopManager` (congelar AnimationTree, no `time_scale`)
-- [ ] Ventanas de cancelación (ataque→dash, dash→ataque, aéreo restaura dash)
-- [ ] Parry con ventana normal y perfecta, con todo su feedback
-- [ ] Esquiva con i-frames
-- [ ] Reacciones de daño, poise, guard break
-- [ ] Ataque aéreo y plunge
-- [ ] `TargetingSystem` con soft-lock, `CameraMode_Combat`
-- [ ] Los 3 Guardianes de Ruina, versión cápsula
+- [x] `Hitbox` por consulta de forma (no Area3D: un Area llega con un frame de
+      retraso y en ventanas de 4 frames eso es un 25% de error), `Hurtbox`, `Golpe`
+- [x] `AttackData` como Resource, tiempos en FRAMES a 60 Hz. 11 ataques en .tres
+- [x] `HitstopManager` conectado: micro-pausa global + congelado de participantes
+- [x] Cadena ligera L1-L2-L3 con finisher, pesado que LANZA al aire
+- [x] Ventanas de cancelacion con reglas por defecto en `GroupCombat`
+- [x] Aereo 1-2: conectar en el aire RESTAURA una carga de dash
+- [x] Picado con suspension, caida y onda de area
+- [x] Parry normal y perfecto, con contraataque solo en el perfecto
+- [x] `HealthComponent`, `PoiseComponent` con GuardBreak, `StateHitstun`
+- [x] `TargetingSystem` soft-lock + `CameraMode_Combat` + shake por `EventBus`
+- [x] `CombatFX`: arcos, impactos y ondas con colores de la Palette
+- [x] Los 3 Guardianes de Ruina (Lancero, Escudo, Vigia) y `tools/Arena.gd`
+- [x] `tools/TestFase2.tscn`: 12 comprobaciones funcionales
 
-**HITO 2:** grábate 30 s peleando contra 3 cápsulas. Si el vídeo se ve bien sin arte y sin
-VFX, el combate funciona. El arte solo puede mejorarlo, nunca arreglarlo.
+**HITO 2 — pendiente de tu veredicto.** El test cubre que la cadena encadena, que
+el dano llega, que las cancelaciones abren cuando deben y que el parry convierte
+un golpe en una apertura. Lo que no se automatiza: **grabar 30 s y ver si el video
+se sostiene sin arte**. Si se sostiene, el arte solo puede mejorarlo.
 
----
+**Lo que se aprendio y cambio el plan:**
+1. `StateMachine.cambiar()` rechazaba las transiciones a uno mismo, asi que
+   encadenar `Attack -> Attack` con otro AttackData se ignoraba EN SILENCIO. Se
+   anade `reentrar` explicito: un bucle accidental sigue siendo imposible por
+   defecto, pero la cadena se pide a proposito.
+2. La hitbox NO puede ser un Area3D. Con ventanas activas de 4 frames, el frame de
+   retraso de las areas es un 25% de error. Se resuelve con `intersect_shape` en
+   el frame exacto que dice el .tres.
+3. Hay ~2 frames de latencia entre `Input.action_press()` desde codigo y que el
+   InputBuffer lo vea. Cualquier test de combate tiene que contar con ellos o mide
+   ventanas que no existen.
 
 ## FASE 3 — Lanza y lazo · 2–3 semanas
 - [ ] `SpearSystem` completo: equipar, moveset, apuntar, lanzar, clavar, recuperar, atrapar

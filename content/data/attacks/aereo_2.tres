@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Aereo 2"
+anim = &"combat/atk_air_2"
+frames_windup = 4
+frames_activo = 5
+frames_recuperacion = 12
+dano = 10.0
+dano_poise = 11.0
+empuje = Vector3(0, 1.5, 3)
+alcance = 2.1
+radio = 1.15
+avance = 3.0
+hitstop = 0.06
+shake = 0.45
+frame_cadena = 99

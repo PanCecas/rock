@@ -58,19 +58,32 @@ func shared_update(delta: float) -> void:
 				fsm.cambiar(&"WallSlide")
 				return
 
-	# 5) Dash aéreo.
+	# 5) Combate aereo. El plunge es el pesado: cae a plomo y revienta en area.
+	if buffer.consume(InputActions.PARRY):
+		fsm.cambiar(&"Parry")
+		return
+	if player.ataque_aereo != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"AirAttack", {"datos": player.ataque_aereo})
+		return
+	if player.ataque_plunge != null and buffer.consume(InputActions.ATTACK_HEAVY):
+		fsm.cambiar(&"Plunge")
+		return
+	if buffer.consume(InputActions.LOCK_ON):
+		player.targeting.alternar_fijado()
+
+	# 6) Dash aereo.
 	if player.puede_dashear() and buffer.consume(InputActions.DASH):
 		fsm.cambiar(&"Dash")
 		return
 
-	# 6) Doble salto. Requiere una pulsación NUEVA: mantener el salto planea, no
+	# 7) Doble salto. Requiere una pulsación NUEVA: mantener el salto planea, no
 	#    salta, así que las dos acciones dejan de pelearse por la misma tecla.
 	if player.saltos_aereos > 0 and buffer.consume(InputActions.JUMP, tuning.jump_buffer):
 		player.saltos_aereos -= 1
 		fsm.cambiar(&"Jump", {"numero": 2})
 		return
 
-	# 7) PLANEO: mantener el botón de salto en el aire, a partir del ápice.
+	# 8) PLANEO: mantener el botón de salto en el aire, a partir del ápice.
 	#    El retardo evita que un saltito corto abra la capa nada más despegar.
 	if fsm.actual.name != &"Glide" and motor.get_vertical() <= 0.0:
 		if player.tiempo_en_aire > tuning.planeo_retardo_despliegue:
@@ -78,7 +91,7 @@ func shared_update(delta: float) -> void:
 				fsm.cambiar(&"Glide")
 				return
 
-	# 8) Escalada a mano sobre superficie marcada.
+	# 9) Escalada a mano sobre superficie marcada.
 	if player.pared.hay_pared and player.pared.escalable and buffer.is_held(InputActions.GRAB):
 		if fsm.actual.name != &"Climb" and not player.stamina.vacia():
 			fsm.cambiar(&"Climb")

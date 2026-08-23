@@ -17,6 +17,9 @@ const MODOS := {
 	# Escalando la cámara se acerca y se pega a la superficie: se necesita ver el
 	# relieve inmediato, no el paisaje.
 	&"Climb": {"dist": 0.62, "altura": 1.25, "fov": 0.92, "suave": 0.6, "pitch_min": -75.0},
+	# Peleando la camara baja y se acerca: encuadra a los dos cuerpos y hace el
+	# combate legible. Mas FOV para que no se pierda lo que entra por los lados.
+	&"Combat": {"dist": 0.88, "altura": 1.15, "fov": 1.06, "suave": 0.75, "pitch_min": -55.0},
 }
 
 var objetivo: Node3D
@@ -33,6 +36,8 @@ var _fov_extra: float = 0.0
 var _jugador: PlayerController
 var _yaw_objetivo: float = 0.0
 var _realinea: float = 0.0
+var _shake: float = 0.0
+var _shake_decaimiento: float = 1.0
 
 
 func _ready() -> void:
@@ -45,6 +50,7 @@ func _ready() -> void:
 	EventBus.tuning_reloaded.connect(func() -> void: tuning = GameState.tuning)
 	EventBus.player_state_changed.connect(_on_estado_cambiado)
 	EventBus.camara_realinear.connect(alinear_a)
+	EventBus.camara_shake.connect(sacudir)
 
 	_p = (MODOS[&"Explore"] as Dictionary).duplicate()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -92,7 +98,16 @@ func _process(delta: float) -> void:
 
 	global_position = _pos_suave
 	rotation_degrees = Vector3(0.0, _yaw, 0.0)
-	brazo.rotation_degrees = Vector3(_pitch, 0.0, 0.0)
+	# La sacudida se suma DESPUES del encuadre y solo a la rotacion: mover la
+	# posicion de la camara atraviesa geometria y marea mas de lo que aporta.
+	var s_x := 0.0
+	var s_y := 0.0
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - _shake_decaimiento * delta)
+		var a := randf() * TAU
+		s_x = cos(a) * _shake
+		s_y = sin(a) * _shake
+	brazo.rotation_degrees = Vector3(_pitch + s_x, s_y, 0.0)
 	brazo.spring_length = tuning.camara_distancia * float(_p["dist"])
 
 	# Un punto de FOV por cada 4 m/s por encima de la carrera. Es sutil a propósito:
@@ -131,6 +146,12 @@ func _aplicar_realineado(delta: float) -> void:
 	_realinea = maxf(0.0, _realinea - delta * 1.4)
 
 
+## Sacudida aditiva. `intensidad` en grados.
+func sacudir(intensidad: float, duracion: float) -> void:
+	_shake = maxf(_shake, intensidad)
+	_shake_decaimiento = intensidad / maxf(duracion, 0.01)
+
+
 func _interpolar_modo(delta: float) -> void:
 	var destino: Dictionary = MODOS.get(modo, MODOS[&"Explore"])
 	var f := 1.0 - exp(-4.5 * delta)
@@ -141,5 +162,11 @@ func _interpolar_modo(delta: float) -> void:
 func _on_estado_cambiado(_anterior: StringName, _nuevo: StringName) -> void:
 	if _jugador == null or _jugador.fsm == null:
 		return
-	modo = &"Climb" if _jugador.fsm.actual.categoria == &"Attached" else &"Explore"
+	var cat: StringName = _jugador.fsm.actual.categoria
+	if cat == &"Attached":
+		modo = &"Climb"
+	elif cat == &"Combat" or _jugador.targeting.objetivo() != null:
+		modo = &"Combat"
+	else:
+		modo = &"Explore"
 	DebugOverlay.set_line("cámara", modo)

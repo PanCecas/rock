@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Pesado (launcher)"
+anim = &"combat/atk_H_release"
+frames_windup = 14
+frames_activo = 6
+frames_recuperacion = 22
+dano = 20.0
+dano_poise = 32.0
+empuje = Vector3(0, 0, 2)
+lanzamiento = 6.5
+rompe_guardia = true
+alcance = 2.5
+radio = 1.25
+avance = 4.5
+hitstop = 0.09
+shake = 0.9
+frame_cadena = 99
+color_vfx = &"oro_palido"

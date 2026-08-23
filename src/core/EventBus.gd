@@ -38,6 +38,9 @@ signal weakpoint_hit(coloso: Node3D, punto: Node3D, restante: float)
 signal colossus_died(coloso: Node3D)
 
 # --- Sistema ----------------------------------------------------------------
+## Sacudida de camara. intensidad en grados, duracion en segundos.
+signal camara_shake(intensidad: float, duracion: float)
+
 ## Pide a la camara ponerse detras de una direccion. fuerza 0..1.
 signal camara_realinear(direccion: Vector3, fuerza: float)
 

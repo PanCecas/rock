@@ -73,22 +73,23 @@ tiene prioridad sobre el doble salto en `GroupAirborne`, y sigue disponible dura
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
+| `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
+| `tools/TestFase2.tscn` | Test funcional del combate. 12 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
 
 ## Estado actual
-**Fases 0 y 1 cerradas.** El jugador tiene los verbos completos de traversal:
+**Fases 0, 1 y 2 cerradas.**
 
-- `SurfaceContext` + `LocomotionMotor`: toda la matematica en el plano del marco de
-  referencia, nunca en XZ del mundo. Listo para colosos sin tocar una linea.
-- FSM jerarquica con 3 grupos y 13 estados. Los grupos resuelven las transiciones
-  compartidas; las hojas solo su propio comportamiento.
-- Correr, esprintar, saltar, doble salto, dash (suelo/aire), planear, deslizarse,
-  wall-run, wall-slide, wall-jump, agarrar cantos, shimmy, subir, escalar.
-- Stamina unica, camara con modos, DebugOverlay completo, circuito cronometrado.
+- **Traversal completo:** `SurfaceContext` + `LocomotionMotor`, FSM jerarquica de
+  4 grupos y 18 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
+  wall-run/wall-slide/wall-jump/cantos/shimmy/escalada. Stamina unica.
+- **Combate:** `AttackData` como Resource (tiempos en frames a 60 Hz), hitbox por
+  consulta de forma, hitstop, ventanas de cancelacion, cadena ligera con finisher,
+  pesado launcher, aereos que reponen el dash, picado, parry normal y perfecto,
+  poise con GuardBreak, soft-lock y 3 Guardianes.
 
-Siguiente paso: **Fase 2** — combate. `AttackData` como Resource, `HitstopManager`
-conectado, ventanas de cancelacion y parry. El hitstop ya existe como autoload con
-su API; en la Fase 2 se le enchufan los consumidores.
+Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
+`PlatformSurface` es la herramienta de progresion vertical del juego.
