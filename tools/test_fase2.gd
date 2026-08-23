@@ -139,16 +139,97 @@ func _construir_guion() -> void:
 					_g, _g.ataque, _p.global_position, Vector3.FORWARD)),
 			func() -> bool: return is_equal_approx(_p.salud.actual, _vida_antes),
 			"con i-frames activos el golpe no debe entrar"),
+
+		# --- Correccion 2.2: fisicas del pesado -------------------------------
+		# En vida solo tambalea. Nada de mandar a todo el mundo por los aires: eso
+		# convertia cada intercambio en un malabar y se comia la lectura del suelo.
+		_chequeo_("pesado NO lanza", 0.3,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_colocar(2.0)
+				_g.velocity = Vector3.ZERO
+				# Postura alta para aislar el STAGGER: con la suya real (30) el
+				# pesado (32 de poise) la quiebra y el estado seria QUEBRADO.
+				_g.poise.actual = 100.0
+				_g.recibir_golpe(Golpe.new(
+					_p, _p.ataque_pesado, _g.global_position,
+					(_g.global_position - _p.global_position).normalized()))
+				_aux = _g.velocity.y,
+			func() -> bool: return (_aux < 1.5
+				and _g.estado == Guardian.Estado.ATURDIDO
+				and is_equal_approx(_g._stagger, _p.ataque_pesado.stagger)),
+			"el pesado debe dejar knockback terrestre y stagger, no lanzamiento"),
+
+		# --- Correccion 2.2: movilidad en combo -------------------------------
+		# Dos medidas: atacar quieto y atacar empujando. La segunda tiene que
+		# recorrer mas, o el personaje sigue clavandose en cada golpe.
+		_chequeo_("ataque sin input (base)", 0.45,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(45.0, 0.3, -35.0)
+				_pos_antes = _p.global_position
+				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_ligero, "indice": 1}),
+			func() -> bool:
+				_dist_sin_input = _p.global_position.distance_to(_pos_antes)
+				return true,
+			"medicion base"),
+		_chequeo_("ataque con input recorre mas", 0.45,
+			func() -> void:
+				_soltar_todo()
+				_p.global_position = Vector3(45.0, 0.3, -35.0)
+				_p.velocity = Vector3.ZERO
+				_pos_antes = _p.global_position
+				_pulsar(&"move_forward")
+				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_ligero, "indice": 1}),
+			func() -> bool: return _p.global_position.distance_to(_pos_antes) > _dist_sin_input + 0.4,
+			"el jugador debe poder desplazarse mientras ataca"),
+
+		# --- Correccion 2.2: pivote del dash ----------------------------------
+		_paso_("carrerilla", 0.2, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(45.0, 0.3, -35.0)
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"move_forward"), &"Move"),
+		_paso_("dashear", 0.10, func() -> void: _pulsar(&"dash"), &"Dash"),
+		_chequeo_("pivote frena y salta", 0.10,
+			func() -> void:
+				_soltar(&"move_forward")
+				_soltar(&"dash")
+				_pulsar(&"move_back"),
+			func() -> bool: return (
+				_p.fsm.actual.categoria == &"Airborne"
+				and _p.motor.get_vertical() > 6.0),
+			"pedir la direccion contraria en pleno dash debe frenar y saltar"),
+
+		# DESTRUCTIVO Y AL FINAL: mata al Guardian, asi que ningun paso posterior
+		# puede volver a usarlo.
+		_chequeo_("pesado mata con ragdoll", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_colocar(2.0)
+				_g.salud.actual = 5.0
+				_g.recibir_golpe(Golpe.new(
+					_p, _p.ataque_pesado, _g.global_position,
+					(_g.global_position - _p.global_position).normalized())),
+			func() -> bool: return _velocidad_cadaver() > 10.0,
+			"rematar con el pesado debe lanzar un cadaver fisico con fuerza"),
 	]
 
 
 var _vida_antes: float = 0.0
 var _esperar_frames: int = 0
+var _aux: float = 0.0
+var _pos_antes: Vector3 = Vector3.ZERO
+var _dist_sin_input: float = 0.0
 
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 60.0:
+	if _reloj > 45.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -173,7 +254,9 @@ func _physics_process(delta: float) -> void:
 		if esperado != &"" and not _visitados.has(esperado):
 			_fallos.append("%-24s no se alcanzó %s" % [actual["nombre"], esperado])
 		if actual.has("chequeo") and not (actual["chequeo"] as Callable).call():
-			_fallos.append("%-24s %s" % [actual["nombre"], actual["porque"]])
+			_fallos.append("%-24s %s   [estado=%s cat=%s vy=%.1f]" % [
+				actual["nombre"], actual["porque"], _p.fsm.nombre_actual(),
+				_p.fsm.actual.categoria, _p.motor.get_vertical()])
 		else:
 			print("  OK    %s" % actual["nombre"])
 		_paso += 1
@@ -226,10 +309,11 @@ func _reponer() -> void:
 	_p.stamina.llenar()
 	_p.recargar_aire()
 	_p.iframes = 0.0
-	_g.salud.actual = _g.salud.maxima
-	_g.salud.vivo = true
-	_g.poise.actual = _g.poise.maxima
-	_g.poise.rota = false
+	if is_instance_valid(_g):
+		_g.salud.actual = _g.salud.maxima
+		_g.salud.vivo = true
+		_g.poise.actual = _g.poise.maxima
+		_g.poise.rota = false
 	_p.fsm.cambiar(&"Idle")
 
 
@@ -239,8 +323,23 @@ func _indice_ataque() -> int:
 	return int(_p.fsm.actual.get("_indice"))
 
 
+## Busca un cadaver fisico entre los hermanos del Guardian y devuelve su rapidez.
+func _velocidad_cadaver() -> float:
+	var padre := _main.get_node_or_null("Arena/Guardianes")
+	if padre == null:
+		return 0.0
+	for h in padre.get_children():
+		if h is Ragdoll:
+			return (h as Ragdoll).linear_velocity.length()
+	return 0.0
+
+
 func _pulsar(accion: StringName) -> void:
 	Input.action_press(accion)
+
+
+func _soltar(accion: StringName) -> void:
+	Input.action_release(accion)
 
 
 func _soltar_todo() -> void:

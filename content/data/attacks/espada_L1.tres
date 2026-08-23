@@ -19,4 +19,7 @@ avance = 3.5
 hitstop = 0.05
 shake = 0.35
 frame_cadena = 8
+movilidad = 0.55
+stagger = 0.25
+fuerza_muerte = 6.0
 siguiente = ExtResource("2_n")

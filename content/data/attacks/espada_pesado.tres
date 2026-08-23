@@ -4,20 +4,24 @@
 
 [resource]
 script = ExtResource("1_s")
-nombre = "Pesado (launcher)"
+nombre = "Pesado"
 anim = &"combat/atk_H_release"
 frames_windup = 14
 frames_activo = 6
 frames_recuperacion = 22
 dano = 20.0
 dano_poise = 32.0
-empuje = Vector3(0, 0, 2)
-lanzamiento = 6.5
+empuje = Vector3(0, 0.4, 10)
+lanzamiento = 0.0
+stagger = 0.9
 rompe_guardia = true
+fuerza_muerte = 26.0
+torque_muerte = 11.0
 alcance = 2.5
 radio = 1.25
 avance = 4.5
-hitstop = 0.09
-shake = 0.9
+hitstop = 0.1
+shake = 1.0
 frame_cadena = 99
+movilidad = 0.15
 color_vfx = &"oro_palido"

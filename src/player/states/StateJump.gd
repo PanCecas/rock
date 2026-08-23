@@ -6,7 +6,10 @@ var _corte_usado: bool = false
 
 
 func enter(msg: Dictionary = {}) -> void:
-	_corte_usado = false
+	# `sin_corte` para los saltos que NO nacen del boton de salto (el pivote del
+	# dash). Sin esto el jump cut los recorta en el primer frame por no tener la
+	# tecla pulsada, y un salto automatico sale a un tercio de su altura.
+	_corte_usado = bool(msg.get("sin_corte", false))
 	var numero: int = int(msg.get("numero", 1))
 	var extra: float = float(msg.get("extra", 0.0))
 

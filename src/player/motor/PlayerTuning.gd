@@ -59,6 +59,18 @@ extends Resource
 ## Grados dentro de los que el dash se autoalinea al enemigo cercano (Fase 2).
 @export_range(0.0, 90.0, 1.0) var dash_correccion_grados: float = 20.0
 
+@export_subgroup("Pivote (frenada estilo Mario 64)")
+## Producto escalar por debajo del cual el input cuenta como "dirección opuesta".
+## -1 exige exactamente lo contrario; -0.6 deja margen para diagonales traseras.
+@export_range(-1.0, 0.0, 0.05) var dash_pivote_umbral: float = -0.6
+## Fracción del dash que hay que haber recorrido antes de poder pivotar. Evita
+## que una corrección brusca al arrancar se lea como frenada.
+@export_range(0.0, 1.0, 0.05) var dash_pivote_min: float = 0.25
+## Salto vertical del pivote, en m/s. Alto: la frenada es un salto de verdad.
+@export_range(0.0, 25.0, 0.1) var dash_pivote_salto: float = 11.5
+## Empuje horizontal hacia la nueva dirección. Bajo a propósito: es un FRENAZO.
+@export_range(0.0, 20.0, 0.1) var dash_pivote_impulso: float = 3.0
+
 # --- Planeo -----------------------------------------------------------------
 @export_group("Planeo")
 @export_range(-20.0, 0.0, 0.1) var planeo_caida: float = -3.0

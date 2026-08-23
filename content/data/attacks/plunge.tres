@@ -23,3 +23,7 @@ hitstop = 0.1
 shake = 1.2
 frame_cadena = 99
 color_vfx = &"blanco_tiza"
+movilidad = 0.0
+stagger = 0.8
+fuerza_muerte = 20.0
+torque_muerte = 9.0

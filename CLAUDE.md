@@ -46,24 +46,38 @@ plataformas en movimiento.
 Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistema),
 `content/` (assets y datos), `tools/` (Gym, ColossusTestRoom), `docs/`.
 
-## Controles y teclas compartidas
-Dos teclas llevan dos acciones cada una, a propósito (es el esquema de TotK):
+## Controles
 
-| Tecla | Acciones | Cómo se desambigua |
+| Accion | Teclado / raton | Mando |
 |---|---|---|
-| Espacio / A | `jump` + `glide` | **Pulsar = saltar. Mantener en el aire = planear** (desde el apice). Una pulsacion nueva siempre salta; el planeo solo mira si la tecla sigue abajo. |
-| Shift / B | `dash` + `sprint` + `dodge` | **Toque = evasion corta. Mantener = evasion y luego sprint continuo** (`dash_tap_max`). |
+| Mover / camara | WASD / raton | Stick izq. / stick der. |
+| Saltar | Espacio | A |
+| **Planear** | **Ctrl** o **Mouse 4** (mantener) | LB (mantener) |
+| Dash / sprint / esquiva | Shift | B |
+| Agacharse / slide | C | D-pad abajo |
+| Agarrar / escalar | F | Y |
+| Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
+| Parry | Q | LT |
+| Fijar objetivo | Click medio | R3 |
+| Apuntar | R | L3 |
+| Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
 
-Lo resuelve `InputActions.EXCLUSIVAS` + `InputBuffer.consume()`: consumir una accion
-invalida a su hermana **si vino de la misma pulsacion** (ventana de 30 ms). `sprint`
-queda fuera de esa lista a proposito, o mantener Shift tras un dash dejaria de correr.
+**El planeo esta separado del salto a proposito.** Compartir tecla obligaba a
+negociar cada pulsacion entre doble salto y capa, y resultaba incomodo. Ahora
+`glide` se mantiene y ya esta.
 
-Colgado de un canto: **empujar arriba sube**, **saltar salta desde el canto** (y te
-deja el doble salto disponible para encadenar en el vacio).
+**Shift sigue llevando dash + sprint + esquiva:** toque = evasion corta, mantener
+= evasion y luego sprint continuo (`dash_tap_max`). Lo resuelve
+`InputActions.EXCLUSIVAS` + `InputBuffer.consume()`: consumir una accion invalida a
+su hermana si vino de la misma pulsacion. `sprint` queda fuera de esa lista o
+mantener Shift tras un dash dejaria de correr.
 
-Junto a una pared, **saltar rebota** en vez de gastar el salto aereo: el wall-jump
-tiene prioridad sobre el doble salto en `GroupAirborne`, y sigue disponible durante
-`pared_coyote` segundos despues de perder el contacto.
+**Pivote del dash:** pedir la direccion CONTRARIA en pleno dash frena en seco y
+salta (estilo Mario 64). Ese salto esta exento de jump cut: no lo pidio el boton.
+
+Colgado de un canto: **empujar arriba sube**, **saltar salta desde el canto**.
+Junto a una pared, **saltar rebota** en vez de gastar el salto aereo, y sigue
+disponible durante `pared_coyote` segundos tras perder el contacto.
 
 ## Herramientas
 | Script | Para qué |
@@ -88,8 +102,10 @@ Tras crear o renombrar una clase con `class_name`, corre
   wall-run/wall-slide/wall-jump/cantos/shimmy/escalada. Stamina unica.
 - **Combate:** `AttackData` como Resource (tiempos en frames a 60 Hz), hitbox por
   consulta de forma, hitstop, ventanas de cancelacion, cadena ligera con finisher,
-  pesado launcher, aereos que reponen el dash, picado, parry normal y perfecto,
-  poise con GuardBreak, soft-lock y 3 Guardianes.
+  pesado con knockback terrestre + stagger, aereos que reponen el dash, picado,
+  parry normal y perfecto, poise con GuardBreak, soft-lock y 3 Guardianes.
+  **El jugador se mueve mientras ataca** (`AttackData.movilidad`) y al morir los
+  enemigos salen despedidos como cadaver fisico (`Ragdoll`).
 
 Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

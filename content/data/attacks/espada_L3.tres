@@ -20,3 +20,7 @@ avance = 5.0
 hitstop = 0.09
 shake = 0.8
 frame_cadena = 99
+movilidad = 0.25
+stagger = 0.6
+fuerza_muerte = 16.0
+torque_muerte = 8.0

@@ -18,3 +18,5 @@ avance = 3.0
 hitstop = 0.06
 shake = 0.45
 frame_cadena = 99
+movilidad = 0.45
+fuerza_muerte = 9.0

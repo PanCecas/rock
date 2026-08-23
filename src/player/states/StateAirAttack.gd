@@ -34,9 +34,12 @@ func physics_update(delta: float) -> void:
 	motor.aplicar_gravedad(delta, 0.35)
 
 	var progreso := float(_frame) / maxf(float(_datos.total_frames()), 1.0)
-	var fuerza: float = _datos.avance * _datos.avance_en(progreso) * 0.7
-	if fuerza > 0.01:
-		motor.impulso(_dir, fuerza)
+	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso) * 0.7)
+	var entrada := buffer.move_vector()
+	if _datos.movilidad > 0.0 and entrada.length() > 0.2:
+		objetivo += sc.direccion_movimiento(entrada, player.camara()) * tuning.velocidad_correr * _datos.movilidad
+	if objetivo.length_squared() > 0.01:
+		motor.acelerar(objetivo, tuning.aceleracion_aire, delta)
 
 	if _datos.activo_en(_frame):
 		if player.hitbox.golpear(_datos, _dir) > 0:

@@ -18,6 +18,13 @@ enum Estado { DORMIDO, ACERCARSE, TELEGRAFIA, ATACAR, RECUPERAR, ATURDIDO, QUEBR
 @export var ataque: AttackData
 @export var palette: Palette
 
+@export_group("Muerte")
+## Multiplicador local sobre la `fuerza_muerte` del ataque que remata. Permite que
+## un enemigo pesado salga menos despedido que uno ligero con el mismo golpe.
+@export_range(0.0, 3.0, 0.05) var ragdoll_mult: float = 1.0
+@export_range(0.0, 30.0, 0.5) var ragdoll_torque: float = 6.0
+@export_range(0.5, 30.0, 0.5) var ragdoll_vida: float = 6.0
+
 @export_group("Comportamiento")
 @export var vista: float = 18.0
 ## Distancia a la que se planta y ataca.
@@ -42,6 +49,9 @@ var _t: float = 0.0
 var _frame_ataque: int = 0
 var _espera: float = 0.0
 var _mat: StandardMaterial3D
+## El golpe que está matando: lo necesita `_al_morir` para lanzar el cadáver.
+var _golpe_mortal: Golpe = null
+var _stagger: float = 0.45
 
 
 func _ready() -> void:
@@ -153,7 +163,7 @@ func _recuperar() -> void:
 func _quieto(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, 0.0, 20.0 * delta)
 	velocity.z = move_toward(velocity.z, 0.0, 20.0 * delta)
-	if estado == Estado.ATURDIDO and _t >= 0.45:
+	if estado == Estado.ATURDIDO and _t >= _stagger:
 		_ir_a(Estado.ACERCARSE)
 
 
@@ -173,6 +183,9 @@ func recibir_golpe(golpe: Golpe) -> int:
 			pass
 		return Golpe.Resultado.BLOQUEADO
 
+	# Se guarda ANTES de aplicar el daño: si este golpe mata, `_al_morir` se dispara
+	# dentro de `salud.aplicar()` y necesita saber quién y con qué.
+	_golpe_mortal = golpe
 	salud.aplicar(golpe.dano())
 	var quiebre := poise.aplicar(golpe.poise())
 	CombatFX.impacto(get_parent(), golpe.punto + Vector3.UP, _color(&"carmesi"), 1.0)
@@ -184,6 +197,9 @@ func recibir_golpe(golpe: Golpe) -> int:
 	var empuje := golpe.empuje_mundo()
 	velocity = Vector3(empuje.x, maxf(empuje.y, 0.0), empuje.z)
 	if not quiebre and estado != Estado.QUEBRADO:
+		# El stagger lo dicta el ataque: es el castigo terrestre, la alternativa a
+		# mandar al enemigo por los aires.
+		_stagger = golpe.datos.stagger if golpe.datos != null and golpe.datos.stagger > 0.0 else 0.45
 		_ir_a(Estado.ATURDIDO)
 	return Golpe.Resultado.IMPACTO
 
@@ -204,10 +220,29 @@ func _al_quebrar() -> void:
 	EventBus.guard_broken.emit(self)
 
 
+## Muerte con cadáver físico. Si el golpe que remata trae `fuerza_muerte`, el
+## cuerpo sale despedido por donde venía el golpe (muerte estilo Overwatch).
+## Es el único sitio donde un golpe pesado manda a alguien por los aires: en vida,
+## solo tambalea.
 func _al_morir() -> void:
 	_ir_a(Estado.MUERTO)
 	CombatFX.onda(get_parent(), global_position + Vector3.UP, _color(&"crema_bruma"), 3.4)
 	hurtbox.monitorable = false
+
+	var fuerza := 0.0
+	var direccion := -global_basis.z
+	if _golpe_mortal != null and _golpe_mortal.datos != null:
+		fuerza = _golpe_mortal.datos.fuerza_muerte * ragdoll_mult
+		if not _golpe_mortal.direccion.is_zero_approx():
+			direccion = _golpe_mortal.direccion
+
+	if fuerza > 0.01:
+		var torque: float = (_golpe_mortal.datos.torque_muerte if _golpe_mortal != null else 0.0)
+		Ragdoll.lanzar(self, visual.mesh, _mat, direccion, fuerza, maxf(torque, ragdoll_torque), ragdoll_vida)
+		queue_free()
+		return
+
+	# Sin fuerza declarada, se desploma en el sitio.
 	var t := create_tween()
 	t.tween_property(self, "scale", Vector3(1.0, 0.05, 1.0), 0.5).set_ease(Tween.EASE_IN)
 	t.tween_callback(queue_free)

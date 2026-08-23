@@ -38,6 +38,9 @@ func physics_update(delta: float) -> void:
 		_salir()
 		return
 
+	if _pivotar():
+		return
+
 	_corregir_rumbo(delta)
 	motor.impulso(_dir, tuning.velocidad_dash())
 	motor.set_vertical(0.0)
@@ -45,6 +48,40 @@ func physics_update(delta: float) -> void:
 	# Chocar lo corta en seco en vez de rasparse toda la pared.
 	if player.is_on_wall() and t > 0.03:
 		_salir()
+
+
+## PIVOTE (frenada estilo Mario 64): pedir la dirección CONTRARIA en mitad del
+## dash no gira, frena en seco y salta.
+##
+## Es una salida de emergencia con intención: cortas el compromiso del dash, matas
+## el momentum y ganas altura para replantear. Y como cuesta un salto aéreo, no
+## sale gratis encadenarlo.
+##
+## Devuelve true si ha pivotado (y por tanto el dash ya no debe seguir).
+func _pivotar() -> bool:
+	if t < tuning.dash_duracion * tuning.dash_pivote_min:
+		return false
+	var entrada := buffer.move_vector()
+	if entrada.length() < 0.7:
+		return false
+	var deseada := sc.direccion_movimiento(entrada, player.camara())
+	if deseada.is_zero_approx() or deseada.dot(_dir) > tuning.dash_pivote_umbral:
+		return false
+
+	# Frenazo: se tira TODO el momentum del dash y se sale despacio hacia atrás.
+	motor.impulso(deseada, tuning.dash_pivote_impulso)
+	player.orientar_a(deseada)
+	player.iframes = maxf(player.iframes, tuning.dash_iframes * 0.5)
+	EventBus.camara_shake.emit(0.35, 0.1)
+	CombatFX.impacto(
+		player.get_parent(), player.global_position + Vector3.UP * 0.15,
+		player.color_de(&"crema_bruma"), 0.9
+	)
+	# `conservar_vertical` porque el salto del pivote lo fijamos aquí: es más alto
+	# que un salto normal a propósito.
+	motor.set_vertical(tuning.dash_pivote_salto)
+	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true})
+	return true
 
 
 ## La corrección que separa una evasión viva de un empujón escriptado.

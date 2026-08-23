@@ -50,16 +50,16 @@ const HELD: Array[StringName] = [
 	SPRINT, CROUCH, JUMP, GLIDE, AIM, GRAB, PARRY,
 ]
 
-## Acciones que COMPARTEN TECLA. Una sola pulsación de Espacio registra `jump` y
-## `glide` a la vez, así que consumir una tiene que invalidar a la otra o los dos
-## estados se pelean por la misma pulsación: doble salto y planeo se disparaban
-## juntos y el jugador gastaba el salto aéreo sin querer.
+## Acciones que COMPARTEN TECLA. Consumir una invalida a su hermana si vino de la
+## misma pulsación, o los dos estados se pelean por ella.
+##
+## JUMP/GLIDE ya NO está aquí: el planeo se mudó a Ctrl y Mouse 4 precisamente
+## porque compartir tecla con el salto resultaba incómodo. Quedan dash y esquiva,
+## que siguen en el mismo botón por diseño.
 ##
 ## Sprint queda fuera a propósito: se consulta con is_held(), no se consume, así
 ## que mantener Shift tras un dash sigue corriendo.
 const EXCLUSIVAS := {
-	JUMP: [GLIDE],
-	GLIDE: [JUMP],
 	DASH: [DODGE],
 	DODGE: [DASH],
 }

@@ -21,8 +21,10 @@ func enter(msg: Dictionary = {}) -> void:
 	_dir = _direccion_ataque()
 	player.orientar_a(_dir)
 	player.hitbox.nuevo_swing()
-	# Frenar lo que traías: el avance del ataque lo pone el propio AttackData.
-	player.velocity = sc.con_vertical(Vector3.ZERO, sc.vertical(player.velocity))
+	# Amortiguar lo que traías, NO borrarlo. Poner la velocidad a cero en cada
+	# golpe es lo que hace que un combo se sienta como una animación en la que te
+	# quedas clavado en vez de como una pelea en la que sigues mandando.
+	player.velocity = sc.plano(player.velocity) * 0.45 + sc.up * sc.vertical(player.velocity)
 
 
 func physics_update(delta: float) -> void:
@@ -31,7 +33,7 @@ func physics_update(delta: float) -> void:
 		return
 
 	_frame += 1
-	_avanzar()
+	_avanzar(delta)
 	motor.set_vertical(-2.0)
 
 	if _datos.activo_en(_frame):
@@ -64,15 +66,25 @@ func _direccion_ataque() -> Vector3:
 	return player.direccion_frontal()
 
 
-## Empuje hacia delante durante el golpe. Sin esto los combos se quedan cortos y
-## hay que perseguir al enemigo entre golpe y golpe, que es lo que los mata.
-func _avanzar() -> void:
+## Movimiento durante el golpe: la estocada del propio ataque MÁS lo que pida el
+## jugador, escalado por `movilidad` del .tres.
+##
+## Se acelera hacia el objetivo en vez de fijar la velocidad de golpe: mezclar un
+## empujón duro con input da tirones, y aquí lo que se busca es poder reposicionarse
+## en mitad de la cadena sin romperla.
+func _avanzar(delta: float) -> void:
 	var progreso := float(_frame) / maxf(float(_datos.total_frames()), 1.0)
-	var fuerza: float = _datos.avance * _datos.avance_en(progreso)
-	if fuerza > 0.01:
-		motor.impulso(_dir, fuerza)
+	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso))
+
+	var entrada := buffer.move_vector()
+	if _datos.movilidad > 0.0 and entrada.length() > 0.2:
+		var deseada := sc.direccion_movimiento(entrada, player.camara())
+		objetivo += deseada * tuning.velocidad_correr * _datos.movilidad
+
+	if objetivo.length_squared() > 0.01:
+		motor.acelerar(objetivo, tuning.aceleracion_suelo * 0.9, delta)
 	else:
-		motor.frenar(tuning.frenado_suelo, 1.0 / AttackData.FPS)
+		motor.frenar(tuning.frenado_suelo, delta)
 
 
 func _al_conectar() -> void:

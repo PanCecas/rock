@@ -16,6 +16,7 @@ const SPEAR_STICK := 1 << 9    ## Superficies donde la lanza se clava
 const COLOSSUS_SURFACE := 1 << 10  ## Suelo caminable de un coloso (frame móvil)
 const PROJECTILE := 1 << 11
 const CAMERA_BLOCK := 1 << 12  ## Lo que empuja la cámara hacia dentro
+const RAGDOLL := 1 << 13       ## Cadáveres. Solo chocan con el mundo.
 
 ## Todo lo que el jugador pisa: mundo estático + superficie de coloso.
 const SUELO_JUGADOR := WORLD | COLOSSUS_SURFACE

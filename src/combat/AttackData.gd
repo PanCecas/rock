@@ -30,8 +30,17 @@ const FPS := 60.0
 @export var dano_poise: float = 12.0
 ## Empuje que recibe la víctima, en espacio local del atacante (Z = hacia delante).
 @export var empuje: Vector3 = Vector3(0.0, 0.0, 4.0)
-## Si es > 0, levanta a la víctima: la base de los juggles.
+## Si es > 0, levanta a la víctima. Reservado a golpes que ABREN el juego aéreo:
+## un pesado que manda a todo el mundo por los aires convierte cada intercambio
+## en un malabar y se come la lectura del combate en suelo.
 @export var lanzamiento: float = 0.0
+## Segundos que la víctima queda tambaleándose. Es el castigo "terrestre", la
+## alternativa a lanzar por los aires.
+@export_range(0.0, 3.0, 0.05) var stagger: float = 0.0
+## Velocidad (m/s) con la que sale despedido el cadáver si ESTE golpe es el que
+## mata. 0 = el enemigo cae en el sitio.
+@export_range(0.0, 60.0, 0.5) var fuerza_muerte: float = 0.0
+@export_range(0.0, 30.0, 0.5) var torque_muerte: float = 6.0
 ## Ignora la guardia frontal del Escudo.
 @export var rompe_guardia: bool = false
 
@@ -54,6 +63,10 @@ const FPS := 60.0
 @export var curva_avance: Curve
 ## El ataque encara al objetivo cercano al empezar.
 @export var autoencarar: bool = true
+## Cuánta velocidad de carrera conserva el jugador MIENTRAS ataca, de 0 a 1.
+## Con 0 el personaje se queda clavado en cada golpe, que es lo que hace que un
+## combo se sienta como una animación en vez de como una pelea.
+@export_range(0.0, 1.0, 0.05) var movilidad: float = 0.45
 
 @export_group("Feedback")
 @export_range(0.0, 0.5, 0.005) var hitstop: float = 0.05
