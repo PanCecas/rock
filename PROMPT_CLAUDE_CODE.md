@@ -547,3 +547,63 @@ genérica y la específica no llega a existir nunca.
 Al terminar añade las comprobaciones a tools/TestFase2.tscn y pasa la regresión de
 tools/TestFase1.tscn.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.9 — clavado de Mario 64, fricción de agachado y adherencia
+
+```
+Ajustes al Character Controller de ROCK. Lee CLAUDE.md antes de tocar nada. Todo
+número nuevo va en PlayerTuning.tres o en un AttackData .tres, nunca en un .gd.
+
+1. SALTOS
+- QUITA el backflip del salto agachado. La voltereta se rompe y no aporta nada que
+  el impulso no diera ya. Déjalo como un salto vertical MUY fuerte y punto.
+- SIDE JUMP de Mario 64: correr, pedir bruscamente la dirección CONTRARIA y
+  saltar da un salto lateral más alto. Hoy no funciona.
+  Detéctalo en el controlador y no en un estado: el giro brusco ocurre ANTES de
+  que exista nada a lo que llamar "estado de girar". Es una lectura del input
+  contra el momentum, y ese par solo lo tiene el controlador. Abre una ventana
+  corta al detectarlo y que el salto la consuma.
+
+2. ATAQUE DE CLAVADO EN EL AIRE
+Atacar en el aire debe hacer un CLAVADO. Una sola pulsación, sin segundo paso y
+sin exigir carrera previa: pedir las dos cosas hacía que el ataque aéreo más
+visible del juego no apareciera casi nunca.
+- Física de Mario 64: velocidad horizontal CONSTANTE en caída libre. Ni
+  rozamiento ni aceleración, solo gravedad. Es lo que hace la trayectoria legible.
+- Hitbox activa TODO el trayecto, no una ventana. Al impactar, knockback fuerte:
+  manda al enemigo volando. Eso es todo lo que tiene que hacer.
+- Reparte los botones por CONTEXTO y no por tecla: ligero con enemigo cerca es un
+  golpe aéreo, ligero sin nadie a quien pegar es el clavado, y el pesado sigue
+  siendo el picado vertical. El mismo botón hace lo único sensato en cada
+  situación, que es mejor que obligar a recordar dos.
+
+3. SLIDE Y CROUCH (Mario 64)
+- El slide dura demasiado: acórtalo bastante y haz que CEDA al agachado en vez de
+  levantarse. Los dos deben formar una sola maniobra continua.
+- Agacharse LLEVANDO velocidad aplica fricción y te va parando progresivamente
+  hasta quedar estático. El crouch es el freno del sistema de movimiento.
+- SLIDE KICK: atacar con ataque ligero durante ese deslizamiento lanza la patada
+  deslizante —el salto de conejo— con hitbox viva todo el trayecto. Que termine
+  dejándote agachado, no de pie: encadenar patadas debe ser posible.
+
+4. AGUA Y ESCALADA
+- En el agua, Shift multiplica la velocidad de nado y de buceo. Hoy no hace nada.
+- ADHERENCIA AUTOMÁTICA: caminar contra una superficie perpendicular durante
+  ~0.35 s engancha solo, sin pulsar nada. Escalar deja de ser un botón que hay que
+  saber y pasa a ser lo que ocurre si insistes contra un muro, que es como se
+  descubre en Breath of the Wild. Y si te adheriste sin pulsar nada, tampoco
+  deberías soltarte por dejar de pulsar: sal con salto o agachándote.
+- Escalando, Shift da un impulso en la dirección 2D del input sobre la pared, con
+  coste de stamina de golpe. Es el sprint de escalada de BotW.
+
+RECORDATORIO DE ESTA FSM: los grupos corren ANTES que las hojas y les roban el
+input. Cualquier estado con versión propia de una acción compartida tiene que
+reclamarla, y el guardia debe existir en TODOS los grupos.
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn y pasa la regresión de
+tools/TestFase1.tscn. Consejo para esos tests: comprueba con LATCHES —si algo
+ocurrió en algún momento del paso— en vez de mirar solo el frame final, o
+acabarás midiendo timing en lugar de mecánicas.
+```

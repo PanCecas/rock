@@ -1,42 +1,62 @@
 extends PlayerState
-## Clavado. Se entra atacando en el aire CON velocidad: el dive nace del momentum,
-## y por eso sale igual desde correr que desde surfear —lo que importa es que
-## llegues lanzado, no de qué estado vienes—. Sin carrera, atacar en el aire sigue
-## siendo el picado vertical de siempre.
+## Clavado. ATACAR EN EL AIRE, y ya: una sola pulsación, sin segundo paso y sin
+## exigir carrera previa. Pedir las dos cosas hacía que el ataque aéreo más
+## visible del juego no apareciera casi nunca.
 ##
-## Es un modo propio, no una variante de caer: gravedad más fuerte, empuje hacia
-## delante y giro reducido. Dibuja la parábola de clavado del esquema.
+## Física de Mario 64: **velocidad horizontal CONSTANTE** en caída libre. Ni
+## rozamiento ni aceleración; solo la gravedad tira. Eso es lo que hace que la
+## trayectoria se pueda leer de un vistazo y planificar antes de saltar.
 ##
-## Pulsar ataque OTRA VEZ durante el dive lo convierte en DiveAttack. Y si el
-## clavado termina en agua, la entrada es un clavado de verdad: se gana
-## profundidad en vez de quedarse flotando.
+## La hitbox vive TODO el trayecto. No es un golpe con ventana activa: es un
+## proyectil que eres tú, y al impactar manda al enemigo por los aires.
+##
+## Si el clavado termina en agua, la entrada gana profundidad de verdad y dibuja
+## la curva submarina del esquema.
 
 var _dir: Vector3 = Vector3.ZERO
+var _rapidez: float = 0.0
 
 
 func enter(msg: Dictionary = {}) -> void:
 	_dir = msg.get("direccion", motor.direccion_plana())
 	if _dir.is_zero_approx():
 		_dir = player.direccion_frontal()
-	# El impulso inicial es lo que separa un clavado de una caída: sales hacia
-	# delante y hacia abajo, no te dejas caer.
-	motor.impulso(_dir, maxf(motor.rapidez_plana(), tuning.dive_impulso))
+
+	# El impulso inicial separa un clavado de una caída: sales hacia delante y
+	# hacia abajo. Y esa velocidad horizontal ya no vuelve a cambiar.
+	_rapidez = maxf(motor.rapidez_plana(), tuning.dive_impulso)
+	motor.impulso(_dir, _rapidez)
 	motor.set_vertical(minf(motor.get_vertical(), 0.0))
+
+	player.hitbox.nuevo_swing()
 	player.orientar_a(_dir)
 	player.set_alabeo(0.0)
+	EventBus.camara_shake.emit(0.35, 0.14)
+	CombatFX.arco(
+		player.get_parent(), player.global_position + Vector3.UP * 0.9, _dir,
+		player.color_de(&"azul_claro"), 2.0
+	)
 
 
 func physics_update(delta: float) -> void:
 	_pilotar(delta)
-	motor.impulso(_dir, motor.rapidez_plana())
+
+	# Velocidad horizontal CONSTANTE. Es la física de Mario 64 y la razón de que
+	# el clavado sea predecible.
+	motor.impulso(_dir, _rapidez)
 	var vy := motor.get_vertical() + tuning.dive_gravedad * delta
 	motor.set_vertical(maxf(vy, tuning.velocidad_terminal))
 
-	# Segunda pulsación: el clavado se arma.
-	if player.ataque_dive != null:
-		if buffer.consume(InputActions.ATTACK_LIGHT) or buffer.consume(InputActions.ATTACK_HEAVY):
-			fsm.cambiar(&"DiveAttack", {"direccion": _dir})
-			return
+	# La hitbox está viva desde el primer frame. `nuevo_swing()` no se repite, así
+	# que cada enemigo se lleva un solo golpe por clavado.
+	var datos: AttackData = player.ataque_dive
+	if datos != null and player.hitbox.golpear(datos, _dir) > 0:
+		HitstopManager.golpe(datos.hitstop, [player])
+		EventBus.camara_shake.emit(datos.shake, 0.16)
+		CombatFX.impacto(
+			player.get_parent(), player.global_position + Vector3.UP * 0.9,
+			player.color_de(datos.color_vfx), 1.3
+		)
 
 	if player.agua.en_agua:
 		fsm.cambiar(&"Underwater", {"clavado": true, "direccion": _dir})
@@ -48,13 +68,7 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Landing", {"impacto": player.impacto_ultimo})
 
 
-## La segunda pulsacion es SUYA. Sin esto GroupAirborne la convertia en un
-## ataque aereo normal y el DiveAttack no llegaba a existir. Cuarta aparicion del
-## mismo patron: ver regla dura #13 en CLAUDE.md.
-func maneja_ataques() -> bool:
-	return true
-
-
+## El clavado se puede corregir, pero poco: es un compromiso, no un planeo.
 func _pilotar(delta: float) -> void:
 	var entrada := buffer.move_vector()
 	if entrada.length() < 0.2:
@@ -67,5 +81,11 @@ func _pilotar(delta: float) -> void:
 	player.orientar_a(_dir)
 
 
+## La pulsación de ataque es suya: sin esto el grupo la convierte en un ataque
+## aéreo normal y el clavado no llega a existir. Ver regla dura #13 de CLAUDE.md.
+func maneja_ataques() -> bool:
+	return true
+
+
 func debug_line() -> String:
-	return "%.1f m/s  vy %.1f" % [motor.rapidez_plana(), motor.get_vertical()]
+	return "%.1f m/s constante  vy %.1f" % [_rapidez, motor.get_vertical()]

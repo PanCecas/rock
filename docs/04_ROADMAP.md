@@ -247,6 +247,29 @@ como regla dura #13 en CLAUDE.md para que no vuelva a pasar en la Fase 3.
 `GroupAirborne` no tenia el guardia de `maneja_ataques()` que si tenia
 `GroupGrounded`. La regla dura #13 se amplia: el guardia va en TODOS los grupos.
 
+### Correccion 2.9 — clavado, friccion y adherencia
+- **Backflip eliminado.** El salto agachado es ahora solo un salto muy fuerte: la
+  voltereta se rompia y no aportaba nada que el impulso no diera ya.
+- **SIDE JUMP de Mario 64**, detectado en el controlador y no en un estado: el
+  giro brusco ocurre antes de que exista nada a lo que llamar "estado de girar".
+- **Clavado simplificado a UNA pulsacion**, sin exigir carrera. Velocidad
+  horizontal CONSTANTE (fisica de Mario 64) y hitbox viva todo el trayecto que
+  manda a los enemigos volando. Los ataques aereos se reparten por CONTEXTO:
+  ligero con enemigo cerca golpea, ligero sin nadie clava, pesado pica.
+- **Slide acortado (2.5 -> 0.9 s) y cede al agachado**, que es quien te frena con
+  `crouch_friccion`. Los dos forman una sola maniobra continua.
+- **SLIDE KICK** con hitbox de trayecto que termina dejandote agachado, para poder
+  encadenar.
+- **Shift en el agua** multiplica nado y buceo.
+- **Adherencia automatica**: insistir contra un muro perpendicular engancha solo, y
+  entonces se sale con salto o agachandose, no soltando un boton que quiza nunca
+  se pulso. **Shift escalando** da el impulso 2D de BotW.
+
+**Leccion para los tests:** comprobar solo el frame final medía timing en vez de
+mecanicas. Ahora se usan LATCHES. Y `_reponer()` no ponia la velocidad a cero, asi
+que un paso heredaba el impulso del anterior y el jugador estaba en el aire cuando
+la comprobacion asumia suelo.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

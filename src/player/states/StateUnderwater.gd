@@ -42,11 +42,12 @@ func physics_update(delta: float) -> void:
 	if cam != null and entrada.length() > 0.15:
 		dir = (-cam.global_basis.z * -entrada.y + cam.global_basis.x * entrada.x).normalized()
 
-	var deseada := dir * tuning.buceo_velocidad
+	var mult := tuning.nado_sprint_mult if player.quiere_sprint() else 1.0
+	var deseada := dir * tuning.buceo_velocidad * mult
 
 	# Mantener salto sube. Es el ascenso, no un salto.
 	if buffer.is_held(InputActions.JUMP):
-		deseada += Vector3.UP * tuning.buceo_ascenso
+		deseada += Vector3.UP * tuning.buceo_ascenso * mult
 	elif buffer.is_held(InputActions.CROUCH):
 		deseada += Vector3.DOWN * tuning.buceo_ascenso * 0.8
 
@@ -61,4 +62,5 @@ func physics_update(delta: float) -> void:
 
 
 func debug_line() -> String:
-	return "prof %.1f m   salto = subir" % player.agua.profundidad
+	return "prof %.1f m%s   salto = subir" % [
+		player.agua.profundidad, "  SPRINT" if player.quiere_sprint() else ""]

@@ -59,8 +59,9 @@ func shared_update(delta: float) -> void:
 	#      el jugador pueda tener en la cabeza, y "si agarro, escalo" es la mas
 	#      simple que existe: la ambiguedad solo queda entre los dos que NO pides
 	#      explicitamente, y esa se resuelve por angulo.
-	if player.pared.hay_pared and buffer.is_held(InputActions.GRAB):
-		var vale_pared := player.pared.escalable or tuning.escalada_universal
+	var vale_pared := player.pared.escalable or tuning.escalada_universal
+	var quiere_agarrar := buffer.is_held(InputActions.GRAB) or player.adherencia_lista()
+	if player.pared.hay_pared and quiere_agarrar:
 		if vale_pared and fsm.actual.name != &"Climb" and not player.stamina.vacia():
 			fsm.cambiar(&"Climb")
 			return
@@ -111,16 +112,18 @@ func shared_update(delta: float) -> void:
 	# llegaba a ejecutarse: la segunda pulsacion se convertia en ataque aereo.
 	if fsm.actual != null and fsm.actual.maneja_ataques():
 		return
-	if player.ataque_aereo != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"AirAttack", {"datos": player.ataque_aereo})
-		return
-	# DIVE: atacar en el aire llevando carrera es un clavado, no un picado. Sale
-	# igual desde correr que desde surfear: lo que importa es el momentum.
-	if motor.rapidez_plana() >= tuning.dive_velocidad_min and motor.get_vertical() < 2.0:
-		if buffer.consume(InputActions.ATTACK_HEAVY) or buffer.consume(InputActions.ATTACK_LIGHT):
+	# Ataque ligero en el aire: si hay ENEMIGO cerca es un golpe aereo; si no hay
+	# a quien pegar, es un CLAVADO. El mismo boton hace lo unico sensato en cada
+	# situacion, que es mejor que obligar al jugador a recordar dos.
+	if buffer.consume(InputActions.ATTACK_LIGHT):
+		var hay_objetivo := player.targeting.objetivo() != null
+		if hay_objetivo and player.ataque_aereo != null:
+			fsm.cambiar(&"AirAttack", {"datos": player.ataque_aereo})
+		else:
 			fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
-			return
-
+		return
+	# El pesado en el aire sigue siendo el picado vertical: es el otro extremo del
+	# clavado —cae a plomo y revienta en area— y conviene que sigan separados.
 	if player.ataque_plunge != null and buffer.consume(InputActions.ATTACK_HEAVY):
 		fsm.cambiar(&"Plunge")
 		return

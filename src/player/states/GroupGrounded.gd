@@ -14,6 +14,18 @@ func shared_update(delta: float) -> void:
 	# Si la hoja tiene su propio salto (Crouch, Surf), el grupo no se lo roba.
 	if not (fsm.actual != null and fsm.actual.maneja_salto()):
 		if player.consumir_salto():
+			# SIDE JUMP: si venias corriendo y acabas de pedir la direccion
+			# contraria, el salto sale mas alto y hacia el nuevo rumbo.
+			if player.ventana_sidejump > 0.0:
+				var dir := sc.direccion_movimiento(buffer.move_vector(), player.camara())
+				if not dir.is_zero_approx():
+					motor.impulso(dir, tuning.sidejump_lateral)
+					player.orientar_a(dir)
+				motor.set_vertical(tuning.velocidad_salto() * tuning.sidejump_mult)
+				player.ventana_sidejump = 0.0
+				EventBus.camara_shake.emit(0.3, 0.12)
+				fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+				return
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
 
@@ -49,6 +61,11 @@ func shared_update(delta: float) -> void:
 	# Una pendiente imposible te tira: no puedes quedarte quieto en un tejado.
 	if player.suelo.demasiado_empinado() and fsm.actual.name != &"Slide":
 		fsm.cambiar(&"Slide", {"forzado": true})
+		return
+
+	# ADHERENCIA: insistir contra un muro perpendicular acaba enganchandote.
+	if player.adherencia_lista() and fsm.actual.name != &"Climb":
+		fsm.cambiar(&"Climb")
 		return
 
 	# TECHO BAJO: si no cabes de pie, te agachas quieras o no. Es lo que hace que

@@ -71,11 +71,13 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | **Planear** | **Ctrl** o **Mouse 4** (mantener) | LB (mantener) |
 | Dash / sprint / esquiva | Shift | B |
 | Agacharse / slide | C | D-pad abajo |
-| Backflip | C (quieto) + Espacio | |
-| Side hop | C + lateral + Espacio | |
+| Salto fuerte | C (quieto) + Espacio | |
+| Side jump | Correr, girar en seco y saltar | |
+| Slide kick | C con velocidad + click izq. | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
-| Dive / DiveAttack | Ataque en el aire con carrera (×2 arma) | |
+| Clavado (Dive) | Click izq. en el aire sin enemigo cerca | RB |
+| Escalar | Insistir contra el muro · Shift impulsa | |
 | Nadar / bucear | C bucea · mantener Espacio sube | |
 | Agarrar / escalar | F | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |

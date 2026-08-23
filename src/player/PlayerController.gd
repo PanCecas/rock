@@ -16,7 +16,9 @@ extends CharacterBody3D
 @export var ataque_pesado: AttackData
 @export var ataque_aereo: AttackData
 @export var ataque_plunge: AttackData
-## Clavado armado. Su hitbox vive todo el trayecto y lanza por los aires.
+## Patada deslizante: el salto de conejo. Su hitbox vive todo el trayecto.
+@export var ataque_slide_kick: AttackData
+## Clavado. Su hitbox vive todo el trayecto y lanza por los aires.
 @export var ataque_dive: AttackData
 ## Patada baja desde agachado. Derriba en vez de tambalear.
 @export var ataque_agachado: AttackData
@@ -75,6 +77,10 @@ var _cooldown_salto: float = 0.0
 var _pos_anterior: Vector3 = Vector3.ZERO
 var _atascado: float = 0.0
 var _giro_visual: float = 0.0
+## Ventana del side jump: se abre al pedir la direccion contraria corriendo.
+var ventana_sidejump: float = 0.0
+## Tiempo empujando contra una pared. Al pasar del umbral, se escala solo.
+var tiempo_contra_pared: float = 0.0
 var _giro_visual_restante: float = 0.0
 
 
@@ -191,6 +197,9 @@ func _avanzar_relojes(delta: float) -> void:
 	iframes = maxf(0.0, iframes - delta)
 	tiempo_sin_borde = maxf(0.0, tiempo_sin_borde - delta)
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
+	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
+	_actualizar_sidejump(delta)
+	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
 	surf_pendiente = maxf(0.0, surf_pendiente - delta)
 	if is_on_floor():
@@ -364,6 +373,59 @@ func set_altura_colision(fraccion: float) -> void:
 	_altura_objetivo = clampf(fraccion, 0.2, 1.0)
 
 
+## Shift, en cualquiera de sus formas. Lo consultan la locomocion y el agua.
+func quiere_sprint() -> bool:
+	return buffer.is_held(InputActions.SPRINT) or buffer.is_held(InputActions.DASH)
+
+
+## SIDE JUMP de Mario 64: correr y pedir la direccion CONTRARIA abre una ventana
+## corta. Saltar dentro de ella da el salto lateral alto.
+##
+## Se detecta aqui y no en un estado porque el giro brusco ocurre ANTES de que
+## haya nada que llamar "estado de girar": es una lectura del input contra el
+## momentum, y ese par solo lo tiene el controlador.
+func _actualizar_sidejump(_delta: float) -> void:
+	if not is_on_floor():
+		return
+	var v := superficie.plano(velocity)
+	if v.length() < tuning.sidejump_velocidad_min:
+		return
+	var entrada := buffer.move_vector()
+	if entrada.length() < 0.6:
+		return
+	var deseada := superficie.direccion_movimiento(entrada, camara())
+	if deseada.is_zero_approx():
+		return
+	if deseada.dot(v.normalized()) <= tuning.sidejump_umbral:
+		ventana_sidejump = tuning.sidejump_ventana
+
+
+## ADHERENCIA AUTOMATICA a la pared. Caminar contra una superficie perpendicular
+## durante `escalada_auto_tiempo` engancha solo, sin pulsar nada.
+##
+## Escalar deja de ser un boton que hay que saber y pasa a ser lo que ocurre si
+## insistes contra un muro, que es como se descubre en Breath of the Wild.
+func _actualizar_adherencia(delta: float) -> void:
+	if not pared.hay_pared or stamina.vacia():
+		tiempo_contra_pared = 0.0
+		return
+	var entrada := buffer.move_vector()
+	if entrada.length() < 0.5:
+		tiempo_contra_pared = 0.0
+		return
+	var deseada := superficie.direccion_movimiento(entrada, camara())
+	var normal := superficie.plano(pared.normal).normalized()
+	# Empujar CONTRA la pared, no pasar rozando.
+	if deseada.dot(-normal) < 0.65:
+		tiempo_contra_pared = 0.0
+		return
+	tiempo_contra_pared += delta
+
+
+func adherencia_lista() -> bool:
+	return tiempo_contra_pared >= tuning.escalada_auto_tiempo
+
+
 ## ¿Hay techo que impida volver a la altura completa?
 ##
 ## Es lo que atrapa al jugador dentro de un túnel bajo: soltar el botón no basta,
@@ -518,6 +580,9 @@ func _debug() -> void:
 	DebugOverlay.set_line("pared", pared.debug_line())
 	DebugOverlay.set_line("techo", "%s   capsula %.0f%%" % [techo.debug_line(), _altura_actual * 100.0])
 	DebugOverlay.set_line("agua", agua.debug_line())
+	if ventana_sidejump > 0.0 or tiempo_contra_pared > 0.05:
+		DebugOverlay.set_line("intencion", "sidejump %.0fms · pared %.0fms" % [
+			ventana_sidejump * 1000.0, tiempo_contra_pared * 1000.0])
 	DebugOverlay.set_line("borde", borde.debug_line())
 	DebugOverlay.set_line("superficie", superficie.debug_line())
 	DebugOverlay.set_line("vida", "%s %.0f%%   poise %.0f%%%s" % [

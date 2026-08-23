@@ -23,7 +23,9 @@ func enter(_msg: Dictionary = {}) -> void:
 func physics_update(delta: float) -> void:
 	var entrada := buffer.move_vector()
 	var dir := sc.direccion_movimiento(entrada, player.camara())
-	motor.acelerar(dir * tuning.nado_velocidad, tuning.agua_rozamiento * 2.0, delta)
+	# Shift tambien vale en el agua: nadar rapido es un verbo, no un lujo.
+	var mult := tuning.nado_sprint_mult if player.quiere_sprint() else 1.0
+	motor.acelerar(dir * tuning.nado_velocidad * mult, tuning.agua_rozamiento * 2.0, delta)
 
 	# Muelle hacia la línea de flotación.
 	var objetivo := player.agua.nivel - CALADO
@@ -48,4 +50,4 @@ func physics_update(delta: float) -> void:
 
 
 func debug_line() -> String:
-	return "%.1f m/s   C = bucear" % motor.rapidez_plana()
+	return "%.1f m/s%s   C = bucear" % [motor.rapidez_plana(), "  SPRINT" if player.quiere_sprint() else ""]

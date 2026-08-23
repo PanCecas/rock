@@ -157,18 +157,26 @@ extends Resource
 @export_range(1.0, 4.0, 0.05) var longjump_mult: float = 1.55
 @export_range(1.0, 20.0, 0.1) var longjump_vertical: float = 6.5
 
-@export_subgroup("Backflip y side hop")
-## BACKFLIP: el salto agachado estatico. Multiplica la velocidad del salto normal
-## —el doble por defecto— y anade un empujon HACIA ATRAS que dibuja la parabola.
-@export_range(1.0, 3.0, 0.05) var backflip_mult: float = 2.0
-@export_range(0.0, 20.0, 0.1) var backflip_retroceso: float = 7.0
-@export_range(0.0, 1440.0, 10.0) var backflip_giro_visual: float = 720.0
-## SIDE HOP: agachado con input lateral, saltar da un brinco rapido y BAJO para
-## evadir. Poca altura a proposito: es una evasion, no una via de movilidad.
-@export_range(0.0, 25.0, 0.1) var sidehop_lateral: float = 11.0
-@export_range(0.0, 20.0, 0.1) var sidehop_vertical: float = 6.0
+@export_subgroup("Side jump y friccion de agachado")
+## SIDE JUMP de Mario 64: correr, pedir la direccion CONTRARIA y saltar dentro de
+## la ventana da un salto lateral mas alto. `umbral` es el producto escalar por
+## debajo del cual el giro cuenta como brusco.
+@export_range(-1.0, 0.0, 0.05) var sidejump_umbral: float = -0.55
+## Velocidad minima a la que hay que ir para que el giro brusco cuente.
+@export_range(0.0, 15.0, 0.1) var sidejump_velocidad_min: float = 5.0
+## Ventana desde el giro brusco en la que saltar produce el side jump.
+@export_range(0.05, 1.0, 0.01) var sidejump_ventana: float = 0.28
+@export_range(1.0, 3.0, 0.05) var sidejump_mult: float = 1.45
+@export_range(0.0, 25.0, 0.1) var sidejump_lateral: float = 10.0
+## Deceleracion al agachado LLEVANDO velocidad. Agacharse frena, como en Mario 64.
+@export_range(1.0, 100.0, 1.0) var crouch_friccion: float = 14.0
 ## Por debajo de esta velocidad el salto agachado cuenta como estatico.
 @export_range(0.0, 6.0, 0.1) var crouch_quieto: float = 1.5
+
+@export_subgroup("Slide kick (salto de conejo)")
+## Impulso hacia delante de la patada deslizante. Es el salto de conejo de Mario.
+@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 15.0
+@export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 5.5
 
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
@@ -176,10 +184,13 @@ extends Resource
 @export_range(0.0, 20.0, 0.1) var slide_velocidad_min: float = 5.0
 ## Impulso que se suma al entrar. Deslizarse tiene que GANAR velocidad, no perderla.
 @export_range(0.0, 15.0, 0.1) var slide_impulso: float = 3.5
-@export_range(0.0, 30.0, 0.1) var slide_friccion: float = 3.0
+@export_range(0.0, 30.0, 0.1) var slide_friccion: float = 7.0
 ## Aceleración extra cuesta abajo por unidad de pendiente. Premia leer el terreno.
 @export_range(0.0, 60.0, 0.5) var slide_pendiente: float = 22.0
-@export_range(0.1, 5.0, 0.05) var slide_duracion_max: float = 2.5
+## Bajado de 2.5: el slide duraba tanto que dejaba de sentirse como un recurso y
+## pasaba a ser una forma de moverse. Ahora cede pronto al agachado, que es quien
+## te frena.
+@export_range(0.1, 5.0, 0.05) var slide_duracion_max: float = 0.9
 @export_range(0.0, 15.0, 0.1) var slide_salto_extra: float = 2.0
 
 # --- Pared (wall-jump estilo Mario 3D) --------------------------------------
@@ -230,17 +241,24 @@ extends Resource
 
 # --- Dive (clavado) ----------------------------------------------------------
 @export_group("Dive")
-## Velocidad horizontal minima para que atacar en el aire sea un DIVE y no un
-## picado vertical. El clavado nace del momentum: sin carrera no hay clavado.
-@export_range(0.0, 20.0, 0.1) var dive_velocidad_min: float = 6.0
+## Velocidad horizontal minima para el DIVE. A CERO: atacar en el aire SIEMPRE
+## es un clavado. Exigir carrera hacia que el ataque aereo mas visible del juego
+## no apareciera casi nunca, que es justo lo contrario de lo que se buscaba.
+@export_range(0.0, 20.0, 0.1) var dive_velocidad_min: float = 0.0
 ## Empuje hacia delante al entrar en dive. Es lo que dibuja la parabola.
-@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
+## Velocidad horizontal del clavado. CONSTANTE durante todo el vuelo: es la
+## fisica de Mario 64 —un cuerpo con velocidad horizontal fija en caida libre—,
+## y es lo que hace que la trayectoria se pueda leer y planificar.
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 15.0
 ## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
 @export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
 @export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
 
 # --- Agua ---------------------------------------------------------------------
 @export_group("Agua")
+## Multiplicador al mantener Shift dentro del agua. Nadar rapido tambien es un
+## verbo: sin el, el agua se siente como un castigo de tiempo.
+@export_range(1.0, 4.0, 0.05) var nado_sprint_mult: float = 1.8
 @export_range(0.5, 20.0, 0.1) var nado_velocidad: float = 4.6
 @export_range(0.5, 20.0, 0.1) var buceo_velocidad: float = 5.4
 ## Flotabilidad en superficie: cuanto empuja hacia arriba al hundirse.
@@ -273,6 +291,14 @@ extends Resource
 @export var escalada_universal: bool = true
 ## Multiplicador de gasto en superficies NO marcadas. La roca lisa cansa mas.
 @export_range(1.0, 5.0, 0.1) var escalada_coste_liso: float = 1.6
+## ADHERENCIA AUTOMATICA: caminar contra una pared perpendicular durante este
+## tiempo engancha solo, sin pulsar nada. Escalar deja de ser un boton que hay
+## que saber y pasa a ser lo que ocurre si insistes contra un muro.
+@export_range(0.05, 2.0, 0.05) var escalada_auto_tiempo: float = 0.35
+## Impulso al pulsar Shift escalando, en la direccion 2D del input. Es el salto
+## de escalada de Breath of the Wild.
+@export_range(0.0, 30.0, 0.5) var escalada_impulso: float = 9.0
+@export_range(0.0, 100.0, 1.0) var escalada_impulso_stamina: float = 14.0
 @export_range(0.1, 6.0, 0.1) var escalada_velocidad: float = 2.4
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
 

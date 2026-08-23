@@ -21,7 +21,10 @@ func exit(siguiente: StringName = &"") -> void:
 
 
 func physics_update(delta: float) -> void:
-	if not buffer.is_held(InputActions.GRAB):
+	# Ya no exige mantener el agarre: si has llegado aqui insistiendo contra el
+	# muro, sueltas con salto o agachandote, no dejando de pulsar algo que quiza
+	# nunca pulsaste. Es lo que hace que la adherencia automatica tenga sentido.
+	if buffer.consume(InputActions.CROUCH):
 		player.tiempo_sin_borde = 0.2
 		fsm.cambiar(&"Fall")
 		return
@@ -52,6 +55,25 @@ func physics_update(delta: float) -> void:
 
 	# Pegarse a la pared para seguir el relieve.
 	player.global_position -= sc.plano(_normal).normalized() * 0.6 * delta
+
+	# IMPULSO DE ESCALADA (Shift): un tiron en la direccion 2D que estes pidiendo
+	# sobre la pared. Es el sprint de escalada de Breath of the Wild: cuesta
+	# stamina de golpe y sube mucho mas rapido que trepar.
+	if buffer.consume(InputActions.DASH) and entrada.length() > 0.2:
+		if player.stamina.gastar(tuning.escalada_impulso_stamina):
+			var lat := sc.up.cross(sc.plano(_normal)).normalized()
+			var arr := sc.plano(_normal).normalized().cross(lat).normalized()
+			if arr.dot(sc.up) < 0.0:
+				arr = -arr
+			var salto := (lat * entrada.x - arr * entrada.y).normalized()
+			player.global_position += salto * tuning.escalada_impulso * 0.12
+			player.velocity = salto * tuning.escalada_impulso
+			EventBus.camara_shake.emit(0.25, 0.1)
+			CombatFX.impacto(
+				player.get_parent(), player.global_position + Vector3.UP * 1.0,
+				player.color_de(&"crema_bruma"), 0.7
+			)
+			return
 
 	# Dos saltos distintos, y los decide hacia donde apuntas:
 	#

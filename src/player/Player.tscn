@@ -1,4 +1,4 @@
-[gd_scene load_steps=60 format=3]
+[gd_scene load_steps=61 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -23,6 +23,7 @@
 [ext_resource type="Resource" path="res://content/data/attacks/surf_pesado.tres" id="a_spesado"]
 [ext_resource type="Resource" path="res://content/data/attacks/patada_baja.tres" id="a_baja"]
 [ext_resource type="Resource" path="res://content/data/attacks/dive_attack.tres" id="a_dive"]
+[ext_resource type="Resource" path="res://content/data/attacks/slide_kick.tres" id="a_kick"]
 [ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
 [ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
@@ -46,7 +47,7 @@
 [ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
 [ext_resource type="Script" path="res://src/player/states/GroupWater.gd" id="g_water"]
 [ext_resource type="Script" path="res://src/player/states/StateDive.gd" id="st_dive"]
-[ext_resource type="Script" path="res://src/player/states/StateDiveAttack.gd" id="st_divatk"]
+[ext_resource type="Script" path="res://src/player/states/StateSlideKick.gd" id="st_kick"]
 [ext_resource type="Script" path="res://src/player/states/StateSwim.gd" id="st_swim"]
 [ext_resource type="Script" path="res://src/player/states/StateUnderwater.gd" id="st_under"]
 [ext_resource type="Script" path="res://src/player/states/StateAttack.gd" id="st_atk"]
@@ -92,6 +93,7 @@ ataque_surf_ligero = ExtResource("a_sligero")
 ataque_surf_pesado = ExtResource("a_spesado")
 ataque_agachado = ExtResource("a_baja")
 ataque_dive = ExtResource("a_dive")
+ataque_slide_kick = ExtResource("a_kick")
 ataque_contra = ExtResource("a_contra")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
@@ -175,6 +177,9 @@ script = ExtResource("st_surf")
 [node name="Crouch" type="Node" parent="StateMachine/Grounded"]
 script = ExtResource("st_crouch")
 
+[node name="SlideKick" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_kick")
+
 [node name="Landing" type="Node" parent="StateMachine/Grounded"]
 script = ExtResource("st_land")
 
@@ -237,9 +242,6 @@ script = ExtResource("st_parry")
 
 [node name="Hitstun" type="Node" parent="StateMachine/Combat"]
 script = ExtResource("st_stun")
-
-[node name="DiveAttack" type="Node" parent="StateMachine/Combat"]
-script = ExtResource("st_divatk")
 
 [node name="Dash" type="Node" parent="StateMachine"]
 script = ExtResource("st_dash")

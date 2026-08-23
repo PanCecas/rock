@@ -41,14 +41,34 @@ func physics_update(delta: float) -> void:
 	motor.impulso(_dir, maxf(rapidez, 0.0))
 	motor.set_vertical(-2.0)
 
+	# Patada deslizante tambien desde el slide.
+	if player.ataque_slide_kick != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		var d := motor.direccion_plana()
+		if d.is_zero_approx():
+			d = _dir
+		motor.impulso(d, tuning.slide_kick_impulso)
+		motor.set_vertical(tuning.slide_kick_vertical)
+		fsm.cambiar(&"SlideKick", {"direccion": d})
+		return
+
 	# Saltar desde un slide da altura extra: es el combo que hace el sistema divertido.
 	if player.consumir_salto():
 		fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.slide_salto_extra}, true)
 		return
 
+	# El slide CEDE al agachado, no se levanta. Quien te para es el crouch con su
+	# friccion, y asi los dos forman una sola maniobra continua en vez de dos
+	# cosas que compiten.
 	var acabado := rapidez < tuning.slide_velocidad_min * 0.5 or t > tuning.slide_duracion_max
 	if acabado and not player.suelo.demasiado_empinado():
-		fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
+		if buffer.is_held(InputActions.CROUCH) or player.techo_bloquea():
+			fsm.cambiar(&"Crouch")
+		else:
+			fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
+
+
+func maneja_ataques() -> bool:
+	return true
 
 
 func debug_line() -> String:

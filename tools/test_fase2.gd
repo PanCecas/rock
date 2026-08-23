@@ -503,45 +503,56 @@ func _construir_guion() -> void:
 			_p.velocity = Vector3.ZERO
 			_p.fsm.cambiar(&"Idle")
 			_pulsar(&"crouch"), &"Crouch"),
-		_chequeo_("backflip: doble altura y hacia atras", 0.06,
-			func() -> void: _pulsar(&"jump"),
-			func() -> bool: return (
-				_p.motor.get_vertical() > _p.tuning.velocidad_salto() * 1.7
-				and _p.motor.rapidez_plana() > 3.0),
-			"el backflip debe subir el doble y retroceder"),
+		_chequeo_("salto agachado muy fuerte", 0.12,
+			func() -> void:
+				_vy_max = 0.0
+				_pulsar(&"jump"),
+			func() -> bool: return _vy_max > _p.tuning.velocidad_salto() * 1.25,
+			"el salto agachado estatico debe superar claramente al normal"),
 
-		_paso_("asentar para side hop", 0.35, func() -> void:
+		# SIDE JUMP de Mario 64: correr, pedir la contraria y saltar. Camara fijada
+		# y velocidad explicita: sin eso la comprobacion mide hacia donde mira la
+		# camara, no la mecanica.
+		_paso_("colocar para side jump", 0.4, func() -> void:
 			_soltar_todo()
 			_reponer()
-			_p.global_position = Vector3(0.0, 0.3, 0.0)
-			_p.velocity = Vector3.ZERO
+			_p.global_position = Vector3(0.0, 0.05, 0.0)
 			_p.fsm.cambiar(&"Idle")
-			_pulsar(&"crouch")
-			# El lateral se pulsa YA: necesita registrarse en el buffer antes de
-			# que llegue el salto, o el side hop se lee como salto normal.
-			_pulsar(&"move_right"), &"Crouch"),
-		_chequeo_("side hop: lateral y bajo", 0.08,
-			func() -> void: _pulsar(&"jump"),
-			func() -> bool: return (
-				_p.motor.rapidez_plana() > 7.0
-				and _p.motor.get_vertical() < _p.tuning.velocidad_salto()),
-			"el side hop debe salir lateral y con poca altura"),
+			_mirar_a(90.0), &"Idle"),
+		_chequeo_("girar en seco abre la ventana", 0.2,
+			func() -> void:
+				_vio_ventana = false
+				# Corriendo hacia -X (adelante con yaw 90) y pidiendo +X.
+				_p.velocity = Vector3(-9.0, -3.0, 0.0)
+				_p.fsm.cambiar(&"Move")
+				_pulsar(&"move_back"),
+			func() -> bool: return _vio_ventana,
+			"pedir la direccion contraria corriendo debe abrir la ventana"),
+		_chequeo_("side jump sube mas", 0.12,
+			func() -> void:
+				_vy_max = 0.0
+				_p.velocity = Vector3(-9.0, -3.0, 0.0)
+				_p.fsm.cambiar(&"Move")
+				_p.ventana_sidejump = _p.tuning.sidejump_ventana
+				_pulsar(&"jump"),
+			func() -> bool: return _vy_max > _p.tuning.velocidad_salto() * 1.15,
+			"saltar dentro de la ventana debe dar un salto mas alto"),
 
-		# DIVE: atacar en el aire llevando carrera.
-		_chequeo_("dive desde carrera", 0.3,
+		# El dive es UNA sola pulsacion y no exige carrera previa.
+		_chequeo_("atacar en el aire = dive", 0.3,
 			func() -> void:
 				_soltar_todo()
 				_reponer()
-				_p.global_position = Vector3(0.0, 8.0, 0.0)
-				_p.velocity = Vector3(0.0, 2.0, -12.0)
+				_p.global_position = Vector3(0.0, 10.0, 0.0)
+				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Fall")
-				_esperar_pesado = 3,
-			func() -> bool: return _visitados.has(&"Dive"),
-			"atacar en el aire con velocidad debe entrar en Dive"),
-		_chequeo_("segunda pulsacion = DiveAttack", 0.2,
-			func() -> void: _esperar_ataque = 2,
-			func() -> bool: return _visitados.has(&"DiveAttack"),
-			"volver a atacar durante el dive debe armarlo"),
+				_esperar_ataque = 3,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Dive",
+			"atacar en el aire debe entrar en Dive sin necesitar carrera"),
+		_chequeo_("el dive mantiene velocidad constante", 0.25,
+			func() -> void: _aux = _p.motor.rapidez_plana(),
+			func() -> bool: return absf(_p.motor.rapidez_plana() - _aux) < 0.6,
+			"la velocidad horizontal del clavado debe ser constante"),
 
 		# AGUA: la piscina del Gym esta en (28, 0, -28).
 		_chequeo_("caer al agua = nado en superficie", 1.2,
@@ -564,6 +575,48 @@ func _construir_guion() -> void:
 				_pulsar(&"jump"),
 			func() -> bool: return _p.fsm.nombre_actual() == &"Swim",
 			"mantener salto buceando debe devolver a la superficie"),
+
+		# --- Correccion 2.9 ----------------------------------------------------
+		_paso_("carrerilla para frenar", 0.6, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("agacharse frena progresivamente", 0.9,
+			func() -> void:
+				_soltar(&"move_forward")
+				_p.fsm.cambiar(&"Crouch")
+				_pulsar(&"crouch"),
+			func() -> bool: return _p.motor.rapidez_plana() < _p.tuning.velocidad_agachado + 0.5,
+			"agacharse con velocidad debe frenar hasta quedar casi estatico"),
+
+		_paso_("carrerilla para patada", 0.6, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("slide kick sale con impulso", 0.2,
+			func() -> void:
+				_pulsar(&"crouch")
+				_p.fsm.cambiar(&"Crouch")
+				_esperar_ataque = 2,
+			func() -> bool: return _visitados.has(&"SlideKick"),
+			"atacar agachado con velocidad debe lanzar la patada deslizante"),
+
+		_chequeo_("adherencia automatica a la pared", 0.9,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				# Contra el muro del pasillo de wall-run (cara interior en x=-1.3).
+				_p.global_position = Vector3(-0.9, 0.05, -34.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle")
+				_mirar_a(90.0)
+				_pulsar(&"move_forward"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
+			"insistir contra un muro perpendicular debe enganchar solo"),
 
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
@@ -594,6 +647,10 @@ var _soltar_pronto: int = 0
 var _esperar_pesado: int = 0
 var _esperar_dash: int = 0
 var _saltos_contados: int = 0
+## Latches: registran si algo ocurrio EN ALGUN momento del paso. Comprobar solo
+## el frame final hacia que estos tests midieran timing en vez de mecanicas.
+var _vio_ventana: bool = false
+var _vy_max: float = 0.0
 var _aux: float = 0.0
 var _pos_antes: Vector3 = Vector3.ZERO
 var _dist_sin_input: float = 0.0
@@ -647,6 +704,11 @@ func _physics_process(delta: float) -> void:
 		_esperar_ataque -= 1
 		if _esperar_ataque == 0:
 			_pulsar(&"attack_light")
+
+	# Latches, antes de nada.
+	if _p.ventana_sidejump > 0.0:
+		_vio_ventana = true
+	_vy_max = maxf(_vy_max, _p.motor.get_vertical())
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t):
@@ -716,6 +778,9 @@ func _colocar(dist: float) -> void:
 
 
 func _reponer() -> void:
+	# A cero SIEMPRE: sin esto un paso hereda el impulso del anterior y el jugador
+	# esta en el aire cuando la comprobacion asume que pisa suelo.
+	_p.velocity = Vector3.ZERO
 	_p.salud.actual = _p.salud.maxima
 	_p.salud.vivo = true
 	_p.stamina.llenar()
@@ -757,6 +822,16 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Fija el yaw de la camara para que `move_forward` apunte a una direccion
+## conocida. Sin esto los tests direccionales miden la suerte.
+func _mirar_a(yaw: float) -> void:
+	var rig := _main.get_node_or_null("CameraRig")
+	if rig == null:
+		return
+	rig.set("_yaw", yaw)
+	rig.set("_realinea", 0.0)
 
 
 func _pulsar(accion: StringName) -> void:
