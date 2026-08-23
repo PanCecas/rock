@@ -72,7 +72,7 @@ func _saltar_del_canto(entrada: Vector2) -> void:
 	player.recargar_aire()
 	# Bloqueo corto del reenganche, o vuelves a agarrarte al mismo canto al instante.
 	player.tiempo_sin_borde = 0.3
-	fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.velocidad_salto() * 0.12})
+	fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.velocidad_salto() * 0.12}, true)
 
 
 ## Comprueba que el canto siga existiendo antes de deslizarse a ese punto: sin

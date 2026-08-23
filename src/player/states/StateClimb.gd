@@ -59,7 +59,7 @@ func physics_update(delta: float) -> void:
 			var salida := sc.plano(_normal).normalized()
 			motor.impulso(salida, tuning.walljump_lateral * 0.7)
 			player.tiempo_sin_borde = 0.15
-			fsm.cambiar(&"Jump", {"numero": 1})
+			fsm.cambiar(&"Jump", {"numero": 1}, true)
 
 
 func debug_line() -> String:

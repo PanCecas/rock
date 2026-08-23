@@ -45,7 +45,7 @@ func shared_update(delta: float) -> void:
 	if fsm.actual.name != &"WallRun" and player.pared.reciente(tuning.pared_coyote):
 		if player.consumir_salto():
 			player.saltar_de_pared()
-			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true})
+			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
 			return
 
 	# 4) Pegarse a la pared: correr si la llevas al costado con velocidad,
@@ -86,11 +86,13 @@ func shared_update(delta: float) -> void:
 		fsm.cambiar(&"Dash")
 		return
 
-	# 7) Doble salto. Requiere una pulsación NUEVA: mantener el salto planea, no
-	#    salta, así que las dos acciones dejan de pelearse por la misma tecla.
+	# 7) Doble salto. Requiere una pulsación NUEVA, y se pide con `reentrar=true`
+	#    porque casi siempre se salta ESTANDO YA en Jump: sin eso la FSM rechazaba
+	#    la transición a sí misma, la pulsación y el salto aéreo se gastaban, y no
+	#    pasaba nada. Ese era el salto que "se quedaba pegado".
 	if player.saltos_aereos > 0 and player.consumir_salto():
 		player.saltos_aereos -= 1
-		fsm.cambiar(&"Jump", {"numero": 2})
+		fsm.cambiar(&"Jump", {"numero": 2}, true)
 		return
 
 	# 8) PLANEO: mantener el botón de salto en el aire, a partir del ápice.

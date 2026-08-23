@@ -72,9 +72,21 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Slide")
 		return
 
-	# Ataque en carrera: el golpe hereda el momentum del surf.
-	if player.ataque_dash != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_dash, "indice": 1})
+	# Los DOS ataques de surf. Se gestionan aqui —y `maneja_ataques()` impide que
+	# GroupGrounded los intercepte— porque atacar surfeando tiene que dar un golpe
+	# de surf, no el ataque de suelo de siempre.
+	#
+	#   ligero -> estocada de esgrima: rapida, hacia donde miras, proyectandote
+	#             hacia delante y conservando la forma fluida del surf.
+	#   pesado -> frenazo en seco y empujon fuerte que manda al enemigo atras.
+	if player.ataque_surf_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
+		fsm.cambiar(&"Attack", {"datos": player.ataque_surf_pesado, "indice": 1, "desde_surf": true})
+		return
+	if player.ataque_surf_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"Attack", {
+			"datos": player.ataque_surf_ligero, "indice": 1,
+			"desde_surf": true, "direccion": _dir,
+		})
 		return
 
 
@@ -82,6 +94,11 @@ func physics_update(delta: float) -> void:
 ## velocidad que traigas.
 func _terminar() -> void:
 	fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
+
+
+## Los ataques de surf son suyos: el grupo no puede robarle la pulsacion.
+func maneja_ataques() -> bool:
+	return true
 
 
 func _shift_mantenido() -> bool:

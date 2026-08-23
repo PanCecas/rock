@@ -34,10 +34,12 @@ func physics_update(delta: float) -> void:
 	motor.aplicar_gravedad(delta)
 	player.control_aereo(delta)
 
-	# Jump cut: soltar durante la subida acorta el salto.
+	# ALTURA VARIABLE. Al soltar, la velocidad vertical se RECORTA a la del salto
+	# corto en vez de multiplicarse por un factor fijo. Con un multiplicador el
+	# salto era casi binario —45% o 100%—; con el recorte, cuanto mas mantengas
+	# menos queda por recortar y la altura sale continua.
 	if not _corte_usado and not buffer.is_held(InputActions.JUMP):
-		if motor.get_vertical() > 0.0:
-			motor.set_vertical(motor.get_vertical() * tuning.jump_cut)
+		motor.set_vertical(minf(motor.get_vertical(), tuning.velocidad_salto_corto()))
 		_corte_usado = true
 
 	if motor.get_vertical() <= 0.0:

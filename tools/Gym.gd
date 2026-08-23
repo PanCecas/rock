@@ -18,7 +18,7 @@ extends Node3D
 
 @export_group("Parámetros")
 @export var angulos_rampa: PackedFloat32Array = [15.0, 25.0, 35.0, 45.0, 60.0]
-## Anchuras de hueco en metros. Con altura_salto 2.2 el jugador debería llegar a ~6.
+## Anchuras de hueco en metros. Con altura_salto_max 2.6 el jugador llega a ~6.
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0

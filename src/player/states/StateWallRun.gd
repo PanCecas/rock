@@ -45,7 +45,7 @@ func physics_update(delta: float) -> void:
 		# Saltar de un wall-run sale más fuerte y más hacia delante que de un
 		# wall-slide: llevas velocidad y el salto tiene que respetarla.
 		player.saltar_de_pared(1.12)
-		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true})
+		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
 
 
 func debug_line() -> String:

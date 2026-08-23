@@ -52,6 +52,14 @@ func physics_update(_delta: float) -> void:
 	pass
 
 
+## ¿Este estado gestiona los botones de ataque por su cuenta?
+##
+## Los grupos corren ANTES que la hoja, así que sin esto GroupGrounded consumía la
+## pulsación y lanzaba un ataque normal: atacar surfeando te sacaba del surf.
+func maneja_ataques() -> bool:
+	return false
+
+
 ## Texto para el DebugOverlay. Se sobrescribe si el estado tiene algo que contar.
 func debug_line() -> String:
 	return ""

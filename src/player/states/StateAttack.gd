@@ -11,22 +11,32 @@ var _conectado: bool = false
 var _dir: Vector3 = Vector3.ZERO
 var _indice: int = 1
 var _overshoot_hecho: bool = false
+var _desde_surf: bool = false
 
 
 func enter(msg: Dictionary = {}) -> void:
 	_datos = msg.get("datos", player.ataque_ligero)
 	_indice = int(msg.get("indice", 1))
+	_desde_surf = bool(msg.get("desde_surf", false))
 	_frame = 0
 	_conectado = false
 	_overshoot_hecho = false
 
-	_dir = _direccion_ataque()
+	# Una estocada lanzada desde el surf va hacia donde SURFEAS, no hacia el
+	# enemigo mas cercano: la linea que llevas es la decision que ya has tomado.
+	var heredada: Vector3 = msg.get("direccion", Vector3.ZERO)
+	_dir = heredada.normalized() if not heredada.is_zero_approx() else _direccion_ataque()
 	player.orientar_a(_dir)
 	player.hitbox.nuevo_swing()
 	# Una estocada NO frena: hereda toda la velocidad con la que llegas. El resto
 	# de golpes amortiguan al 45%, que ya es no borrarla —clavarse en cada golpe
 	# hace que un combo se sienta como una animación en vez de como una pelea.
-	var retencion: float = 1.0 if _datos != null and _datos.estocada else 0.45
+	var retencion: float = 0.45
+	if _datos != null:
+		if _datos.frenazo:
+			retencion = 0.0   # plantado: el golpe pesado para en seco
+		elif _datos.estocada:
+			retencion = 1.0   # atraviesa: hereda toda la velocidad
 	player.velocity = sc.plano(player.velocity) * retencion + sc.up * sc.vertical(player.velocity)
 
 
@@ -65,6 +75,12 @@ func physics_update(delta: float) -> void:
 		# Tras un corte se sale EN COMBATE, no parado: si hay objetivo se vuelve a
 		# locomocion con el soft-lock vivo, que es lo que mantiene el modo de
 		# camara Combat y deja el siguiente golpe a un clic.
+		# Volver al surf mantiene la forma fluida entre golpe y golpe.
+		var shift := buffer.is_held(InputActions.DASH) or buffer.is_held(InputActions.SPRINT)
+		if _desde_surf and _datos.vuelve_a_surf and shift and player.is_on_floor():
+			if not player.stamina.vacia():
+				fsm.cambiar(&"Surf", {"direccion": _dir, "rapidez": motor.rapidez_plana()})
+				return
 		var hay_objetivo := player.targeting.objetivo() != null
 		if buffer.move_vector().length() > 0.2 or hay_objetivo:
 			fsm.cambiar(&"Move")
@@ -92,6 +108,11 @@ func _direccion_ataque() -> Vector3:
 ## en mitad de la cadena sin romperla.
 func _avanzar(delta: float) -> void:
 	var progreso := float(_frame) / maxf(float(_datos.total_frames()), 1.0)
+	if _datos.frenazo:
+		# Plantado de principio a fin: ni avance del ataque ni input del jugador.
+		motor.frenar(tuning.frenado_suelo * 3.0, delta)
+		return
+
 	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso))
 	var tasa := tuning.aceleracion_suelo * 0.9
 
@@ -144,7 +165,7 @@ func _cancelaciones() -> bool:
 
 	if buffer.peek(InputActions.JUMP, tuning.jump_buffer):
 		if g.puede_cancelar(&"jump", _datos, _frame, _conectado) and player.consumir_salto():
-			fsm.cambiar(&"Jump", {"numero": 1})
+			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return true
 
 	if buffer.peek(InputActions.PARRY):

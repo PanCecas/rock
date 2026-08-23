@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=3]
+[gd_scene load_steps=50 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -17,6 +17,8 @@
 [ext_resource type="Resource" path="res://content/data/attacks/aereo_1.tres" id="a_aereo"]
 [ext_resource type="Resource" path="res://content/data/attacks/plunge.tres" id="a_plunge"]
 [ext_resource type="Resource" path="res://content/data/attacks/espada_dash.tres" id="a_dash"]
+[ext_resource type="Resource" path="res://content/data/attacks/surf_ligero.tres" id="a_sligero"]
+[ext_resource type="Resource" path="res://content/data/attacks/surf_pesado.tres" id="a_spesado"]
 [ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
 [ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
@@ -76,6 +78,8 @@ ataque_pesado = ExtResource("a_pesado")
 ataque_aereo = ExtResource("a_aereo")
 ataque_plunge = ExtResource("a_plunge")
 ataque_dash = ExtResource("a_dash")
+ataque_surf_ligero = ExtResource("a_sligero")
+ataque_surf_pesado = ExtResource("a_spesado")
 ataque_contra = ExtResource("a_contra")
 
 [node name="Collider" type="CollisionShape3D" parent="."]

@@ -194,6 +194,21 @@ desde `exit()` recibia su propio nombre. Afectaba a `StateLedgeHang` y
 `StateClimb`, que por eso nunca soltaban el marco del `SurfaceContext`. Ahora
 `exit()` recibe el destino como parametro.
 
+### Correccion 2.6 — el salto que se quedaba pegado
+- **Causa raiz encontrada:** el doble salto se pide casi siempre ESTANDO YA en
+  `Jump`, y la FSM rechaza las transiciones a si misma. Consumia la pulsacion y el
+  salto aereo, y no saltaba. Los 11 sitios que saltan piden ahora `reentrar=true`.
+- El `salto_intervalo_min` de la 2.5 tambien se comia el doble toque rapido: a 0.
+  `InputBuffer.invalidar()` ya garantiza una pulsacion = un salto sin bloquear.
+- **Altura variable continua:** impulso de altura maxima siempre, y al soltar se
+  RECORTA a la velocidad de altura minima. Un multiplicador fijo dejaba solo dos
+  alturas posibles.
+- **Ataques de surf:** el grupo corria antes que la hoja y le robaba la pulsacion,
+  asi que atacar surfeando daba el ataque de suelo. Ahora la hoja los reclama con
+  `maneja_ataques()`. Shift+ligero es una estocada que vuelve al surf; Shift+pesado
+  es un frenazo plantado con empujon.
+- **Dash aereo + Shift** marca el surf pendiente y el aterrizaje entra solo.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

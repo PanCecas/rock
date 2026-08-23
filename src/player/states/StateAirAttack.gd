@@ -102,7 +102,7 @@ func _cancelaciones() -> bool:
 		if g.puede_cancelar(&"jump", _datos, _frame, _conectado):
 			player.consumir_salto()
 			player.saltos_aereos -= 1
-			fsm.cambiar(&"Jump", {"numero": 2})
+			fsm.cambiar(&"Jump", {"numero": 2}, true)
 			return true
 	return false
 

@@ -12,7 +12,7 @@ func shared_update(delta: float) -> void:
 
 	# El salto se pregunta desde el buffer, nunca desde Input directamente.
 	if player.consumir_salto():
-		fsm.cambiar(&"Jump", {"numero": 1})
+		fsm.cambiar(&"Jump", {"numero": 1}, true)
 		return
 
 	if player.puede_dashear() and buffer.consume(InputActions.DASH):
@@ -24,6 +24,11 @@ func shared_update(delta: float) -> void:
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
 		return
+
+	# Si la hoja gestiona sus propios ataques (Surf), el grupo no se los roba.
+	if fsm.actual != null and fsm.actual.maneja_ataques():
+		return
+
 	if player.ataque_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
 		fsm.cambiar(&"Attack", {"datos": player.ataque_ligero, "indice": 1})
 		return

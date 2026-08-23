@@ -100,7 +100,7 @@ func _pivotar() -> bool:
 	# `conservar_vertical` porque el salto del pivote lo fijamos aquí: es más alto
 	# que un salto normal a propósito.
 	motor.set_vertical(tuning.dash_pivote_salto)
-	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true})
+	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
 	return true
 
 
@@ -127,6 +127,12 @@ func _salir() -> void:
 
 	if not player.is_on_floor():
 		motor.impulso(_dir, maxf(tuning.velocidad_correr, motor.rapidez_plana() * tuning.dash_salida_mult))
+		# Dash en el aire manteniendo Shift: se marca el surf pendiente y el
+		# aterrizaje entra en surf solo. Encadenar aire y suelo no deberia exigir
+		# soltar y volver a pulsar en el frame exacto del contacto.
+		if mantenido:
+			player.surf_pendiente = tuning.surf_persistencia
+			player.surf_rapidez = maxf(tuning.surf_velocidad, motor.rapidez_plana())
 		fsm.cambiar(&"Fall")
 		return
 

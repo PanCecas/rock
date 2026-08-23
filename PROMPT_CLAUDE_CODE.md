@@ -342,3 +342,54 @@ Al terminar añade las comprobaciones a tools/TestFase2.tscn —spam de salto qu
 acumula, clamp que no se supera, pivote inexistente en el aire, surf que
 sobrevive al salto— y pasa la regresión de tools/TestFase1.tscn.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.6 — salto responsivo, ataques de surf y aterrizaje en surf
+
+```
+Corrección de movimiento, físicas y combate en ROCK. Lee CLAUDE.md y
+docs/03_ARQUITECTURA_MECANICAS.md antes de tocar nada. Los números nuevos van en
+PlayerTuning.tres o en un AttackData .tres, nunca dentro de un .gd.
+
+1. EL SALTO NO ES RESPONSIVO
+Al pulsar salto dos veces rápido, el personaje se queda pegado o directamente no
+salta. Tiene que ser inmediato: dos pulsaciones rápidas = dos saltos, sin retraso.
+Revisa dos cosas concretas:
+  · cualquier cooldown entre saltos se come el doble toque. Si necesitas
+    garantizar "una pulsación = un salto", hazlo invalidando la pulsación
+    consumida, no bloqueando por tiempo.
+  · el doble salto casi siempre se pide ESTANDO YA en el estado de salto. Si tu
+    máquina de estados rechaza las transiciones a sí misma, la pulsación y el
+    salto aéreo se gastan y no pasa nada. Permite la reentrada explícita.
+
+ALTURA VARIABLE: pulsación corta = salto corto, mantener = salto máximo. Que la
+relación sea CONTINUA, no un interruptor: da siempre el impulso de altura máxima
+y, al soltar durante la subida, RECORTA la velocidad vertical a la que
+corresponde a la altura mínima. Cuanto más mantengas, menos queda por recortar.
+Un multiplicador fijo tipo 0.45 deja solo dos alturas posibles.
+
+2. LOS ATAQUES DE SURF NO EXISTEN
+Atacar mientras se mantiene Shift saca del modo surf y lanza el ataque de suelo.
+La causa es que el grupo de estados corre ANTES que la hoja y le roba la
+pulsación. Deja que el estado de surf reclame los botones de ataque y añade dos
+variantes que solo existen ahí:
+  · Shift + ligero  -> estocada de esgrima: rápida, larga, en la dirección en la
+    que SURFEAS (no hacia el enemigo más cercano: la línea que llevas ya es una
+    decisión tomada), proyectándote hacia delante, y que al terminar VUELVA al
+    surf para no romper la fluidez.
+  · Shift + pesado  -> frenazo en seco, sin avance ninguno, con un empujón fuerte
+    que manda a los enemigos hacia atrás.
+
+3. DASH AÉREO + SHIFT = ATERRIZAR SURFEANDO
+Si se hace un dash en el aire y se mantiene Shift durante la caída, al tocar el
+suelo debe entrar en surf automáticamente. No lo resuelvas mirando el input en el
+frame exacto del contacto: marca una intención pendiente al salir del dash aéreo
+con Shift mantenido y consúmela al aterrizar. Un aterrizaje duro sí debe romper
+el flujo; uno normal, no.
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn —dos pulsaciones
+rápidas dan dos saltos, soltar pronto recorta la altura, Shift+ligero lanza el
+ataque de surf y no el de suelo, Shift+pesado deja al personaje plantado, y el
+dash aéreo con Shift aterriza en surf— y pasa la regresión de TestFase1.tscn.
+```

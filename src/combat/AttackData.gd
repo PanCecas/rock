@@ -73,6 +73,12 @@ const FPS := 60.0
 ## en un CORTE que atraviesa al objetivo y te deja al otro lado, en vez de
 ## quedarte clavado delante de el.
 @export_range(0.0, 40.0, 0.5) var overshoot: float = 0.0
+## FRENAZO: el atacante para en seco al iniciar el golpe y no avanza nada. Es lo
+## contrario de la estocada, y lo que hace que un golpe pesado se sienta plantado.
+@export var frenazo: bool = false
+## Al terminar, si se sigue manteniendo Shift y hay suelo, se vuelve al surf en vez
+## de a la locomocion normal. Mantiene la forma fluida entre golpe y golpe.
+@export var vuelve_a_surf: bool = false
 ## El ataque encara al objetivo cercano al empezar.
 @export var autoencarar: bool = true
 ## Cuánta velocidad de carrera conserva el jugador MIENTRAS ataca, de 0 a 1.

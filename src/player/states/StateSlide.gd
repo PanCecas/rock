@@ -42,7 +42,7 @@ func physics_update(delta: float) -> void:
 
 	# Saltar desde un slide da altura extra: es el combo que hace el sistema divertido.
 	if player.consumir_salto():
-		fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.slide_salto_extra})
+		fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.slide_salto_extra}, true)
 		return
 
 	var acabado := rapidez < tuning.slide_velocidad_min * 0.5 or t > tuning.slide_duracion_max

@@ -23,7 +23,7 @@ func physics_update(delta: float) -> void:
 		_coyote -= delta
 		# Salto de suelo tardío: no gasta el salto aéreo.
 		if player.consumir_salto():
-			fsm.cambiar(&"Jump", {"numero": 1})
+			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
 
 	motor.aplicar_gravedad(delta)

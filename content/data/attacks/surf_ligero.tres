@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Estocada de surf"
+anim = &"combat/spear_thrust_1"
+frames_windup = 3
+frames_activo = 5
+frames_recuperacion = 10
+dano = 13.0
+dano_poise = 15.0
+empuje = Vector3(0, 0.2, 5)
+stagger = 0.35
+fuerza_muerte = 17.0
+torque_muerte = 8.0
+alcance = 3.4
+radio = 1.1
+arco_grados = 45.0
+avance = 0.0
+movilidad = 0.1
+hitstop = 0.06
+shake = 0.5
+estocada = true
+estocada_velocidad = 16.0
+overshoot = 7.0
+vuelve_a_surf = true
+autoencarar = false
+frame_cadena = 99
+color_vfx = &"azul_claro"

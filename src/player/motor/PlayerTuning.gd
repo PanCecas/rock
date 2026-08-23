@@ -9,22 +9,27 @@ extends Resource
 
 # --- Salto ------------------------------------------------------------------
 @export_group("Salto")
-## Altura en METROS, no en fuerza. La velocidad se deriva de la gravedad de subida.
-@export_range(0.5, 6.0, 0.05) var altura_salto: float = 2.2
+## ALTURA VARIABLE, en metros. El impulso inicial siempre da para `altura_max`;
+## soltar el boton durante la subida recorta la velocidad vertical hasta la que
+## corresponde a `altura_min`. Cuanto mas mantengas, menos queda por recortar, asi
+## que la relacion entre tiempo pulsado y altura es CONTINUA, no un interruptor.
+@export_range(0.2, 6.0, 0.05) var altura_salto_min: float = 1.0
+@export_range(0.5, 8.0, 0.05) var altura_salto_max: float = 2.6
 ## Gravedad asimétrica: subir flotante, caer contundente. Es medio game feel gratis.
 @export_range(-60.0, -5.0, 0.5) var gravedad_subida: float = -22.0
 @export_range(-90.0, -5.0, 0.5) var gravedad_caida: float = -38.0
-## Multiplicador a la velocidad Y al soltar el botón durante la subida.
-@export_range(0.0, 1.0, 0.01) var jump_cut: float = 0.45
+
 ## Perdón: puedes saltar durante este tiempo tras dejar el suelo.
 @export_range(0.0, 0.4, 0.01) var coyote_time: float = 0.12
 ## Perdón: un salto pulsado antes de aterrizar se ejecuta al tocar suelo.
 @export_range(0.0, 0.4, 0.01) var jump_buffer: float = 0.15
 @export_range(-60.0, -1.0, 0.5) var velocidad_terminal: float = -45.0
 @export var saltos_aereos: int = 1
-## Tiempo minimo entre dos saltos. Es lo que corta el spam: machacar el boton no
-## puede producir mas saltos que pulsaciones deliberadas.
-@export_range(0.0, 0.5, 0.01) var salto_intervalo_min: float = 0.09
+## Tiempo minimo entre dos saltos. A CERO a proposito: `InputBuffer.invalidar()`
+## ya garantiza una pulsacion = un salto, y cualquier valor por encima de un frame
+## se come el doble toque rapido —el salto se sentia pegajoso y a veces se perdia
+## del todo—. Queda expuesto solo por si hiciera falta amortiguar un mando ruidoso.
+@export_range(0.0, 0.5, 0.01) var salto_intervalo_min: float = 0.0
 
 # --- Locomoción -------------------------------------------------------------
 @export_group("Locomoción")
@@ -235,10 +240,14 @@ extends Resource
 @export_range(20.0, 110.0, 1.0) var camara_fov: float = 62.0
 
 
-## Velocidad inicial de salto derivada de la altura y la gravedad de subida.
-## v = sqrt(2 * g * h)
+## Velocidad inicial de salto: siempre la de altura maxima. v = sqrt(2 * g * h)
 func velocidad_salto() -> float:
-	return sqrt(2.0 * absf(gravedad_subida) * altura_salto)
+	return sqrt(2.0 * absf(gravedad_subida) * altura_salto_max)
+
+
+## Velocidad a la que se recorta el salto al soltar el boton pronto.
+func velocidad_salto_corto() -> float:
+	return sqrt(2.0 * absf(gravedad_subida) * altura_salto_min)
 
 
 ## Velocidad del dash derivada de distancia y duración.

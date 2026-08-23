@@ -360,6 +360,82 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() == &"Surf",
 			"al aterrizar con Shift mantenido debe volver a surfear"),
 
+		# --- Correccion 2.6 ----------------------------------------------------
+		# Doble toque RAPIDO: los dos saltos tienen que salir, sin cooldown que se
+		# los coma. Es justo lo que rompio el intervalo minimo de la 2.5.
+		_paso_("asentar para doble salto", 0.3, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle"), &"Idle"),
+		_chequeo_("doble toque rapido = 2 saltos", 0.4,
+			func() -> void:
+				_saltos_contados = 0
+				_pulsar(&"jump")
+				_esperar_salto2 = 4,
+			func() -> bool: return _saltos_contados == 2,
+			"dos pulsaciones rapidas deben dar exactamente dos saltos"),
+
+		# Altura variable: soltar pronto recorta, mantener no.
+		_paso_("asentar para altura", 0.35, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle"), &"Idle"),
+		_chequeo_("salto corto al soltar pronto", 0.12,
+			func() -> void:
+				_pulsar(&"jump")
+				_soltar_pronto = 4,
+			func() -> bool: return _p.motor.get_vertical() <= _p.tuning.velocidad_salto_corto() + 0.6,
+			"soltar pronto debe recortar la velocidad vertical"),
+
+		# Shift + ataque = ataque de SURF, no el de suelo.
+		_paso_("asentar para surf-ataque", 0.3, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle"), &"Idle"),
+		_chequeo_("Shift + ligero = estocada de surf", 0.3,
+			func() -> void:
+				# `sprint` y no `dash`: sprint no esta en InputActions.BUFFERED, asi
+				# que mantiene Shift para el surf sin encolar una pulsacion que
+				# GroupGrounded convertiria en un dash de verdad.
+				_pulsar(&"sprint")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0})
+				_esperar_ataque = 3,
+			func() -> bool: return _ataque_actual() == _p.ataque_surf_ligero,
+			"atacar surfeando debe lanzar el ataque de surf, no el de suelo"),
+		_paso_("volver al surf", 0.5, func() -> void: pass, &"Surf"),
+
+		# El pesado de surf frena en seco.
+		_chequeo_("Shift + pesado frena en seco", 0.25,
+			func() -> void:
+				_pulsar(&"sprint")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0})
+				_esperar_pesado = 3,
+			func() -> bool: return (_ataque_actual() == _p.ataque_surf_pesado
+				and _p.motor.rapidez_plana() < 2.0),
+			"el pesado de surf debe plantar al personaje en el sitio"),
+
+		# Dash aereo manteniendo Shift: al aterrizar, surf.
+		_chequeo_("dash aereo aterriza en surf", 1.2,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				# 2.2 m: por debajo de `aterrizaje_duro`. Una caida grande SI debe
+				# romper el flujo, asi que no sirve para medir esto.
+				_p.global_position = Vector3(0.0, 2.2, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Fall")
+				_p.dash_cargas = 1
+				_pulsar(&"dash")
+				_esperar_dash = 3,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Surf",
+			"tocar suelo con Shift mantenido tras un dash aereo debe entrar en surf"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
@@ -384,6 +460,10 @@ var _esperar_frames: int = 0
 var _esperar_ataque: int = 0
 var _esperar_salto: int = 0
 var _spam_salto: int = 0
+var _esperar_salto2: int = 0
+var _soltar_pronto: int = 0
+var _esperar_pesado: int = 0
+var _esperar_dash: int = 0
 var _saltos_contados: int = 0
 var _aux: float = 0.0
 var _pos_antes: Vector3 = Vector3.ZERO
@@ -417,6 +497,23 @@ func _physics_process(delta: float) -> void:
 			_pulsar(&"jump")
 		else:
 			_soltar(&"jump")
+	if _esperar_salto2 > 0:
+		_esperar_salto2 -= 1
+		if _esperar_salto2 == 0:
+			_soltar(&"jump")
+			_pulsar(&"jump")
+	if _soltar_pronto > 0:
+		_soltar_pronto -= 1
+		if _soltar_pronto == 0:
+			_soltar(&"jump")
+	if _esperar_pesado > 0:
+		_esperar_pesado -= 1
+		if _esperar_pesado == 0:
+			_pulsar(&"attack_heavy")
+	if _esperar_dash > 0:
+		_esperar_dash -= 1
+		if _esperar_dash == 0:
+			_p.fsm.cambiar(&"Dash")
 	if _esperar_ataque > 0:
 		_esperar_ataque -= 1
 		if _esperar_ataque == 0:
@@ -440,7 +537,8 @@ func _physics_process(delta: float) -> void:
 				Input.is_action_pressed(&"dash"),
 				is_instance_valid(_g), (_g.salud.actual if is_instance_valid(_g) else -1.0),
 				(_g.estado if is_instance_valid(_g) else -1)])
-			_fallos.append("        traza: %s" % " ".join(_traza))
+			_fallos.append("        traza: %s   saltos=%d aereos=%d" % [
+				" ".join(_traza), _saltos_contados, _p.saltos_aereos])
 		else:
 			print("  OK    %s" % actual["nombre"])
 		_paso += 1
@@ -500,6 +598,13 @@ func _reponer() -> void:
 		_g.poise.actual = _g.poise.maxima
 		_g.poise.rota = false
 	_p.fsm.cambiar(&"Idle")
+
+
+## AttackData que esta ejecutando el estado de ataque actual, o null.
+func _ataque_actual() -> AttackData:
+	if _p.fsm.actual == null or _p.fsm.actual.name != &"Attack":
+		return null
+	return _p.fsm.actual.get("_datos")
 
 
 func _indice_ataque() -> int:
