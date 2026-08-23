@@ -204,6 +204,45 @@ func _construir_guion() -> void:
 				and _p.motor.get_vertical() > 6.0),
 			"pedir la direccion contraria en pleno dash debe frenar y saltar"),
 
+		# --- Correccion 2.3: dash -> surf -> correr ---------------------------
+		_paso_("carrerilla surf", 0.2, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(45.0, 0.3, -35.0)
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("dash con Shift -> Surf", 0.25,
+			func() -> void: _pulsar(&"dash"),
+			func() -> bool: return _visitados.has(&"Surf") and _p.motor.rapidez_plana() > _p.tuning.velocidad_sprint,
+			"manteniendo Shift el dash debe desembocar en Surf por encima del sprint"),
+		_chequeo_("Surf entrega a correr", 1.1,
+			func() -> void: pass,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Move",
+			"al agotarse, el surf debe dar paso a la carrera sostenida"),
+		_chequeo_("sin Shift no hay surf", 0.3,
+			func() -> void:
+				_soltar_todo()
+				_p.global_position = Vector3(45.0, 0.3, -35.0)
+				_p.fsm.cambiar(&"Idle")
+				_p.stamina.llenar()
+				_pulsar(&"move_forward")
+				_pulsar(&"dash")
+				_soltar(&"dash"),
+			func() -> bool: return _p.fsm.nombre_actual() != &"Surf",
+			"sin mantener Shift el dash no debe entrar en Surf"),
+
+		# --- Correccion 2.3: ataque de dash -----------------------------------
+		_chequeo_("ataque de dash", 0.35,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_colocar(4.0)
+				_vida_antes = _g.salud.actual
+				_p.fsm.cambiar(&"Dash")
+				_esperar_ataque = 4,
+			func() -> bool: return _g.salud.actual < _vida_antes,
+			"atacar en pleno dash debe cerrar distancia y conectar"),
+
 		# DESTRUCTIVO Y AL FINAL: mata al Guardian, asi que ningun paso posterior
 		# puede volver a usarlo.
 		_chequeo_("pesado mata con ragdoll", 0.4,
@@ -222,6 +261,7 @@ func _construir_guion() -> void:
 
 var _vida_antes: float = 0.0
 var _esperar_frames: int = 0
+var _esperar_ataque: int = 0
 var _aux: float = 0.0
 var _pos_antes: Vector3 = Vector3.ZERO
 var _dist_sin_input: float = 0.0
@@ -243,6 +283,10 @@ func _physics_process(delta: float) -> void:
 		_esperar_frames -= 1
 		if _esperar_frames == 0:
 			_pulsar(&"dash")
+	if _esperar_ataque > 0:
+		_esperar_ataque -= 1
+		if _esperar_ataque == 0:
+			_pulsar(&"attack_light")
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t):

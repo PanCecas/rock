@@ -13,8 +13,8 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Idle")
 		return
 
-	# Mantener el botón de dash también corre: es la continuación natural de la
-	# evasión de NieR, sin tener que soltar y volver a pulsar nada.
+	# Correr rápido EXIGE mantener Shift. Sin él solo hay caminar (stick suave) y
+	# trotar (stick a fondo): la velocidad alta se sostiene a mano, no se regala.
 	var quiere_sprint := buffer.is_held(InputActions.SPRINT) or buffer.is_held(InputActions.DASH)
 	var sprint := quiere_sprint and not player.stamina.vacia()
 	var objetivo := motor.velocidad_objetivo(entrada, sprint)

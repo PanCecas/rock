@@ -248,3 +248,52 @@ Diseña el coloso #<N>. Empieza por el MAPA DE AGARRES tratándolo como un nivel
 puro: rutas posibles, saltos requeridos, dónde se puede caer y qué verbo del jugador pone a
 prueba cada tramo. Solo después dime su anatomía, sus fases y sus puntos débiles.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.3 — la escalera de velocidad y el ataque de dash
+
+```
+Corrección de game feel sobre el controlador y el combate de ROCK. Lee CLAUDE.md y
+docs/03_ARQUITECTURA_MECANICAS.md antes de tocar nada. Todos los números nuevos van
+expuestos en PlayerTuning.tres o en un AttackData .tres: ninguno dentro de un .gd.
+
+1. EL DASH SE SIENTE LARGO Y RARO — sepáralo en tres estados
+El problema es que un solo estado intenta ser evasión y desplazamiento a la vez.
+La escalera correcta es:
+
+  sin Shift  ->  caminar (stick suave) · trotar (stick a fondo). Y nada más:
+                 la velocidad alta se sostiene a mano, no se regala.
+  con Shift  ->  DASH -> SURF -> correr sostenido
+
+  · DASH es un ESQUIVE: corto (0.12 s), seco y UNIDIRECCIONAL. Baja el giro a
+    ~120 grados/s. No es para desplazarse, es para salir de un sitio.
+  · SURF es el tramo fluido: arranca por encima del sprint (~15 m/s), tiene giro
+    ALTO (~320 grados/s) porque es donde se pilota, rozamiento bajo para que el
+    momentum se note, alabeo del cuerpo al girar, y decae hacia la velocidad de
+    sprint. La referencia es el agua: fluido, continuo, con inercia.
+  · Al agotarse (~0.9 s) o al soltar Shift, entrega el testigo a correr. Como
+    StateMove ya esprinta si Shift sigue pulsado, la transición no necesita un
+    estado extra ni se nota como un frenazo.
+
+Surf va en el grupo Grounded. Debe poder cancelarse a slide (agacharse), a salto y
+a ataque, y consumir stamina mientras dura.
+
+2. AÑADE UN ATAQUE DE DASH
+Un AttackData nuevo lanzable desde Dash y desde Surf con el ataque ligero. Su
+trabajo es CERRAR DISTANCIA: alcance largo (~3.2 m), avance grande (~9), arco
+estrecho, recuperación corta. Y que ENCADENE al segundo golpe de la cadena ligera,
+para que dash -> golpe -> cadena sea una vía de entrada al combo y no un callejón.
+Exponlo como `ataque_dash` en el PlayerController.
+
+3. NO TOQUES LAS FÍSICAS AVANZADAS
+El backlog de Active Ragdoll y del grappler con cuerda física está documentado en
+docs/03_ARQUITECTURA_MECANICAS.md §11 y está marcado como NO IMPLEMENTAR. Déjalo
+como está: el active ragdoll choca con SurfaceContext y esa pelea hay que ganarla
+sobre el papel antes de escribir código.
+
+Al terminar, añade las comprobaciones al test funcional (tools/TestFase2.tscn):
+que con Shift el dash entra en Surf por encima del sprint, que el Surf entrega a
+Move al agotarse, que sin Shift NO entra en Surf, y que el ataque de dash conecta
+cerrando distancia. Y pasa la regresión de tools/TestFase1.tscn.
+```

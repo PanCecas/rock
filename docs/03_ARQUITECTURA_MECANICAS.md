@@ -342,3 +342,63 @@ Los ataques **no** gastan stamina (esto no es un souls).
 | El combate flashy choca con el tono contemplativo | El combate se **encierra** en recintos; el mundo abierto queda en silencio. |
 | Demasiadas animaciones | Tiers T0/T1/T2. Prohibido animar T1 antes de cerrar T0. |
 | El look pintado "hierve" en movimiento | Overlay de pinceladas a 12 fps y anclado a la profundidad, no a la pantalla. |
+
+
+---
+
+## 11. BACKLOG DE FÍSICAS — **no implementar todavía**
+
+> **Estado: solo diseño.** Nada de esta sección está construido ni debe construirse
+> hasta que la Fase 4 (coloso #1) esté cerrada. Se documenta ahora porque condiciona
+> decisiones de rig y de arquitectura que es caro deshacer después.
+
+### 11.1 Active Ragdoll — reacción procedural al entorno
+
+La idea: los personajes dejan de ser cápsulas con animación encima y pasan a ser
+**cuerpos físicos controlados por animación**. La animación no manda la pose: manda
+un objetivo, y unos controladores PD empujan los huesos hacia él. Todo lo que se
+interponga —una pared, una cuesta, un golpe, otro cuerpo— deforma la pose sin que
+haya que animar ese caso.
+
+Lo que aporta al juego, en concreto:
+- **Los golpes tienen dirección real.** Un mandoble lateral tuerce el torso hacia
+  donde vino, no reproduce `hit_light_L`. Con 8 reacciones animadas se cubren 8
+  casos; con active ragdoll se cubren todos.
+- **El coloso se lee mejor.** Un jugador agarrado del pelaje que se balancea con la
+  sacudida vende la escala mucho más que un clip de `climb_shake_hold`.
+- **La muerte deja de ser un clip.** Lo que hoy resuelve `Ragdoll.gd` (un cuerpo
+  rígido que sale despedido) sería el mismo sistema, pero articulado.
+
+Bocetos técnicos, para no perderlos:
+- `PhysicalBoneSimulator3D` sobre el rig, con arranque por regiones: primero solo
+  torso y brazos, las piernas siguen siendo animación pura hasta que caminar sea
+  estable.
+- **Mezcla animación↔física por hueso y por evento**, no global. Un golpe sube la
+  mezcla física del torso a 0.8 durante 300 ms y la devuelve a 0.
+- Controladores PD con ganancias por hueso, expuestas en un Resource igual que
+  `PlayerTuning`.
+- Riesgo real: el active ragdoll pelea con `SurfaceContext`. Sobre un coloso en
+  movimiento, los huesos físicos viven en espacio de mundo mientras el personaje
+  vive en el marco del coloso. **Hay que resolver eso ANTES de escribir una línea.**
+
+### 11.2 Grappler con cuerda física real
+
+Referencia: el gancho de **Loader** (Risk of Rain 2) — la cuerda no es un raíl,
+es una cuerda: tiene masa, se tensa, acumula momentum y se puede usar para
+golpear llegando lanzado.
+
+Diferencia con el `RopeSystem` de la Fase 3 (§5): allí la cuerda es una
+**restricción analítica** —estable, predecible, barata— y el visual es cosmético.
+Aquí sería al revés: la simulación ES la mecánica.
+
+- Cadena de partículas verlet con restricciones de distancia, varias iteraciones
+  por tick.
+- El jugador es la última partícula: la cuerda le transmite fuerza de verdad, no
+  le teleporta.
+- El puñetazo al llegar es consecuencia del momentum acumulado, no un `AttackData`
+  con daño fijo: el daño sale de la velocidad de impacto.
+- Riesgo: una cuerda verlet mal amortiguada explota o se vuelve elástica. Necesita
+  su propia sala de pruebas antes de tocar el juego.
+
+**Orden sugerido:** primero 11.1 sobre los Guardianes (cuerpos pequeños, fallos
+baratos), después sobre el jugador, y solo entonces 11.2. Nunca los dos a la vez.

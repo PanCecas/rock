@@ -41,6 +41,11 @@ func physics_update(delta: float) -> void:
 	if _pivotar():
 		return
 
+	# Ataque de dash: el golpe sale desde el esquive y hereda su dirección.
+	if player.ataque_dash != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"Attack", {"datos": player.ataque_dash, "indice": 1})
+		return
+
 	_corregir_rumbo(delta)
 	motor.impulso(_dir, tuning.velocidad_dash())
 	motor.set_vertical(0.0)
@@ -97,33 +102,31 @@ func _corregir_rumbo(delta: float) -> void:
 	player.orientar_a(_dir)
 
 
+## El dash NO decide la velocidad de salida: decide a qué estado entrega.
+##
+##   Shift mantenido + suelo  ->  SURF (el tramo fluido que luego da paso al sprint)
+##   Shift suelto             ->  Move / Idle, conservando algo de momentum
+##   en el aire               ->  Fall
 func _salir() -> void:
-	# HOLD: el botón sigue pulsado más allá del umbral de tap -> sprint continuo.
-	var mantenido := (
-		buffer.is_held(InputActions.DASH)
-		and buffer.held_time(InputActions.DASH) >= tuning.dash_tap_max
-	)
-	var sprint := mantenido or buffer.is_held(InputActions.SPRINT)
-
-	# Conservar momentum, no frenar en seco: es lo que encadena los verbos.
-	# StateMove deja que esta velocidad extra baje despacio (`frenado_momentum`).
-	var suelo: float = tuning.velocidad_sprint if sprint else tuning.velocidad_correr
-	motor.impulso(_dir, maxf(suelo, motor.rapidez_plana() * tuning.dash_salida_mult))
+	var mantenido := buffer.is_held(InputActions.DASH) or buffer.is_held(InputActions.SPRINT)
 
 	if not player.is_on_floor():
+		motor.impulso(_dir, maxf(tuning.velocidad_correr, motor.rapidez_plana() * tuning.dash_salida_mult))
 		fsm.cambiar(&"Fall")
 		return
-	# Manteniendo se sale corriendo aunque el stick esté al ralentí ese frame:
-	# soltar el dash no debería costarte la carrera.
-	if mantenido or buffer.move_vector().length() > 0.2:
-		fsm.cambiar(&"Move")
-	else:
-		fsm.cambiar(&"Idle")
+
+	if mantenido and not player.stamina.vacia():
+		fsm.cambiar(&"Surf", {"direccion": _dir, "rapidez": tuning.surf_velocidad})
+		return
+
+	# Sin Shift no hay carrera rápida: se cae a trotar y de ahí a caminar.
+	motor.impulso(_dir, maxf(tuning.velocidad_correr, motor.rapidez_plana() * tuning.dash_salida_mult))
+	fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
 
 
 func debug_line() -> String:
-	return "%.0f%%  %s  %s" % [
+	return "%.0f%%  %s  ->%s" % [
 		100.0 * t / tuning.dash_duracion,
 		"aéreo" if _era_aereo else "suelo",
-		"HOLD" if buffer.held_time(InputActions.DASH) >= tuning.dash_tap_max else "tap",
+		"surf" if buffer.is_held(InputActions.DASH) else "move",
 	]

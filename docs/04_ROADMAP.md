@@ -162,6 +162,14 @@ dice "qué grande era". Ese es el test.
 
 ---
 
+## BACKLOG DE FÍSICAS — **no implementar todavía**
+Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
+real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta
+que la Fase 4 esté cerrada: el active ragdoll choca de frente con `SurfaceContext`
+y esa pelea hay que ganarla antes de escribir código.
+
+---
+
 ## FASE 7 — Pulido · 4–6 semanas
 - [ ] **Game feel pass** completo: cada transición de estado revisada a 1/4 de velocidad
 - [ ] Accesibilidad: remapeo, asistencia de agarre, desactivar shake, escala de subtítulos

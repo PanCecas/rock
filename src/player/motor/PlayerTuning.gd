@@ -40,22 +40,25 @@ extends Resource
 @export_range(90.0, 2160.0, 10.0) var giro_grados_seg: float = 900.0
 @export_range(0.0, 89.0, 1.0) var angulo_max_suelo: float = 50.0
 
-# --- Dash (evasión estilo NieR: Automata) -----------------------------------
+# --- Dash: esquive UNIDIRECCIONAL -------------------------------------------
+# El dash es un esquive, no un desplazamiento. Corto, seco y en una sola
+# dirección. Lo que viene DESPUÉS (Surf) es lo que fluye y se puede pilotar.
+# Antes duraba 0.16 s con giro de 420°/s y se sentía largo y raro justamente
+# porque intentaba ser las dos cosas a la vez.
 @export_group("Dash")
-## Corto y rápido. Un dash largo bloquea la lectura del combate y se siente tieso.
-@export_range(1.0, 20.0, 0.1) var dash_distancia: float = 4.5
-@export_range(0.05, 1.0, 0.01) var dash_duracion: float = 0.16
+@export_range(1.0, 20.0, 0.1) var dash_distancia: float = 3.6
+@export_range(0.05, 1.0, 0.01) var dash_duracion: float = 0.12
 @export_range(0.0, 0.5, 0.01) var dash_iframes: float = 0.10
 @export_range(0.0, 2.0, 0.01) var dash_recuperacion: float = 0.10
 @export var dash_cargas_aire: int = 1
 ## TAP vs HOLD: si el botón sigue pulsado más de esto al acabar el dash, se
 ## encadena a sprint continuo en vez de volver a carrera normal.
 @export_range(0.05, 1.0, 0.01) var dash_tap_max: float = 0.20
-## Corrección de rumbo DURANTE el dash. 0 = bloqueo total (tieso).
-## Es la diferencia entre una evasión que se siente viva y un empujón escriptado.
-@export_range(0.0, 1440.0, 10.0) var dash_giro_grados_seg: float = 420.0
-## Fracción de la velocidad del dash que sobrevive al terminar.
-@export_range(0.0, 1.0, 0.01) var dash_salida_mult: float = 0.55
+## Corrección de rumbo DURANTE el dash. Baja a propósito: es un esquive
+## unidireccional. Quien pilota es el Surf que viene después.
+@export_range(0.0, 1440.0, 10.0) var dash_giro_grados_seg: float = 120.0
+## Fracción de la velocidad del dash que sobrevive al terminar sin mantener Shift.
+@export_range(0.0, 1.0, 0.01) var dash_salida_mult: float = 0.45
 ## Grados dentro de los que el dash se autoalinea al enemigo cercano (Fase 2).
 @export_range(0.0, 90.0, 1.0) var dash_correccion_grados: float = 20.0
 
@@ -70,6 +73,23 @@ extends Resource
 @export_range(0.0, 25.0, 0.1) var dash_pivote_salto: float = 11.5
 ## Empuje horizontal hacia la nueva dirección. Bajo a propósito: es un FRENAZO.
 @export_range(0.0, 20.0, 0.1) var dash_pivote_impulso: float = 3.0
+
+# --- Surf: el tramo fluido entre el esquive y la carrera ---------------------
+# Manteniendo Shift, el dash desemboca aquí en vez de frenar. Es un estado
+# deslizante y muy pilotable —"como el agua"— que se agota solo y entrega el
+# testigo al sprint. Sin Shift no existe: solo hay caminar y trotar.
+@export_group("Surf")
+## Velocidad al salir del dash. Por encima del sprint: se nota que vienes lanzado.
+@export_range(1.0, 40.0, 0.1) var surf_velocidad: float = 15.0
+## Cuánto dura antes de entregar el testigo a la carrera.
+@export_range(0.1, 5.0, 0.05) var surf_duracion: float = 0.9
+## Giro. ALTO: aquí es donde se pilota, y es lo que lo hace sentir fluido.
+@export_range(30.0, 1080.0, 10.0) var surf_giro_grados_seg: float = 320.0
+## Rozamiento. Bajo = el momentum se conserva y se siente que patinas.
+@export_range(0.0, 40.0, 0.5) var surf_friccion: float = 5.0
+@export_range(0.0, 100.0, 0.5) var surf_stamina: float = 10.0
+## Alabeo del cuerpo al girar surfeando. Vende la inercia desde lejos.
+@export_range(0.0, 45.0, 1.0) var surf_alabeo: float = 16.0
 
 # --- Planeo -----------------------------------------------------------------
 @export_group("Planeo")

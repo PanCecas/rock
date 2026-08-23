@@ -16,6 +16,8 @@ extends CharacterBody3D
 @export var ataque_pesado: AttackData
 @export var ataque_aereo: AttackData
 @export var ataque_plunge: AttackData
+## Ataque lanzado desde el dash o el surf: hereda el momentum y cierra distancia.
+@export var ataque_dash: AttackData
 ## Contraataque que solo se abre tras un parry perfecto.
 @export var ataque_contra: AttackData
 
