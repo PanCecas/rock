@@ -162,6 +162,21 @@ dice "qué grande era". Ese es el test.
 
 ---
 
+### Correccion 2.4 — sobre la 2.3
+- El **ataque de dash es una ESTOCADA**: mantiene la velocidad durante toda la
+  anticipacion y la ventana activa en vez de frenar en seco. Un golpe lanzado
+  desde una carrera tiene que conservar la carrera.
+- El **surf pierde el temporizador**. Un timeout obligaba a redashear cada segundo
+  para mantener la velocidad, justo lo contrario de la sensacion continua que se
+  busca. Ahora se sostiene mientras se mantenga Shift; la stamina es el limite.
+- La locomocion sin Shift pasa de escalera de tres peldanos elegida por la fuerza
+  del stick (saltaba de 3.2 a 7.5 de golpe, se sentia como un interruptor) a una
+  **rampa continua por carrerilla** con suavizado exponencial.
+- Bug encontrado de paso: un giro brusco de camara invertia el significado de
+  "adelante" y el dash lo leia como peticion de pivote, frenando sin que el
+  jugador lo pidiera. El pivote exige ahora intencion sostenida
+  (`dash_pivote_frames`).
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

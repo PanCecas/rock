@@ -21,10 +21,11 @@ func enter(msg: Dictionary = {}) -> void:
 	_dir = _direccion_ataque()
 	player.orientar_a(_dir)
 	player.hitbox.nuevo_swing()
-	# Amortiguar lo que traías, NO borrarlo. Poner la velocidad a cero en cada
-	# golpe es lo que hace que un combo se sienta como una animación en la que te
-	# quedas clavado en vez de como una pelea en la que sigues mandando.
-	player.velocity = sc.plano(player.velocity) * 0.45 + sc.up * sc.vertical(player.velocity)
+	# Una estocada NO frena: hereda toda la velocidad con la que llegas. El resto
+	# de golpes amortiguan al 45%, que ya es no borrarla —clavarse en cada golpe
+	# hace que un combo se sienta como una animación en vez de como una pelea.
+	var retencion: float = 1.0 if _datos != null and _datos.estocada else 0.45
+	player.velocity = sc.plano(player.velocity) * retencion + sc.up * sc.vertical(player.velocity)
 
 
 func physics_update(delta: float) -> void:
@@ -75,6 +76,19 @@ func _direccion_ataque() -> Vector3:
 func _avanzar(delta: float) -> void:
 	var progreso := float(_frame) / maxf(float(_datos.total_frames()), 1.0)
 	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso))
+	var tasa := tuning.aceleracion_suelo * 0.9
+
+	if _datos.estocada:
+		# Velocidad sostenida hasta cerrar la ventana activa; después se suelta.
+		var fin_activo := _datos.frames_windup + _datos.frames_activo
+		if _frame <= fin_activo:
+			objetivo = _dir * _datos.estocada_velocidad
+			tasa = tuning.aceleracion_suelo * 2.5
+		else:
+			# La recuperación desacelera sola, sin frenazo: sigues avanzando.
+			var caida := float(_frame - fin_activo) / maxf(float(_datos.frames_recuperacion), 1.0)
+			objetivo = _dir * _datos.estocada_velocidad * (1.0 - caida)
+			tasa = tuning.frenado_momentum
 
 	var entrada := buffer.move_vector()
 	if _datos.movilidad > 0.0 and entrada.length() > 0.2:
@@ -82,7 +96,7 @@ func _avanzar(delta: float) -> void:
 		objetivo += deseada * tuning.velocidad_correr * _datos.movilidad
 
 	if objetivo.length_squared() > 0.01:
-		motor.acelerar(objetivo, tuning.aceleracion_suelo * 0.9, delta)
+		motor.acelerar(objetivo, tasa, delta)
 	else:
 		motor.frenar(tuning.frenado_suelo, delta)
 

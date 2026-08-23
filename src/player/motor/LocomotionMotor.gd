@@ -58,15 +58,22 @@ func direccion_plana() -> Vector3:
 	return v.normalized() if v.length_squared() > 0.01 else Vector3.ZERO
 
 
-## Velocidad objetivo según el input y si se está esprintando.
-func velocidad_objetivo(entrada: Vector2, sprint: bool) -> float:
-	if entrada.length() < 0.25:
-		return 0.0
-	if sprint:
-		return _p.tuning.velocidad_sprint
-	if entrada.length() < 0.65:
-		return _p.tuning.velocidad_caminar
-	return _p.tuning.velocidad_correr
+## Velocidad objetivo de la locomoción normal a partir de la carrerilla acumulada.
+##
+## Antes esto era una escalera de tres peldaños elegida por la fuerza del stick:
+## saltaba de 3.2 a 7.5 de golpe y se sentía como un interruptor. Ahora la
+## carrerilla (segundos manteniendo la dirección) recorre caminar -> trotar ->
+## correr de forma continua, y el stick solo pone el techo: media presión camina.
+func velocidad_por_carrerilla(carrerilla: float, fuerza_stick: float) -> float:
+	var t := _p.tuning
+	var v: float
+	if carrerilla <= t.tiempo_a_trotar:
+		v = lerpf(t.velocidad_caminar, t.velocidad_trotar, carrerilla / maxf(t.tiempo_a_trotar, 0.001))
+	else:
+		var tramo: float = (carrerilla - t.tiempo_a_trotar) / maxf(t.tiempo_a_correr - t.tiempo_a_trotar, 0.001)
+		v = lerpf(t.velocidad_trotar, t.velocidad_correr, clampf(tramo, 0.0, 1.0))
+	# El stick manda como techo: empujar a medias camina aunque lleves carrerilla.
+	return v * clampf(fuerza_stick, 0.0, 1.0)
 
 
 ## Empuja al jugador en una dirección conservando o no lo que ya llevaba.

@@ -1,17 +1,17 @@
 extends PlayerState
-## El tramo fluido entre el esquive y la carrera.
+## La carrera rápida del juego, y el tramo fluido que sigue al esquive.
 ##
 ## El dash es un ESQUIVE: corto, seco, unidireccional. Si al terminarlo sigues
-## manteniendo Shift, no frenas: entras aquí. Surf es un estado deslizante y muy
-## pilotable —la idea es "como el agua"— que conserva el momentum del dash, se
-## agota solo y entrega el testigo al sprint.
+## manteniendo Shift, no frenas: entras aquí.
 ##
-## Esa es la escalera completa de velocidad:
-##   sin Shift  ->  caminar / trotar
-##   Shift      ->  dash (esquive) -> SURF (fluido) -> sprint (sostenido)
+## NO CADUCA. Mientras mantengas Shift sigues surfeando; al soltarlo, sales. Un
+## temporizador obligaba a redashear cada segundo para mantener la velocidad, que
+## es justo lo contrario de la sensación continua que se busca. El único límite es
+## la stamina.
 ##
-## Antes esto no existía y el dash intentaba ser las dos cosas: por eso se sentía
-## largo y raro. Separarlos deja que cada uno haga bien una sola cosa.
+## Escalera completa de velocidad:
+##   sin Shift  ->  caminar -> trotar -> correr  (rampa progresiva por tiempo)
+##   con Shift  ->  dash (esquive) -> SURF (fluido y sostenido)
 
 var _dir: Vector3 = Vector3.ZERO
 var _rapidez: float = 0.0
@@ -51,9 +51,9 @@ func physics_update(delta: float) -> void:
 			giro = signf(sc.up.dot(_dir.cross(nueva)))
 			_dir = nueva
 
-	# La velocidad decae hacia el sprint: al acabar el surf ya vas a su ritmo y
-	# la transición a correr no se nota como un frenazo.
-	_rapidez = maxf(_rapidez - tuning.surf_friccion * delta, tuning.velocidad_sprint)
+	# El envión del dash se gasta y queda la velocidad de crucero. A partir de ahí
+	# se sostiene indefinidamente: el surf es la carrera rápida, no un impulso.
+	_rapidez = maxf(_rapidez - tuning.surf_friccion * delta, tuning.surf_crucero)
 
 	motor.impulso(_dir, _rapidez)
 	motor.set_vertical(-2.0)
@@ -71,12 +71,9 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Attack", {"datos": player.ataque_dash, "indice": 1})
 		return
 
-	if t >= tuning.surf_duracion:
-		_terminar()
 
-
-## Salir del surf es entrar en Move. Si Shift sigue pulsado, Move ya corre en
-## sprint por sí solo, así que la escalera se completa sin un estado extra.
+## Salir del surf es volver a la locomoción normal, que arranca su rampa desde la
+## velocidad que traigas.
 func _terminar() -> void:
 	fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
 
@@ -86,4 +83,4 @@ func _shift_mantenido() -> bool:
 
 
 func debug_line() -> String:
-	return "%.1f m/s  %.0f%%" % [_rapidez, 100.0 * t / maxf(tuning.surf_duracion, 0.001)]
+	return "%.1f m/s  stam %.0f%%" % [_rapidez, player.stamina.fraccion() * 100.0]

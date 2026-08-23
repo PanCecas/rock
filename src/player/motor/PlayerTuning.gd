@@ -25,9 +25,27 @@ extends Resource
 
 # --- Locomoción -------------------------------------------------------------
 @export_group("Locomoción")
-@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.2
-@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 7.5
+## Los tres peldaños de la locomocion sin Shift. NO se eligen por la fuerza del
+## stick: se encadenan por TIEMPO manteniendo la direccion, que es lo que da la
+## sensacion de que el personaje coge carrerilla.
+@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
+@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
+@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 7.8
+## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
+
+@export_subgroup("Rampa de carrerilla")
+## Segundos moviendote hasta pasar de caminar a trotar.
+@export_range(0.05, 3.0, 0.05) var tiempo_a_trotar: float = 0.35
+## Segundos hasta llegar a correr. La rampa es continua, no escalonada: los
+## nombres son referencias, no estados.
+@export_range(0.1, 5.0, 0.05) var tiempo_a_correr: float = 1.25
+## Constante de tiempo del suavizado de velocidad (segundos). Bajo = instantaneo
+## y seco; alto = pastoso. 0.16 es el punto donde se nota peso sin sentir retardo.
+@export_range(0.01, 1.0, 0.01) var suavizado_velocidad: float = 0.16
+## Como de rapido se pierde la carrerilla al soltar la direccion. Alto = se
+## reinicia en cuanto paras; bajo = perdona los cambios de rumbo.
+@export_range(0.5, 20.0, 0.1) var perdida_carrerilla: float = 3.5
 @export_range(1.0, 200.0, 1.0) var aceleracion_suelo: float = 60.0
 @export_range(1.0, 200.0, 1.0) var aceleracion_aire: float = 25.0
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
@@ -69,6 +87,10 @@ extends Resource
 ## Fracción del dash que hay que haber recorrido antes de poder pivotar. Evita
 ## que una corrección brusca al arrancar se lea como frenada.
 @export_range(0.0, 1.0, 0.05) var dash_pivote_min: float = 0.25
+## Frames SEGUIDOS pidiendo la direccion contraria. Un giro brusco de camara
+## invierte el significado de "adelante" durante un frame; exigir constancia evita
+## frenadas que el jugador no pidio.
+@export_range(1, 12, 1) var dash_pivote_frames: int = 2
 ## Salto vertical del pivote, en m/s. Alto: la frenada es un salto de verdad.
 @export_range(0.0, 25.0, 0.1) var dash_pivote_salto: float = 11.5
 ## Empuje horizontal hacia la nueva dirección. Bajo a propósito: es un FRENAZO.
@@ -81,8 +103,10 @@ extends Resource
 @export_group("Surf")
 ## Velocidad al salir del dash. Por encima del sprint: se nota que vienes lanzado.
 @export_range(1.0, 40.0, 0.1) var surf_velocidad: float = 15.0
-## Cuánto dura antes de entregar el testigo a la carrera.
-@export_range(0.1, 5.0, 0.05) var surf_duracion: float = 0.9
+## Velocidad de crucero del surf una vez consumido el envión del dash. Es la
+## velocidad de "correr" real del juego: el surf NO caduca, se sostiene mientras
+## mantengas Shift, y la stamina es su único límite.
+@export_range(1.0, 30.0, 0.1) var surf_crucero: float = 11.0
 ## Giro. ALTO: aquí es donde se pilota, y es lo que lo hace sentir fluido.
 @export_range(30.0, 1080.0, 10.0) var surf_giro_grados_seg: float = 320.0
 ## Rozamiento. Bajo = el momentum se conserva y se siente que patinas.

@@ -57,7 +57,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Agacharse / slide | C | D-pad abajo |
 | Agarrar / escalar | F | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
-| Ataque de dash | Click izq. durante dash o surf | RB |
+| Ataque de dash (estocada) | Click izq. durante dash o surf | RB |
 | Parry | Q | LT |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
@@ -70,16 +70,19 @@ negociar cada pulsacion entre doble salto y capa, y resultaba incomodo. Ahora
 **La escalera de velocidad va con Shift, y solo con Shift:**
 
 ```
-sin Shift ->  caminar (stick suave)  ·  trotar (stick a fondo)
-con Shift ->  DASH (esquive corto, unidireccional)
-                -> SURF (fluido, muy pilotable, por encima del sprint)
-                   -> correr sostenido
+sin Shift ->  caminar -> trotar -> correr   (rampa continua por CARRERILLA)
+con Shift ->  DASH (esquive corto, unidireccional) -> SURF (fluido, sostenido)
 ```
 
 El dash es un **esquive**, no un desplazamiento: 0.12 s y casi sin giro. Quien
-pilota es el `Surf`, que conserva el momentum, se agota solo y entrega el testigo
-a la carrera. Antes el dash intentaba ser las dos cosas y se sentia largo y raro.
-Soltar Shift corta el surf en el acto.
+pilota es el `Surf`, que **no caduca**: se sostiene mientras mantengas Shift y su
+unico limite es la stamina. Soltarlo lo corta en el acto.
+
+La locomocion sin Shift no tiene peldanos: acumula **carrerilla** (segundos
+manteniendo la direccion) y la velocidad recorre caminar -> trotar -> correr de
+forma continua, con suavizado exponencial (`suavizado_velocidad`, constante de
+tiempo en segundos, independiente del framerate). El stick solo pone el techo:
+empujar a medias camina aunque lleves carrerilla.
 
 **Pivote del dash:** pedir la direccion CONTRARIA en pleno dash frena en seco y
 salta (estilo Mario 64). Ese salto esta exento de jump cut: no lo pidio el boton.

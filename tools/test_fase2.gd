@@ -17,6 +17,7 @@ var _reloj: float = 0.0
 var _fallos: PackedStringArray = []
 var _visitados: Dictionary = {}
 var _guion: Array = []
+var _traza: Array[String] = []
 
 
 func _ready() -> void:
@@ -24,7 +25,11 @@ func _ready() -> void:
 	add_child(_main)
 	_p = _main.get_node("Player") as PlayerController
 	EventBus.player_state_changed.connect(
-		func(_a: StringName, n: StringName) -> void: _visitados[n] = true)
+		func(a: StringName, n: StringName) -> void:
+			_visitados[n] = true
+			_traza.append("%s>%s" % [a, n])
+			if _traza.size() > 10:
+				_traza.pop_front())
 	_construir_guion()
 
 
@@ -205,24 +210,45 @@ func _construir_guion() -> void:
 			"pedir la direccion contraria en pleno dash debe frenar y saltar"),
 
 		# --- Correccion 2.3: dash -> surf -> correr ---------------------------
+		# Al Gym: 70x70 de suelo. En la arena (32 m) el surf se salia por la pared
+		# antes de terminar la comprobacion y el fallo no decia nada del surf.
 		_paso_("carrerilla surf", 0.2, func() -> void:
 			_soltar_todo()
 			_reponer()
-			_p.global_position = Vector3(45.0, 0.3, -35.0)
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
 			_p.fsm.cambiar(&"Idle")
 			_pulsar(&"move_forward"), &"Move"),
 		_chequeo_("dash con Shift -> Surf", 0.25,
 			func() -> void: _pulsar(&"dash"),
 			func() -> bool: return _visitados.has(&"Surf") and _p.motor.rapidez_plana() > _p.tuning.velocidad_sprint,
 			"manteniendo Shift el dash debe desembocar en Surf por encima del sprint"),
-		_chequeo_("Surf entrega a correr", 1.1,
-			func() -> void: pass,
-			func() -> bool: return _p.fsm.nombre_actual() == &"Move",
-			"al agotarse, el surf debe dar paso a la carrera sostenida"),
+		# El surf ya NO caduca: se sostiene mientras se mantenga Shift. Se entra al
+		# estado con direccion EXPLICITA (+X desde el origen del Gym, 35 m limpios)
+		# porque depender de la camara metia en la medida a donde mira y contra que
+		# choca, que no es lo que esta comprobacion trata de demostrar.
+		# Surf es un estado de SUELO: hay que dejar aterrizar antes de entrar, o
+		# GroupGrounded lo echa a Fall en el primer frame por no pisar nada.
+		_paso_("asentar en el suelo", 0.25, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO, &"Idle"),
+		_chequeo_("Surf no caduca", 1.4,
+			func() -> void:
+				_pulsar(&"dash")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0}),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Surf",
+			"el surf debe sostenerse mientras Shift siga pulsado, sin temporizador"),
+		_chequeo_("soltar Shift sale del surf", 0.2,
+			func() -> void:
+				_soltar(&"dash")
+				_soltar(&"sprint"),
+			func() -> bool: return _p.fsm.nombre_actual() != &"Surf",
+			"soltar Shift debe cortar el surf en el acto"),
 		_chequeo_("sin Shift no hay surf", 0.3,
 			func() -> void:
 				_soltar_todo()
-				_p.global_position = Vector3(45.0, 0.3, -35.0)
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
 				_p.fsm.cambiar(&"Idle")
 				_p.stamina.llenar()
 				_pulsar(&"move_forward")
@@ -238,16 +264,50 @@ func _construir_guion() -> void:
 				_reponer()
 				_colocar(4.0)
 				_vida_antes = _g.salud.actual
-				_p.fsm.cambiar(&"Dash")
-				_esperar_ataque = 4,
+				# Dash primero y ataque 2 frames despues: con ~2 frames de latencia
+				# de input, el ataque cae dentro de los 7 frames que dura el dash.
+				_pulsar(&"dash")
+				_esperar_ataque = 2,
 			func() -> bool: return _g.salud.actual < _vida_antes,
 			"atacar en pleno dash debe cerrar distancia y conectar"),
 
-		# DESTRUCTIVO Y AL FINAL: mata al Guardian, asi que ningun paso posterior
-		# puede volver a usarlo.
-		_chequeo_("pesado mata con ragdoll", 0.4,
+		# --- Correccion 2.4: la estocada no frena -----------------------------
+		_chequeo_("el ataque de dash atraviesa", 0.16,
 			func() -> void:
 				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(45.0, 0.3, -35.0)
+				_p.fsm.cambiar(&"Idle")
+				_p.velocity = Vector3(0, 0, -12.0)
+				_p.orientar_a(Vector3(0, 0, -1))
+				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_dash, "indice": 1}),
+			func() -> bool: return _p.motor.rapidez_plana() > 10.0,
+			"la estocada debe conservar el avance, no frenar en seco"),
+
+		# --- Correccion 2.4: rampa caminar -> trotar -> correr ----------------
+		_chequeo_("arranca caminando", 0.18,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle")
+				_pulsar(&"move_forward"),
+			func() -> bool: return _p.motor.rapidez_plana() < _p.tuning.velocidad_trotar,
+			"al arrancar debe ir a paso de caminar, no a tope"),
+		_chequeo_("la carrerilla llega a correr", 1.5,
+			func() -> void: pass,
+			func() -> bool: return _p.motor.rapidez_plana() > _p.tuning.velocidad_correr - 0.8,
+			"manteniendo la direccion debe acabar corriendo"),
+
+		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
+		# anteriores pueden haber dejado al Guardian muerto y liberado.
+		_paso_("repoblar arena", 0.35, func() -> void:
+			_soltar_todo()
+			(_main.get_node("Arena") as Arena).poblar(), &""),
+		_chequeo_("pesado mata con ragdoll", 0.4,
+			func() -> void:
+				_lancero()
 				_reponer()
 				_colocar(2.0)
 				_g.salud.actual = 5.0
@@ -290,6 +350,7 @@ func _physics_process(delta: float) -> void:
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t):
+
 		(actual["hacer"] as Callable).call()
 	_t += delta
 
@@ -298,9 +359,14 @@ func _physics_process(delta: float) -> void:
 		if esperado != &"" and not _visitados.has(esperado):
 			_fallos.append("%-24s no se alcanzó %s" % [actual["nombre"], esperado])
 		if actual.has("chequeo") and not (actual["chequeo"] as Callable).call():
-			_fallos.append("%-24s %s   [estado=%s cat=%s vy=%.1f]" % [
+			_fallos.append("%-24s %s
+      [estado=%s vel=%.1f stam=%.0f%% shift=%s | g=%s hp=%.0f est=%d]" % [
 				actual["nombre"], actual["porque"], _p.fsm.nombre_actual(),
-				_p.fsm.actual.categoria, _p.motor.get_vertical()])
+				_p.motor.rapidez_plana(), _p.stamina.fraccion() * 100.0,
+				Input.is_action_pressed(&"dash"),
+				is_instance_valid(_g), (_g.salud.actual if is_instance_valid(_g) else -1.0),
+				(_g.estado if is_instance_valid(_g) else -1)])
+			_fallos.append("        traza: %s" % " ".join(_traza))
 		else:
 			print("  OK    %s" % actual["nombre"])
 		_paso += 1
@@ -330,14 +396,15 @@ func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, p
 
 func _lancero() -> void:
 	for g in get_tree().get_nodes_in_group(&"guardianes"):
+		if g.is_queued_for_deletion():
+			continue
 		if (g as Guardian).tipo == Guardian.Tipo.LANCERO:
 			_g = g
 			return
-	_g = get_tree().get_nodes_in_group(&"guardianes")[0]
 
 
-## Coloca al jugador a `dist` metros del Guardián, mirándolo. El Guardián se
-## congela para que la IA no mueva el objetivo en mitad de la comprobación.
+## Coloca al jugador a `dist` metros del Guardian, mirandolo. El Guardian se
+## congela para que la IA no mueva el objetivo en mitad de la comprobacion.
 func _colocar(dist: float) -> void:
 	_g.estado = Guardian.Estado.DORMIDO
 	_g.velocity = Vector3.ZERO
@@ -367,14 +434,20 @@ func _indice_ataque() -> int:
 	return int(_p.fsm.actual.get("_indice"))
 
 
-## Busca un cadaver fisico entre los hermanos del Guardian y devuelve su rapidez.
+## Busca un cadaver fisico en todo el subarbol de la Arena.
 func _velocidad_cadaver() -> float:
-	var padre := _main.get_node_or_null("Arena/Guardianes")
-	if padre == null:
-		return 0.0
-	for h in padre.get_children():
-		if h is Ragdoll:
-			return (h as Ragdoll).linear_velocity.length()
+	return _buscar_cadaver(_main.get_node("Arena"))
+
+
+## Recursivo a proposito: al repoblar, Godot renombra el contenedor duplicado y
+## una ruta fija como "Arena/Guardianes" deja de encontrar nada.
+func _buscar_cadaver(n: Node) -> float:
+	if n is Ragdoll:
+		return (n as Ragdoll).linear_velocity.length()
+	for h in n.get_children():
+		var v := _buscar_cadaver(h)
+		if v > 0.0:
+			return v
 	return 0.0
 
 

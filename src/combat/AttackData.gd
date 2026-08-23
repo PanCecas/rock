@@ -61,6 +61,14 @@ const FPS := 60.0
 @export var avance: float = 3.5
 ## Cómo se reparte ese avance a lo largo del ataque (X = 0..1 del total).
 @export var curva_avance: Curve
+## ESTOCADA: en vez de un empujón al arrancar que se apaga enseguida, el atacante
+## MANTIENE esta velocidad hacia delante durante toda la anticipación y la ventana
+## activa, y solo la suelta en la recuperación.
+##
+## Es la diferencia entre un golpe que te frena en seco y uno que atraviesa. Un
+## ataque lanzado desde una carrera tiene que conservar la carrera.
+@export var estocada: bool = false
+@export_range(0.0, 40.0, 0.5) var estocada_velocidad: float = 12.0
 ## El ataque encara al objetivo cercano al empezar.
 @export var autoencarar: bool = true
 ## Cuánta velocidad de carrera conserva el jugador MIENTRAS ataca, de 0 a 1.

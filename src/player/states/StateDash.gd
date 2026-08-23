@@ -14,10 +14,13 @@ extends PlayerState
 
 var _dir: Vector3 = Vector3.ZERO
 var _era_aereo: bool = false
+## Frames seguidos pidiendo la direccion contraria. El pivote exige constancia.
+var _frames_opuesto: int = 0
 
 
 func enter(_msg: Dictionary = {}) -> void:
 	_era_aereo = not player.is_on_floor()
+	_frames_opuesto = 0
 
 	_dir = sc.direccion_movimiento(buffer.move_vector(), player.camara())
 	if _dir.is_zero_approx():
@@ -67,10 +70,16 @@ func _pivotar() -> bool:
 	if t < tuning.dash_duracion * tuning.dash_pivote_min:
 		return false
 	var entrada := buffer.move_vector()
-	if entrada.length() < 0.7:
-		return false
 	var deseada := sc.direccion_movimiento(entrada, player.camara())
-	if deseada.is_zero_approx() or deseada.dot(_dir) > tuning.dash_pivote_umbral:
+	if entrada.length() < 0.7 or deseada.is_zero_approx() or deseada.dot(_dir) > tuning.dash_pivote_umbral:
+		_frames_opuesto = 0
+		return false
+
+	# La intención tiene que SOSTENERSE. Un giro brusco de cámara cambia lo que
+	# significa "adelante" durante un frame y eso se leía como una frenada que el
+	# jugador no había pedido.
+	_frames_opuesto += 1
+	if _frames_opuesto < tuning.dash_pivote_frames:
 		return false
 
 	# Frenazo: se tira TODO el momentum del dash y se sale despacio hacia atrás.
