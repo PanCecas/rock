@@ -1,0 +1,562 @@
+<title>Biblia de ROCK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --ground:#EFE8D8;
+  --surface:#E7DECA;
+  --ink:#12180F;
+  --moss:#3E5230;
+  --muted:#7C7690;
+  --rule:rgba(18,24,15,.15);
+  --rule-soft:rgba(18,24,15,.08);
+  --accent:#2E4E8F;
+  --danger:#C8322D;
+  --gold:#B08A22;
+  --gold-swatch:#E8C86A;
+  --arch:#12180F;
+  --shadow:0 1px 0 rgba(18,24,15,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#12180F;
+    --surface:#1C2519;
+    --ink:#DCD3C0;
+    --moss:#9DB177;
+    --muted:#9A94AC;
+    --rule:rgba(220,211,192,.18);
+    --rule-soft:rgba(220,211,192,.09);
+    --accent:#7CA0DE;
+    --danger:#E2786F;
+    --gold:#E8C86A;
+    --gold-swatch:#E8C86A;
+    --arch:#070A06;
+    --shadow:0 1px 0 rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#12180F;
+  --surface:#1C2519;
+  --ink:#DCD3C0;
+  --moss:#9DB177;
+  --muted:#9A94AC;
+  --rule:rgba(220,211,192,.18);
+  --rule-soft:rgba(220,211,192,.09);
+  --accent:#7CA0DE;
+  --danger:#E2786F;
+  --gold:#E8C86A;
+  --gold-swatch:#E8C86A;
+  --arch:#070A06;
+  --shadow:0 1px 0 rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Spectral",Georgia,"Times New Roman",serif;
+  font-weight:400;
+  font-size:17px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:820px;margin:0 auto;padding:0 28px 96px;}
+
+/* ---------- type ---------- */
+h1,h2,h3{font-family:"Cinzel",Georgia,serif;font-weight:600;text-wrap:balance;margin:0;letter-spacing:.02em;}
+h1{font-size:clamp(30px,6vw,50px);line-height:1.08;}
+h2{font-size:clamp(20px,3.4vw,26px);line-height:1.2;}
+h3{font-size:16px;letter-spacing:.06em;text-transform:uppercase;}
+p{margin:0;}
+a{color:var(--accent);text-underline-offset:3px;}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px;}
+strong{font-weight:600;}
+em{font-style:italic;color:var(--muted);}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:.86em;}
+code{background:var(--rule-soft);padding:.1em .35em;border-radius:3px;}
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--muted);
+}
+.lede{font-size:19px;line-height:1.6;color:var(--ink);}
+.note{font-size:15px;color:var(--muted);line-height:1.6;}
+
+/* ---------- structure ---------- */
+section{padding-top:56px;}
+.stack{display:flex;flex-direction:column;gap:18px;}
+.stack-sm{display:flex;flex-direction:column;gap:10px;}
+.head{display:flex;flex-direction:column;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--rule);margin-bottom:26px;}
+
+/* ---------- hero ---------- */
+header{padding:56px 0 8px;display:flex;flex-direction:column;gap:26px;}
+.arch{width:100%;max-width:560px;margin:0 auto;display:block;}
+.title-block{display:flex;flex-direction:column;gap:14px;}
+
+/* ---------- pillars ---------- */
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2px;background:var(--rule);border:1px solid var(--rule);}
+.pillar{background:var(--ground);padding:20px 18px;display:flex;flex-direction:column;gap:8px;}
+.pillar .n{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--accent);letter-spacing:.1em;}
+.pillar h3{font-size:15px;text-transform:none;letter-spacing:.01em;font-family:"Cinzel",serif;}
+.pillar p{font-size:15px;line-height:1.55;color:var(--muted);}
+
+/* ---------- palette ---------- */
+.fam{display:flex;flex-direction:column;gap:12px;margin-bottom:30px;}
+.fam-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.fam-head .pct{font-family:"Cinzel",serif;font-size:26px;color:var(--accent);}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;}
+.sw{display:flex;flex-direction:column;gap:0;border:1px solid var(--rule);}
+.sw .chip{height:64px;}
+.sw .meta{padding:7px 9px;background:var(--surface);display:flex;flex-direction:column;gap:1px;}
+.sw .hex{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.03em;}
+.sw .nm{font-size:12px;color:var(--muted);line-height:1.35;}
+
+/* ---------- 60/30/10 bar ---------- */
+.ratio{display:flex;height:74px;border:1px solid var(--rule);overflow:hidden;}
+.ratio div{display:flex;align-items:flex-end;padding:8px;font-family:"JetBrains Mono",monospace;font-size:12px;}
+.r60{flex:60;background:linear-gradient(100deg,#24301C,#3E5230 42%,#5F7A3E 74%,#8CA855);color:#EFE8D8;}
+.r30{flex:30;background:linear-gradient(100deg,#B6AFC0,#DCD3C0 55%,#EFE8D8);color:#12180F;}
+.r10{flex:10;background:linear-gradient(160deg,#2E4E8F 60%,#C8322D);color:#F2F0E6;}
+
+/* ---------- rules list ---------- */
+ol.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:r;}
+ol.rules li{
+  counter-increment:r;display:grid;grid-template-columns:34px 1fr;gap:14px;
+  padding:16px 0;border-bottom:1px solid var(--rule-soft);
+}
+ol.rules li:first-child{border-top:1px solid var(--rule-soft);}
+ol.rules li::before{
+  content:counter(r,decimal-leading-zero);
+  font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);padding-top:4px;
+}
+ol.rules b{display:block;font-family:"Cinzel",serif;font-weight:600;font-size:15px;margin-bottom:3px;}
+ol.rules p{font-size:15px;line-height:1.55;color:var(--muted);}
+ol.rules .impl{margin-top:6px;font-size:14px;color:var(--ink);border-left:2px solid var(--accent);padding-left:11px;}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);}
+table{border-collapse:collapse;width:100%;min-width:440px;font-size:14.5px;}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+th{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface);}
+tr:last-child td{border-bottom:0;}
+td.num{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+/* ---------- systems ---------- */
+.sys{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px;background:var(--rule);border:1px solid var(--rule);}
+.sysbox{background:var(--ground);padding:16px;display:flex;flex-direction:column;gap:7px;}
+.sysbox .tag{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);}
+.sysbox h3{font-size:15px;text-transform:none;letter-spacing:0;}
+.sysbox p{font-size:14.5px;line-height:1.5;color:var(--muted);}
+
+/* ---------- callout ---------- */
+.callout{border:1px solid var(--rule);border-left:3px solid var(--danger);background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:8px;}
+.callout .eyebrow{color:var(--danger);}
+.callout.blue{border-left-color:var(--accent);}
+.callout.blue .eyebrow{color:var(--accent);}
+
+/* ---------- phases ---------- */
+.phases{display:flex;flex-direction:column;}
+.phase{display:grid;grid-template-columns:56px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rule-soft);}
+.phase:first-child{border-top:1px solid var(--rule);}
+.pnum{font-family:"Cinzel",serif;font-size:24px;color:var(--muted);line-height:1;padding-top:2px;}
+.phase.key .pnum{color:var(--accent);}
+.phase.done .pnum{color:var(--moss);}
+.badge{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ground);background:var(--moss);padding:2px 7px;border-radius:2px;white-space:nowrap;}
+.phase-body{display:flex;flex-direction:column;gap:6px;}
+.phase-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.phase h3{font-family:"Cinzel",serif;font-size:16px;text-transform:none;letter-spacing:.01em;}
+.dur{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted);}
+.hito{font-size:14.5px;line-height:1.5;}
+.hito b{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--moss);font-weight:400;display:block;margin-bottom:2px;}
+.phase p.desc{font-size:14.5px;color:var(--muted);line-height:1.5;}
+
+/* ---------- files ---------- */
+.files{display:flex;flex-direction:column;border:1px solid var(--rule);}
+.file{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:14px;padding:12px 15px;border-bottom:1px solid var(--rule-soft);align-items:baseline;}
+.file:last-child{border-bottom:0;}
+.file .fn{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--accent);word-break:break-all;}
+.file .fd{font-size:14.5px;color:var(--muted);}
+
+footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);}
+
+@media (max-width:560px){
+  body{font-size:16px;}
+  .wrap{padding:0 18px 72px;}
+  .file{grid-template-columns:1fr;gap:3px;}
+  .phase{grid-template-columns:38px 1fr;gap:12px;}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <svg class="arch" viewBox="0 0 560 300" role="img" aria-label="Un arco de piedra oscuro enmarca un valle de musgo bajo un cielo de crema pálida; una figura diminuta de capa azul camina hacia la luz.">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#DCD3C0"/><stop offset="55%" stop-color="#EFE8D8"/><stop offset="100%" stop-color="#E7E4CE"/>
+      </linearGradient>
+      <linearGradient id="hills" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8CA855"/><stop offset="100%" stop-color="#5F7A3E"/>
+      </linearGradient>
+      <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#B6AFC0"/><stop offset="100%" stop-color="#CFC9C2"/>
+      </linearGradient>
+      <clipPath id="aperture">
+        <path d="M170 300 L170 150 A110 110 0 0 1 390 150 L390 300 Z"/>
+      </clipPath>
+    </defs>
+    <rect x="0" y="0" width="560" height="300" fill="var(--arch)"/>
+    <g clip-path="url(#aperture)">
+      <rect x="150" y="0" width="260" height="300" fill="url(#sky)"/>
+      <path d="M150 196 L215 168 L268 188 L330 160 L410 190 L410 300 L150 300 Z" fill="url(#far)" opacity=".75"/>
+      <path d="M150 232 L206 210 L262 228 L322 204 L410 236 L410 300 L150 300 Z" fill="url(#hills)"/>
+      <path d="M150 262 L240 248 L320 262 L410 250 L410 300 L150 300 Z" fill="#3E5230"/>
+      <circle cx="243" cy="86" r="2.2" fill="#F2F0E6" opacity=".9"/>
+      <circle cx="262" cy="72" r="1.6" fill="#F2F0E6" opacity=".7"/>
+      <circle cx="298" cy="94" r="1.9" fill="#F2F0E6" opacity=".8"/>
+      <g>
+        <rect x="277" y="242" width="6" height="15" rx="3" fill="#2E4E8F"/>
+        <circle cx="280" cy="239" r="2.6" fill="#E8C86A"/>
+      </g>
+    </g>
+    <path d="M170 300 L170 150 A110 110 0 0 1 390 150 L390 300" fill="none" stroke="#9A9A8A" stroke-width="3" opacity=".5"/>
+  </svg>
+
+  <div class="title-block">
+    <p class="eyebrow">Godot 4.7 · Forward+ · Jolt</p>
+    <h1>Biblia de ROCK</h1>
+    <p class="lede">Un mundo de ruinas verdes bajo un cielo de crema pálida. No hay enemigos vagando: hay silencio, distancia y colosos. La diferencia con <em>Shadow of the Colossus</em> es que aquí <strong>tú eres rápido</strong>.</p>
+    <p class="note">Movilidad de plataformero 3D moderno, combate cuerpo a cuerpo cancelable, una lanza que al clavarse se vuelve asidero y plataforma. El coloso no es un puzzle lento: es un nivel de plataformas que se defiende.</p>
+  </div>
+</header>
+
+<section>
+  <div class="head"><p class="eyebrow">Los pilares</p><h2>Tres decisiones que mandan sobre el resto</h2></div>
+  <div class="pillars">
+    <div class="pillar">
+      <span class="n">P1</span>
+      <h3>El movimiento es el juego</h3>
+      <p>Antes de que exista un solo enemigo, moverse por un campo vacío tiene que ser divertido. Si la Fase 1 no lo consigue sin combate, el proyecto no avanza.</p>
+    </div>
+    <div class="pillar">
+      <span class="n">P2</span>
+      <h3>El coloso es arquitectura viva</h3>
+      <p>Se diseña primero como nivel de plataformas y después se le pone anatomía. Su ataque no es daño: es tirarte al suelo. Perder es perder altura.</p>
+    </div>
+    <div class="pillar">
+      <span class="n">P3</span>
+      <h3>La saturación es sagrada</h3>
+      <p>El entorno vive desaturado. El jugador y lo interactuable son lo único saturado en pantalla. El color reemplaza a la UI.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Dirección de arte</p>
+    <h2>La paleta</h2>
+    <p class="note">Extraída de la ilustración de referencia. Objetivo emocional: misterio, onírico, místico, antiguo, silencioso.</p>
+  </div>
+
+  <div class="fam">
+    <div class="fam-head"><h3>Familia A · Verde antiguo y piedra</h3><span class="pct">60%</span></div>
+    <p class="note">Las masas grandes: terreno, ruinas, arquitectura, vegetación.</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#12180F"></div><div class="meta"><span class="hex">#12180F</span><span class="nm">Verde-negro · el vacío de los arcos</span></div></div>
+      <div class="sw"><div class="chip" style="background:#24301C"></div><div class="meta"><span class="hex">#24301C</span><span class="nm">Musgo sombra</span></div></div>
+      <div class="sw"><div class="chip" style="background:#3E5230"></div><div class="meta"><span class="hex">#3E5230</span><span class="nm">Musgo medio</span></div></div>
+      <div class="sw"><div class="chip" style="background:#5F7A3E"></div><div class="meta"><span class="hex">#5F7A3E</span><span class="nm">Pasto medio</span></div></div>
+      <div class="sw"><div class="chip" style="background:#8CA855"></div><div class="meta"><span class="hex">#8CA855</span><span class="nm">Pasto al sol</span></div></div>
+      <div class="sw"><div class="chip" style="background:#B0C46B"></div><div class="meta"><span class="hex">#B0C46B</span><span class="nm">Hierba a contraluz</span></div></div>
+      <div class="sw"><div class="chip" style="background:#6E6F62"></div><div class="meta"><span class="hex">#6E6F62</span><span class="nm">Piedra en sombra</span></div></div>
+      <div class="sw"><div class="chip" style="background:#9A9A8A"></div><div class="meta"><span class="hex">#9A9A8A</span><span class="nm">Piedra media</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C3BFAC"></div><div class="meta"><span class="hex">#C3BFAC</span><span class="nm">Caliza al sol</span></div></div>
+    </div>
+  </div>
+
+  <div class="fam">
+    <div class="fam-head"><h3>Familia B · Aire, bruma y cielo</h3><span class="pct">30%</span></div>
+    <p class="note">La profundidad. Es lo que hace que se sienta de ensueño y no un bosque genérico.</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#EFE8D8"></div><div class="meta"><span class="hex">#EFE8D8</span><span class="nm">Crema bruma · el color más claro del juego</span></div></div>
+      <div class="sw"><div class="chip" style="background:#DCD3C0"></div><div class="meta"><span class="hex">#DCD3C0</span><span class="nm">Crema medio</span></div></div>
+      <div class="sw"><div class="chip" style="background:#B6AFC0"></div><div class="meta"><span class="hex">#B6AFC0</span><span class="nm">Lavanda-gris · la sombra fría</span></div></div>
+      <div class="sw"><div class="chip" style="background:#8E88A0"></div><div class="meta"><span class="hex">#8E88A0</span><span class="nm">Lavanda profundo</span></div></div>
+      <div class="sw"><div class="chip" style="background:#7EC8E3"></div><div class="meta"><span class="hex">#7EC8E3</span><span class="nm">Cian cielo · con avaricia</span></div></div>
+    </div>
+  </div>
+
+  <div class="fam">
+    <div class="fam-head"><h3>Familia C · Acentos</h3><span class="pct">10%</span></div>
+    <p class="note">Escasos por decreto. Si esto pasa del 10% del frame, el juego pierde su alma.</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#2E4E8F"></div><div class="meta"><span class="hex">#2E4E8F</span><span class="nm">Azul cobalto · la capa del jugador</span></div></div>
+      <div class="sw"><div class="chip" style="background:#4C7ACF"></div><div class="meta"><span class="hex">#4C7ACF</span><span class="nm">Azul claro · el lazo, VFX aliado</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C8322D"></div><div class="meta"><span class="hex">#C8322D</span><span class="nm">Carmesí · peligro y puntos débiles</span></div></div>
+      <div class="sw"><div class="chip" style="background:#E8C86A"></div><div class="meta"><span class="hex">#E8C86A</span><span class="nm">Oro pálido · objetivos, luz mágica</span></div></div>
+      <div class="sw"><div class="chip" style="background:#F2F0E6"></div><div class="meta"><span class="hex">#F2F0E6</span><span class="nm">Blanco tiza · pájaros, parry perfecto</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Composición</p>
+    <h2>El 60/30/10 en pantalla</h2>
+  </div>
+  <div class="stack">
+    <div class="ratio" role="img" aria-label="Barra de proporción: 60 por ciento verde y piedra, 30 por ciento crema y lavanda, 10 por ciento acentos.">
+      <div class="r60">60 · verde + piedra</div>
+      <div class="r30">30 · crema + lavanda</div>
+      <div class="r10">10</div>
+    </div>
+    <p class="note"><strong>Excepción autorizada:</strong> durante un parry perfecto o el impacto en un punto débil, el acento puede subir a ~25% del frame durante 150–300 ms. El contraste con el silencio cromático habitual es lo que hace que el combate se sienta <em>flashy</em> sin ser ruidoso.</p>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Lectura de la referencia</p>
+    <h2>Cuatro cosas que hace la ilustración</h2>
+    <p class="note">La imagen no reparte el color al azar. Cada decisión suya se traduce en una decisión de motor.</p>
+  </div>
+  <ol class="rules">
+    <li>
+      <div>
+        <b>El valor construye la composición, no el color</b>
+        <p>Los arcos son casi negros y enmarcan un centro claro. El ojo entra por el hueco.</p>
+        <p class="impl">Portales y túneles se renderizan como masas casi planas de <code>#12180F</code>. La cámara se diseña para que el jugador siempre atraviese oscuridad hacia luz.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Perspectiva aérea extrema</b>
+        <p>Todo lo lejano tiende a crema. A 300 metros el contraste es casi cero.</p>
+        <p class="impl">Niebla exponencial color <code>#EFE8D8</code> (nunca gris) con <code>fog_aerial_perspective ≈ 0.7</code>. Un coloso lejano se lee como silueta plana: ese es el momento de «qué grande es eso».</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>El croma es un recurso escaso</b>
+        <p>El único elemento saturado de la ilustración es la figura.</p>
+        <p class="impl">Medido sobre los hex reales, <strong>no hay un solo número</strong> que separe entorno de acento: el pasto al sol da 0.63 en Okhsl y el cobalto del jugador 0.65. Lo que hace destacar al jugador es que <strong>sus tonos no existen en el entorno</strong>. Regla en dos partes: techo de croma por familia (neutros ≤ 0.40, vegetación ≤ 0.66, acentos ≥ 0.65) y bandas de tono reservadas — 200–265° para el azul, 335–25° para el rojo. El oro es la excepción elegante: comparte tono con la crema y se distingue solo por croma, igual que el pelo rubio contra el cielo.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Las sombras están tintadas, no oscurecidas</b>
+        <p>No hay negro en la referencia. La sombra de la piedra es lavanda; la de la vegetación, verde profundo.</p>
+        <p class="impl">Shader con <code>shadow_tint</code>, nunca <code>albedo * 0.2</code>.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Técnico</p>
+    <h2>Los sistemas</h2>
+  </div>
+  <div class="sys">
+    <div class="sysbox">
+      <span class="tag">Fundacional</span>
+      <h3>SurfaceContext</h3>
+      <p>El jugador puede estar de pie sobre el hombro de un coloso que camina y gira. «Abajo» es una variable. El suelo estático es solo el caso <code>frame == null</code>. Si esto se parchea después, hay que reescribir el controlador entero.</p>
+    </div>
+    <div class="sysbox">
+      <span class="tag">Movimiento</span>
+      <h3>FSM jerárquica</h3>
+      <p>Grounded / Airborne / Attached / Combat / Special. Cada estado es un nodo con sus transiciones declaradas. Coyote time, jump buffer, jump cut, ledge assist y dash correction: el perdón es lo que separa un plataformero bueno de uno roto.</p>
+    </div>
+    <div class="sysbox">
+      <span class="tag">Combate</span>
+      <h3>AttackData + Hitstop</h3>
+      <p>Cada ataque es un <code>.tres</code>, nunca código. El hitstop congela el AnimationTree del atacante y del receptor, nunca <code>Engine.time_scale</code> — eso se siente como lag.</p>
+    </div>
+    <div class="sysbox">
+      <span class="tag">Combate</span>
+      <h3>Ventanas de cancelación</h3>
+      <p>Lo flashy no viene de las animaciones, viene de poder cancelar. Y una regla lo cambia todo: conectar un golpe en el aire restaura una carga de dash. Eso convierte el combate en un juego de mantenerte arriba.</p>
+    </div>
+    <div class="sysbox">
+      <span class="tag">Traversal</span>
+      <h3>RopeSystem</h3>
+      <p>Zip, swing y pull según lo que apuntes. El balanceo es restricción analítica, no un joint de física: proyectas al radio y eliminas la componente radial de la velocidad. La cuerda visual sí puede ser verlet cosmético.</p>
+    </div>
+    <div class="sysbox">
+      <span class="tag">Boss</span>
+      <h3>ShakeDirector</h3>
+      <p>No sacude al azar. Mide dónde estás, cuánta stamina te queda y cuánto llevas escalando. Tiene que fallar a propósito: el objetivo es que <em>casi</em> te caigas.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">El arma que define el juego</p>
+    <h2>La lanza</h2>
+  </div>
+  <div class="stack">
+    <p>Máquina de estados propia: <code class="mono">Holstered → Wielded → InFlight → Embedded → Returning</code>. Empuñada cambia el moveset entero. Apuntar en el aire baja el <code>time_scale</code> local a 0.35 con coste de stamina.</p>
+    <div class="callout blue">
+      <p class="eyebrow">Clavada · el estado que importa</p>
+      <p>Al impactar en superficie válida se reparenta al hueso o superficie, hereda su <code>SurfaceContext</code>, y registra <strong>a la vez</strong> un <code>ClimbAnchor</code> (te enganchas con el lazo o te agarras a mano) y una <code>PlatformSurface</code> de 0.4 m: <strong>te puedes parar encima</strong>. Si se clavó en un coloso, es un asidero permanente aunque se sacuda.</p>
+      <p class="note">La tiras alto, subes por el lazo, te paras encima, la recuperas y repites. Ese es el bucle de escalada del juego.</p>
+    </div>
+    <div class="callout">
+      <p class="eyebrow">Límite de diseño</p>
+      <p>Hay <strong>una sola lanza</strong>. La escasez es la mecánica: decidir dónde la clavas es una decisión táctica, no un recurso que se gasta.</p>
+    </div>
+    <p class="note">La recuperación vuelve por una curva Bezier hacia la mano, no en línea recta —se ve mucho mejor—, y tiene <code>catch_window</code>: atraparla en el momento justo da un frame de invulnerabilidad y encadena directo a un thrust.</p>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Producción</p>
+    <h2>Animación por tiers</h2>
+    <p class="note">~205 clips para el protagonista. Prohibido animar T1 antes de cerrar T0.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Sistema</th><th>Clips</th><th>Tier</th></tr></thead>
+      <tbody>
+        <tr><td>Locomoción</td><td class="num">22</td><td>T0</td></tr>
+        <tr><td>Aire y salto</td><td class="num">16</td><td>T0</td></tr>
+        <tr><td>Planeo (la capa)</td><td class="num">10</td><td>T0</td></tr>
+        <tr><td>Dash</td><td class="num">11</td><td>T0</td></tr>
+        <tr><td>Deslizamiento y pared</td><td class="num">12</td><td>T0 / T1</td></tr>
+        <tr><td>Bordes y escalada</td><td class="num">24</td><td>T0</td></tr>
+        <tr><td>Combate — espada</td><td class="num">30</td><td>T0 / T1</td></tr>
+        <tr><td>Lanza</td><td class="num">20</td><td>T0</td></tr>
+        <tr><td>Lazo / gancho</td><td class="num">14</td><td>T1</td></tr>
+        <tr><td>Arco</td><td class="num">8</td><td>T1</td></tr>
+        <tr><td>Reacciones y daño</td><td class="num">16</td><td>T0 / T1</td></tr>
+        <tr><td>Coloso — interacción</td><td class="num">12</td><td>T0</td></tr>
+        <tr><td>Mundo y cinemática</td><td class="num">10</td><td>T2</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:14px"><strong>Regla de oro:</strong> nunca se anima un clip de combate antes de que exista su <code>AttackData</code> y se haya probado con una cápsula gris. El feel se afina con cubos; el arte solo lo viste.</p>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Roadmap</p>
+    <h2>Ocho fases, ocho hitos</h2>
+    <p class="note">Cada fase termina en algo jugable y verificable. Si el hito no se cumple, no se pasa de fase.</p>
+  </div>
+  <div class="phases">
+    <div class="phase done">
+      <span class="pnum">0</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Cimientos</h3><span class="badge">hecha</span></div>
+        <p class="desc">Los 4 autoloads, Palette y PlayerTuning como Resources con recarga en caliente, input map de 27 acciones, InputBuffer, WorldMood, Gym generado por código, DebugOverlay.</p>
+        <p class="hito"><b>Hito cumplido</b>Una cápsula cobalto se mueve por el Gym, es lo único saturado del encuadre, el horizonte se disuelve en crema y el sol proyecta sombras tintadas.</p>
+      </div>
+    </div>
+    <div class="phase key">
+      <span class="pnum">1</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>El juguete de movimiento</h3><span class="dur">3–4 semanas</span></div>
+        <p class="desc">SurfaceContext, FSM, salto con todos los perdones, dash, planeo, deslizamiento, wall-run, bordes, escalada, stamina, cámara.</p>
+        <p class="hito"><b>Hito · el único filtro real del proyecto</b>Monta una carrera de obstáculos y crónometrate. Si te apetece repetirla para bajar el tiempo, sigue. Si no, para.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <span class="pnum">2</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Combate</h3><span class="dur">3–4 semanas</span></div>
+        <p class="desc">HitBox, AttackData, hitstop, cancelaciones, parry, esquiva, poise, targeting, tres Guardianes de Ruina.</p>
+        <p class="hito"><b>Hito</b>Grábate 30 s peleando contra tres cápsulas. Si el vídeo se ve bien sin arte, el combate funciona.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <span class="pnum">3</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Lanza y lazo</h3><span class="dur">2–3 semanas</span></div>
+        <p class="desc">SpearSystem completo, lanza clavada como ancla y plataforma, pértiga, RopeSystem, arco.</p>
+        <p class="hito"><b>Hito</b>Subir una torre de 60 metros sin tocar una escalera.</p>
+      </div>
+    </div>
+    <div class="phase key">
+      <span class="pnum">4</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Coloso #1 · el vertical slice</h3><span class="dur">4–6 semanas</span></div>
+        <p class="desc">Primero el ColossusTestRoom y validar SurfaceContext sobre superficie móvil. Luego GripSurface, WeakPoint, fases, ShakeDirector, FramingDirector.</p>
+        <p class="hito"><b>Hito</b>Un desconocido lo derrota sin que le expliques nada, y al terminar dice «qué grande era».</p>
+      </div>
+    </div>
+    <div class="phase">
+      <span class="pnum">5</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>La estética</h3><span class="dur">3 semanas · solapable</span></div>
+        <p class="desc">Shader de bandas con sombra tintada, desaturación por profundidad, overlay de pinceladas a 12 fps, niebla, hierba, pájaros, VFX.</p>
+        <p class="hito"><b>Hito</b>Un pantallazo cualquiera pasa el test de aceptación estético sin retoques.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <span class="pnum">6</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Contenido</h3><span class="dur">12–20 semanas</span></div>
+        <p class="desc">Colosos #2 a #5, tres o cuatro zonas con su propia Palette y su landmark, la Sombra, animaciones T1, audio, guardado, progresión.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <span class="pnum">7</span>
+      <div class="phase-body">
+        <div class="phase-top"><h3>Pulido</h3><span class="dur">4–6 semanas</span></div>
+        <p class="desc">Game feel pass a 1/4 de velocidad en cada transición, accesibilidad, rendimiento con presupuesto de 16 ms, animaciones T2, build.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Qué construir literalmente primero</p>
+    <h2>Orden de ataque</h2>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>#</th><th>Tarea</th><th>Tiempo</th><th>Por qué ahora</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>Carpetas, autoloads y Palette</td><td class="num">1 día</td><td>Todo lo demás cuelga de aquí</td></tr>
+        <tr><td class="num">2</td><td>Gym gris + WorldEnvironment con niebla</td><td class="num">1 día</td><td>Ya se ve bonito, y eso motiva</td></tr>
+        <tr><td class="num">3</td><td>InputBuffer + DebugOverlay</td><td class="num">1 día</td><td>Te ahorra semanas después</td></tr>
+        <tr><td class="num">4</td><td>FSM vacía con Idle, Move y Fall</td><td class="num">2 días</td><td>El esqueleto del controlador</td></tr>
+        <tr><td class="num">5</td><td>Salto con todos los perdones</td><td class="num">2 días</td><td>Es el 50% del feel</td></tr>
+        <tr><td class="num">6</td><td>SurfaceContext</td><td class="num">2 días</td><td>No lo pospongas: después cuesta el controlador entero</td></tr>
+        <tr><td class="num">7</td><td>Dash → planeo → slide → bordes</td><td class="num">2 semanas</td><td>Los verbos que hacen el juego</td></tr>
+        <tr><td class="num">8</td><td>Hito 1: la carrera de obstáculos</td><td class="num">—</td><td>El filtro</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <p class="eyebrow">Repositorio</p>
+    <h2>Los documentos</h2>
+    <p class="note">Todo vive en <code>C:\Jueguitos Sexas\rock</code>. Claude Code los lee como fuente de verdad.</p>
+  </div>
+  <div class="files">
+    <div class="file"><span class="fn">CLAUDE.md</span><span class="fd">Contexto del proyecto y las nueve reglas duras del código.</span></div>
+    <div class="file"><span class="fn">PROMPT_CLAUDE_CODE.md</span><span class="fd">El prompt maestro más uno por fase, listos para pegar.</span></div>
+    <div class="file"><span class="fn">docs/00_VISION.md</span><span class="fd">Pilares, bucle de juego y lo que el juego no es.</span></div>
+    <div class="file"><span class="fn">docs/01_DIRECCION_ARTE.md</span><span class="fd">Paleta con hex exactos, el 60/30/10, shaders, post-proceso y el test de aceptación.</span></div>
+    <div class="file"><span class="fn">docs/02_PIPELINE_PERSONAJES_ANIM.md</span><span class="fd">Rig, ~205 clips por tiers, animación de colosos, concept art y reglas de export.</span></div>
+    <div class="file"><span class="fn">docs/03_ARQUITECTURA_MECANICAS.md</span><span class="fd">Arquitectura completa: SurfaceContext, FSM, combate, lanza, lazo, colosos, cámara.</span></div>
+    <div class="file"><span class="fn">docs/04_ROADMAP.md</span><span class="fd">Las ocho fases con sus checklists y sus hitos.</span></div>
+    <div class="file"><span class="fn">tools/</span><span class="fd">Gym generado por código, smoke test, medidor de paleta y capturador sin editor.</span></div>
+  </div>
+</section>
+
+<footer>
+  <p class="note">Diseña cada coloso primero como un nivel de plataformas estático. Constrúyelo, juégalo con la estatua quieta. Solo cuando eso sea divertido, ponla a caminar. Si no funciona quieta, no va a funcionar en movimiento.</p>
+</footer>
+
+</div>

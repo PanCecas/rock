@@ -1,0 +1,28 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://src/art/WorldMood.gd" id="1_mood"]
+[ext_resource type="Resource" path="res://content/data/default_palette.tres" id="2_palette"]
+[ext_resource type="Script" path="res://tools/Gym.gd" id="3_gym"]
+[ext_resource type="PackedScene" path="res://src/player/Player.tscn" id="4_player"]
+[ext_resource type="PackedScene" path="res://src/camera/CameraRig.tscn" id="5_camera"]
+
+[node name="Main" type="Node3D"]
+
+[node name="Sol" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.642788, 0.406153, -0.649519, 0, 0.848048, 0.529919, 0.766044, -0.340719, 0.544895, 0, 30, 0)
+shadow_enabled = true
+
+[node name="WorldMood" type="WorldEnvironment" parent="."]
+script = ExtResource("1_mood")
+palette = ExtResource("2_palette")
+sol_path = NodePath("../Sol")
+
+[node name="Gym" type="Node3D" parent="."]
+script = ExtResource("3_gym")
+palette = ExtResource("2_palette")
+
+[node name="Player" parent="." instance=ExtResource("4_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
+
+[node name="CameraRig" parent="." instance=ExtResource("5_camera")]
+objetivo_path = NodePath("../Player")

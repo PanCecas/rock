@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/camera/CameraRig.gd" id="1_rig"]
+[ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="2_tuning"]
+
+[node name="CameraRig" type="Node3D"]
+script = ExtResource("1_rig")
+tuning = ExtResource("2_tuning")
+
+[node name="Brazo" type="SpringArm3D" parent="."]
+spring_length = 6.5
+margin = 0.35
+
+[node name="Camara" type="Camera3D" parent="Brazo"]
+current = true
+fov = 62.0
+far = 900.0
