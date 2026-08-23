@@ -101,6 +101,17 @@ func time_since(accion: StringName) -> float:
 	return INF if ultima < 0.0 else _tiempo - ultima
 
 
+## Tira TODAS las pulsaciones pendientes de una acción.
+##
+## Es lo que garantiza "1 pulsación = 1 salto": tras saltar, cualquier pulsación
+## que siguiera viva en la ventana deja de contar. Sin esto, machacar el botón
+## acumulaba saltos que salían solos al aterrizar.
+func invalidar(accion: StringName) -> void:
+	var ultima := _ultima(accion)
+	if ultima >= 0.0:
+		_consumidas[accion] = ultima
+
+
 ## Vacía el buffer. Se llama al respawnear o al entrar en cinemática.
 func clear() -> void:
 	_entradas.clear()

@@ -25,6 +25,7 @@ hitstop = 0.07
 shake = 0.6
 estocada = true
 estocada_velocidad = 14.0
+overshoot = 9.0
 frame_cadena = 10
 color_vfx = &"azul_claro"
 siguiente = ExtResource("2_n")

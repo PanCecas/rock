@@ -19,7 +19,7 @@ func enter(msg: Dictionary = {}) -> void:
 	player.set_altura_colision(0.55)
 
 
-func exit() -> void:
+func exit(_siguiente: StringName = &"") -> void:
 	player.set_altura_colision(1.0)
 
 
@@ -41,7 +41,7 @@ func physics_update(delta: float) -> void:
 	motor.set_vertical(-2.0)
 
 	# Saltar desde un slide da altura extra: es el combo que hace el sistema divertido.
-	if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.consumir_salto():
 		fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.slide_salto_extra})
 		return
 

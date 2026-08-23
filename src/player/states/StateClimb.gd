@@ -15,8 +15,8 @@ func enter(_msg: Dictionary = {}) -> void:
 	sc.set_frame(player.pared.colisionador)
 
 
-func exit() -> void:
-	if fsm.actual != null and fsm.actual.categoria != &"Attached":
+func exit(siguiente: StringName = &"") -> void:
+	if not fsm.es_categoria(siguiente, &"Attached"):
 		sc.set_frame(null)
 
 
@@ -54,7 +54,7 @@ func physics_update(delta: float) -> void:
 	player.global_position -= sc.plano(_normal).normalized() * 0.6 * delta
 
 	# Salto de escalada: te despegas hacia donde apuntas.
-	if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.consumir_salto():
 		if player.stamina.gastar(tuning.stamina_escalar * 2.0):
 			var salida := sc.plano(_normal).normalized()
 			motor.impulso(salida, tuning.walljump_lateral * 0.7)

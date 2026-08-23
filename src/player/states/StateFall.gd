@@ -22,7 +22,7 @@ func physics_update(delta: float) -> void:
 	if _coyote > 0.0:
 		_coyote -= delta
 		# Salto de suelo tardío: no gasta el salto aéreo.
-		if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+		if player.consumir_salto():
 			fsm.cambiar(&"Jump", {"numero": 1})
 			return
 

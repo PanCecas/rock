@@ -100,7 +100,7 @@ func _cancelaciones() -> bool:
 			return true
 	if player.saltos_aereos > 0 and buffer.peek(InputActions.JUMP, tuning.jump_buffer):
 		if g.puede_cancelar(&"jump", _datos, _frame, _conectado):
-			buffer.consume(InputActions.JUMP, tuning.jump_buffer)
+			player.consumir_salto()
 			player.saltos_aereos -= 1
 			fsm.cambiar(&"Jump", {"numero": 2})
 			return true

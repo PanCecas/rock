@@ -49,6 +49,9 @@ var tiempo_sin_borde: float = 0.0
 var tiempo_en_aire: float = 0.0
 ## Velocidad vertical del último frame antes de tocar suelo, para el aterrizaje duro.
 var impacto_ultimo: float = 0.0
+## Saltar desde el surf no lo cancela: al aterrizar se recupera si esto sigue vivo.
+var surf_pendiente: float = 0.0
+var surf_rapidez: float = 0.0
 
 var _coyote: float = 0.0
 var _alabeo: float = 0.0
@@ -56,6 +59,7 @@ var _altura_base: float = 1.8
 var _giro_objetivo: float = 0.0
 var _tiene_giro: bool = false
 var _bloqueo_control: float = 0.0
+var _cooldown_salto: float = 0.0
 var _pos_anterior: Vector3 = Vector3.ZERO
 var _atascado: float = 0.0
 
@@ -107,6 +111,8 @@ func _physics_process(delta: float) -> void:
 
 	# 3) La FSM escribe en velocity.
 	fsm.physics_update(delta)
+
+	_limitar_velocidad()
 
 	# 4) Un único move_and_slide por frame, aquí y en ningún otro sitio.
 	var en_suelo_antes := is_on_floor()
@@ -166,6 +172,8 @@ func _avanzar_relojes(delta: float) -> void:
 	iframes = maxf(0.0, iframes - delta)
 	tiempo_sin_borde = maxf(0.0, tiempo_sin_borde - delta)
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
+	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
+	surf_pendiente = maxf(0.0, surf_pendiente - delta)
 	if is_on_floor():
 		_coyote = tuning.coyote_time
 		tiempo_en_aire = 0.0
@@ -175,6 +183,34 @@ func _avanzar_relojes(delta: float) -> void:
 
 
 # --- Servicios para los estados ----------------------------------------------
+
+## CLAMP DURO de la velocidad horizontal, en el último punto antes de mover.
+##
+## El juego premia encadenar momentum, pero encadenar sin techo termina sacando al
+## jugador del mapa. El límite va aquí y no en cada estado: un solo sitio, imposible
+## de olvidar al añadir el siguiente verbo.
+func _limitar_velocidad() -> void:
+	var plano := superficie.plano(velocity)
+	var rapidez := plano.length()
+	if rapidez > tuning.velocidad_maxima:
+		velocity = plano * (tuning.velocidad_maxima / rapidez) + superficie.up * superficie.vertical(velocity)
+
+
+## PUERTA ÚNICA DEL SALTO. Todos los saltos pasan por aquí, sin excepción.
+##
+## Garantiza "1 pulsación = 1 salto": al consumir la pulsación se invalida
+## cualquier otra que siguiera viva en la ventana, y un cooldown corto impide que
+## machacar el botón produzca más saltos que intenciones. Antes cada estado
+## consumía por su cuenta y el spam encadenaba saltos que no se habían pedido.
+func consumir_salto() -> bool:
+	if _cooldown_salto > 0.0:
+		return false
+	if not buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+		return false
+	buffer.invalidar(InputActions.JUMP)
+	_cooldown_salto = tuning.salto_intervalo_min
+	return true
+
 
 ## Recarga lo que se recupera al tocar suelo o al hacer wall-jump.
 func recargar_aire() -> void:

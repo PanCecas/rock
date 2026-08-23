@@ -10,6 +10,7 @@ var _frame: int = 0
 var _conectado: bool = false
 var _dir: Vector3 = Vector3.ZERO
 var _indice: int = 1
+var _overshoot_hecho: bool = false
 
 
 func enter(msg: Dictionary = {}) -> void:
@@ -17,6 +18,7 @@ func enter(msg: Dictionary = {}) -> void:
 	_indice = int(msg.get("indice", 1))
 	_frame = 0
 	_conectado = false
+	_overshoot_hecho = false
 
 	_dir = _direccion_ataque()
 	player.orientar_a(_dir)
@@ -40,6 +42,14 @@ func physics_update(delta: float) -> void:
 	if _datos.activo_en(_frame):
 		if player.hitbox.golpear(_datos, _dir) > 0:
 			_al_conectar()
+	elif not _overshoot_hecho and _datos.overshoot > 0.0 and _frame > _datos.frames_windup:
+		# OVERSHOOT: al cerrarse la ventana activa, un empujon extra que te lleva
+		# AL OTRO LADO del objetivo. Es lo que convierte la estocada en un corte:
+		# atraviesas en vez de quedarte clavado delante.
+		# SUMA sobre lo que ya llevas: fijar la velocidad al valor del overshoot
+		# frenaba la estocada en vez de empujarla. El clamp global pone el techo.
+		_overshoot_hecho = true
+		motor.impulso(_dir, motor.rapidez_plana() + _datos.overshoot)
 
 	if _cancelaciones():
 		return
@@ -52,7 +62,14 @@ func physics_update(delta: float) -> void:
 			return
 
 	if _frame >= _datos.total_frames():
-		fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
+		# Tras un corte se sale EN COMBATE, no parado: si hay objetivo se vuelve a
+		# locomocion con el soft-lock vivo, que es lo que mantiene el modo de
+		# camara Combat y deja el siguiente golpe a un clic.
+		var hay_objetivo := player.targeting.objetivo() != null
+		if buffer.move_vector().length() > 0.2 or hay_objetivo:
+			fsm.cambiar(&"Move")
+		else:
+			fsm.cambiar(&"Idle")
 
 
 ## El ataque encara al objetivo del soft-lock si lo hay; si no, a donde apuntes.
@@ -126,8 +143,7 @@ func _cancelaciones() -> bool:
 			return true
 
 	if buffer.peek(InputActions.JUMP, tuning.jump_buffer):
-		if g.puede_cancelar(&"jump", _datos, _frame, _conectado):
-			buffer.consume(InputActions.JUMP, tuning.jump_buffer)
+		if g.puede_cancelar(&"jump", _datos, _frame, _conectado) and player.consumir_salto():
 			fsm.cambiar(&"Jump", {"numero": 1})
 			return true
 

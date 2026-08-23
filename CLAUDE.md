@@ -38,6 +38,10 @@ plataformas en movimiento.
 10. **Exports a nodos siempre como `NodePath` + `get_node_or_null()`**, nunca
     `@export var x: Node3D`. Los exports tipados a Node no se resuelven al
     instanciar la escena y dejan la referencia en null sin avisar.
+11. **Todos los saltos pasan por `PlayerController.consumir_salto()`.** Es la
+    unica puerta: garantiza 1 pulsacion = 1 salto y corta el spam.
+12. **La velocidad horizontal se limita en un solo sitio** (`_limitar_velocidad()`,
+    justo antes de `move_and_slide`). Nunca en un estado.
 
 ## Autoloads
 `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.

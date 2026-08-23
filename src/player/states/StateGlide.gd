@@ -16,7 +16,7 @@ func enter(_msg: Dictionary = {}) -> void:
 	EventBus.player_glide_toggled.emit(true)
 
 
-func exit() -> void:
+func exit(_siguiente: StringName = &"") -> void:
 	_alabeo = 0.0
 	player.set_alabeo(0.0)
 	EventBus.player_glide_toggled.emit(false)

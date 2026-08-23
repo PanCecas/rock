@@ -69,6 +69,10 @@ const FPS := 60.0
 ## ataque lanzado desde una carrera tiene que conservar la carrera.
 @export var estocada: bool = false
 @export_range(0.0, 40.0, 0.5) var estocada_velocidad: float = 12.0
+## OVERSHOOT: empujon extra al cerrarse la ventana activa. Convierte la estocada
+## en un CORTE que atraviesa al objetivo y te deja al otro lado, en vez de
+## quedarte clavado delante de el.
+@export_range(0.0, 40.0, 0.5) var overshoot: float = 0.0
 ## El ataque encara al objetivo cercano al empezar.
 @export var autoencarar: bool = true
 ## Cuánta velocidad de carrera conserva el jugador MIENTRAS ataca, de 0 a 1.

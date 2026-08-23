@@ -67,6 +67,12 @@ func physics_update(delta: float) -> void:
 ##
 ## Devuelve true si ha pivotado (y por tanto el dash ya no debe seguir).
 func _pivotar() -> bool:
+	# SOLO EN SUELO. Frenar en seco es una maniobra de pies: en el aire no hay de
+	# donde agarrarse y clavarse a media trayectoria rompe la inercia, que es
+	# justo lo que el juego premia conservar.
+	if not player.is_on_floor():
+		_frames_opuesto = 0
+		return false
 	if t < tuning.dash_duracion * tuning.dash_pivote_min:
 		return false
 	var entrada := buffer.move_vector()

@@ -20,8 +20,9 @@ func enter(_msg: Dictionary = {}) -> void:
 	sc.set_frame(player.borde.colisionador)
 
 
-func exit() -> void:
-	if fsm.actual != null and fsm.actual.categoria != &"Attached":
+func exit(siguiente: StringName = &"") -> void:
+	# Soltar el marco solo si de verdad dejamos de estar agarrados.
+	if not fsm.es_categoria(siguiente, &"Attached"):
 		sc.set_frame(null)
 
 
@@ -39,7 +40,7 @@ func physics_update(delta: float) -> void:
 	# Saltar DESDE el canto. Sin input sales hacia arriba; con input, hacia donde
 	# apuntes. Y se recarga el aire, así que encadenas el doble salto en el vacío:
 	# es la maniobra que abre las rutas verticales del juego.
-	if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.consumir_salto():
 		_saltar_del_canto(entrada)
 		return
 

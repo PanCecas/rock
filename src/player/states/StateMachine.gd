@@ -79,7 +79,7 @@ func cambiar(nombre: StringName, msg: Dictionary = {}, reentrar: bool = false) -
 	var siguiente: PlayerState = _estados[nombre]
 	anterior = actual.name if actual != null else &""
 	if actual != null:
-		actual.exit()
+		actual.exit(nombre)
 	actual = siguiente
 	actual.t = 0.0
 	_cambio_pendiente = true
@@ -87,6 +87,17 @@ func cambiar(nombre: StringName, msg: Dictionary = {}, reentrar: bool = false) -
 	if actual.grupo != null:
 		actual.grupo.on_enter_hijo(actual)
 	EventBus.player_state_changed.emit(anterior, nombre)
+
+
+## ¿El estado `nombre` pertenece a `cat`? Se pregunta por nombre para poder
+## consultar un estado al que todavía no hemos entrado.
+func es_categoria(nombre: StringName, cat: StringName) -> bool:
+	var e: PlayerState = _estados.get(nombre)
+	return e != null and e.categoria == cat
+
+
+func es_aereo(nombre: StringName) -> bool:
+	return es_categoria(nombre, &"Airborne")
 
 
 func en_categoria(cat: StringName) -> bool:

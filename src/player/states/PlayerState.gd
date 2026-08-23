@@ -40,7 +40,11 @@ func enter(_msg: Dictionary = {}) -> void:
 	pass
 
 
-func exit() -> void:
+## `siguiente` es el estado al que se va. Se pasa como parámetro porque la FSM
+## llama a exit() ANTES de reasignar `fsm.actual`: preguntarle ahí por el destino
+## devolvía el estado que se está abandonando, y las comprobaciones de "¿me voy al
+## aire?" o "¿sigo agarrado?" nunca se cumplían.
+func exit(_siguiente: StringName = &"") -> void:
 	pass
 
 

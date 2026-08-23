@@ -177,6 +177,23 @@ dice "qué grande era". Ese es el test.
   jugador lo pidiera. El pivote exige ahora intencion sostenida
   (`dash_pivote_frames`).
 
+### Correccion 2.5 — salto, momentum y frenada
+- **Puerta unica del salto** en el controlador: consumir una pulsacion invalida
+  las demas y hay intervalo minimo entre saltos. 1 pulsacion = 1 salto.
+- **Clamp duro** de velocidad horizontal justo antes de mover. En un solo sitio a
+  proposito: imposible de olvidar al anadir el siguiente verbo.
+- El ataque de dash es un **corte con overshoot**: te lleva al otro lado del
+  objetivo y sales en combate, no parado.
+- El **surf sobrevive al salto** (`surf_persistencia`) y al salir se sale
+  corriendo.
+- El **pivote solo existe en suelo**. Frenar en seco es una maniobra de pies.
+
+Bug encontrado de paso, y de los caros: `StateMachine` llamaba a `exit()` ANTES
+de reasignar `actual`, asi que cualquier estado que preguntara por su destino
+desde `exit()` recibia su propio nombre. Afectaba a `StateLedgeHang` y
+`StateClimb`, que por eso nunca soltaban el marco del `SurfaceContext`. Ahora
+`exit()` recibe el destino como parametro.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

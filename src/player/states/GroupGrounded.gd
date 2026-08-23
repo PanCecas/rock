@@ -11,7 +11,7 @@ func shared_update(delta: float) -> void:
 	player.recargar_aire()
 
 	# El salto se pregunta desde el buffer, nunca desde Input directamente.
-	if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.consumir_salto():
 		fsm.cambiar(&"Jump", {"numero": 1})
 		return
 

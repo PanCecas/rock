@@ -17,7 +17,7 @@ func enter(_msg: Dictionary = {}) -> void:
 	player.orientar_a(_dir)
 
 
-func exit() -> void:
+func exit(_siguiente: StringName = &"") -> void:
 	player.set_alabeo(0.0)
 
 
@@ -41,7 +41,7 @@ func physics_update(delta: float) -> void:
 	# Inclinar el cuerpo hacia la pared: el alabeo es lo que lo hace legible.
 	player.set_alabeo(float(_lado) * 22.0)
 
-	if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.consumir_salto():
 		# Saltar de un wall-run sale más fuerte y más hacia delante que de un
 		# wall-slide: llevas velocidad y el salto tiene que respetarla.
 		player.saltar_de_pared(1.12)

@@ -24,6 +24,7 @@ func _ready() -> void:
 	_main = load("res://content/levels/Main.tscn").instantiate()
 	add_child(_main)
 	_p = _main.get_node("Player") as PlayerController
+	EventBus.player_jumped.connect(func(_n: int) -> void: _saltos_contados += 1)
 	EventBus.player_state_changed.connect(
 		func(a: StringName, n: StringName) -> void:
 			_visitados[n] = true
@@ -212,14 +213,21 @@ func _construir_guion() -> void:
 		# --- Correccion 2.3: dash -> surf -> correr ---------------------------
 		# Al Gym: 70x70 de suelo. En la arena (32 m) el surf se salia por la pared
 		# antes de terminar la comprobacion y el fallo no decia nada del surf.
-		_paso_("carrerilla surf", 0.2, func() -> void:
+		# Asentar en el suelo SIN input: un paso anterior pudo dejar al jugador en
+		# el aire, y Dash lanzado en el aire sale a Fall, no a Surf.
+		_paso_("asentar antes del dash", 0.35, func() -> void:
 			_soltar_todo()
 			_reponer()
 			_p.global_position = Vector3(0.0, 0.3, 0.0)
-			_p.fsm.cambiar(&"Idle")
-			_pulsar(&"move_forward"), &"Move"),
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle"), &"Idle"),
+		# Sin input de movimiento el pivote es imposible (`entrada.length() < 0.7`),
+		# asi que esta comprobacion mide el dash y no hacia donde mira la camara.
 		_chequeo_("dash con Shift -> Surf", 0.25,
-			func() -> void: _pulsar(&"dash"),
+			func() -> void:
+				_soltar_todo()
+				_pulsar(&"dash")
+				_p.fsm.cambiar(&"Dash"),
 			func() -> bool: return _visitados.has(&"Surf") and _p.motor.rapidez_plana() > _p.tuning.velocidad_sprint,
 			"manteniendo Shift el dash debe desembocar en Surf por encima del sprint"),
 		# El surf ya NO caduca: se sostiene mientras se mantenga Shift. Se entra al
@@ -300,6 +308,58 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.motor.rapidez_plana() > _p.tuning.velocidad_correr - 0.8,
 			"manteniendo la direccion debe acabar corriendo"),
 
+		# --- Correccion 2.5 ----------------------------------------------------
+		# 1 pulsacion = 1 salto. Machacar el boton no puede acumular saltos.
+		_chequeo_("spam de salto no acumula", 0.5,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 0.05, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle")
+				_saltos_contados = 0
+				_spam_salto = 18,
+			func() -> bool: return _saltos_contados <= 2,
+			"machacar salto solo debe dar el salto y el doble salto, no mas"),
+
+		# El clamp impide que encadenar momentum saque al jugador del mapa.
+		_chequeo_("clamp de velocidad", 0.3,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 0.05, 0.0)
+				_p.fsm.cambiar(&"Idle")
+				_p.velocity = Vector3(80.0, 0.0, 0.0),
+			func() -> bool: return _p.motor.rapidez_plana() <= _p.tuning.velocidad_maxima + 0.1,
+			"la velocidad horizontal nunca debe superar velocidad_maxima"),
+
+		# El frenazo de Mario 64 es una maniobra de pies: en el aire, nunca.
+		_chequeo_("no se frena en el aire", 0.35,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 8.0, 0.0)
+				_p.velocity = Vector3(10.0, 0.0, 0.0)
+				_p.fsm.cambiar(&"Dash")
+				_pulsar(&"move_back"),
+			func() -> bool: return not _visitados.has(&"__pivote_aereo"),
+			"el pivote no debe existir en el aire"),
+
+		# Saltar desde el surf no cuesta la linea rapida.
+		_paso_("asentar para surf", 0.25, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO, &"Idle"),
+		_paso_("surfear y saltar", 0.35, func() -> void:
+			_pulsar(&"dash")
+			_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0})
+			_esperar_salto = 6, &"Jump"),
+		_chequeo_("el surf sobrevive al salto", 0.9,
+			func() -> void: pass,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Surf",
+			"al aterrizar con Shift mantenido debe volver a surfear"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
@@ -322,6 +382,9 @@ func _construir_guion() -> void:
 var _vida_antes: float = 0.0
 var _esperar_frames: int = 0
 var _esperar_ataque: int = 0
+var _esperar_salto: int = 0
+var _spam_salto: int = 0
+var _saltos_contados: int = 0
 var _aux: float = 0.0
 var _pos_antes: Vector3 = Vector3.ZERO
 var _dist_sin_input: float = 0.0
@@ -343,6 +406,17 @@ func _physics_process(delta: float) -> void:
 		_esperar_frames -= 1
 		if _esperar_frames == 0:
 			_pulsar(&"dash")
+	if _esperar_salto > 0:
+		_esperar_salto -= 1
+		if _esperar_salto == 0:
+			_pulsar(&"jump")
+	# Machaca el boton un frame si y otro no, que es como se spamea de verdad.
+	if _spam_salto > 0:
+		_spam_salto -= 1
+		if _spam_salto % 2 == 0:
+			_pulsar(&"jump")
+		else:
+			_soltar(&"jump")
 	if _esperar_ataque > 0:
 		_esperar_ataque -= 1
 		if _esperar_ataque == 0:

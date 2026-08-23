@@ -297,3 +297,48 @@ que con Shift el dash entra en Surf por encima del sprint, que el Surf entrega a
 Move al agotarse, que sin Shift NO entra en Surf, y que el ataque de dash conecta
 cerrando distancia. Y pasa la regresión de tools/TestFase1.tscn.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.5 — salto estricto, momentum con techo y frenada de pies
+
+```
+Corrección de físicas, salto y combate en ROCK. Lee CLAUDE.md y
+docs/03_ARQUITECTURA_MECANICAS.md antes de tocar nada. Todos los números nuevos
+van expuestos en PlayerTuning.tres o en un AttackData .tres, nunca en un .gd.
+
+1. EL SALTO NO RESPONDE BIEN
+Tiene que ser estricto: 1 pulsación = 1 salto, 2 pulsaciones = doble salto, y se
+acabó. Machacar el botón no puede acumular saltos ni producir comportamientos
+erráticos. La causa es que cada estado consume la pulsación por su cuenta y una
+pulsación puede sobrevivir en el buffer para disparar un segundo salto.
+Solución: una PUERTA ÚNICA en el controlador por la que pasan todos los saltos.
+Al consumir una pulsación, invalida cualquier otra que siguiera viva en la
+ventana, y aplica un intervalo mínimo entre saltos.
+
+2. MOMENTUM CON TECHO, Y EL ATAQUE DE DASH COMO CORTE
+- El juego debe premiar CONSERVAR momentum, no machacar salto y dash para ganar
+  velocidad. Pero el momentum encadenado sin límite acaba sacando al jugador del
+  mapa: aplica un CLAMP DURO a la velocidad horizontal, en un solo sitio (justo
+  antes de mover el cuerpo), para que sea imposible olvidarlo al añadir verbos.
+- El ataque de dash pasa de estocada a CORTE: al cerrarse la ventana activa,
+  un empujón extra (overshoot) que te lleva AL OTRO LADO del objetivo en vez de
+  dejarte clavado delante. Y al terminar se sale EN COMBATE —con el soft-lock
+  vivo y el siguiente golpe a un clic—, no parado.
+
+3. EL SURF SOBREVIVE AL SALTO
+Saltar en mitad de una línea rápida no debe costarte la línea. Al saltar desde
+surf, márcalo como pendiente durante unos segundos; al aterrizar con Shift
+todavía mantenido, vuelve a surfear con la velocidad que llevabas. Y al salir del
+surf de verdad, se sale CORRIENDO, no andando.
+
+4. LA FRENADA DE MARIO 64 ES UNA MANIOBRA DE PIES
+El pivote del dash (pedir la dirección contraria para frenar y saltar) solo puede
+existir tocando el suelo. En el aire no hay de dónde agarrarse, y clavarse a
+media trayectoria rompe la inercia que el juego premia conservar. Valídalo con
+is_on_floor().
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn —spam de salto que no
+acumula, clamp que no se supera, pivote inexistente en el aire, surf que
+sobrevive al salto— y pasa la regresión de tools/TestFase1.tscn.
+```

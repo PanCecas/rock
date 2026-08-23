@@ -27,8 +27,14 @@ func enter(msg: Dictionary = {}) -> void:
 	player.orientar_a(_dir)
 
 
-func exit() -> void:
+func exit(siguiente: StringName = &"") -> void:
 	player.set_alabeo(0.0)
+	# Saltar NO cancela el surf: se marca pendiente y se recupera al aterrizar.
+	# Perder la linea rapida por haber saltado un bache es exactamente el tipo de
+	# castigo que rompe el ritmo de un juego de movilidad.
+	if fsm.es_aereo(siguiente) and _shift_mantenido():
+		player.surf_pendiente = tuning.surf_persistencia
+		player.surf_rapidez = _rapidez
 
 
 func physics_update(delta: float) -> void:

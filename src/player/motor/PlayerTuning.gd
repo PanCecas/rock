@@ -22,6 +22,9 @@ extends Resource
 @export_range(0.0, 0.4, 0.01) var jump_buffer: float = 0.15
 @export_range(-60.0, -1.0, 0.5) var velocidad_terminal: float = -45.0
 @export var saltos_aereos: int = 1
+## Tiempo minimo entre dos saltos. Es lo que corta el spam: machacar el boton no
+## puede producir mas saltos que pulsaciones deliberadas.
+@export_range(0.0, 0.5, 0.01) var salto_intervalo_min: float = 0.09
 
 # --- Locomoción -------------------------------------------------------------
 @export_group("Locomoción")
@@ -57,6 +60,10 @@ extends Resource
 ## Grados por segundo a los que el modelo gira hacia la dirección de movimiento.
 @export_range(90.0, 2160.0, 10.0) var giro_grados_seg: float = 900.0
 @export_range(0.0, 89.0, 1.0) var angulo_max_suelo: float = 50.0
+## CLAMP DURO de la velocidad horizontal. El momentum se conserva y se encadena,
+## pero nunca se acumula sin techo: sin esto, encadenar dash y surf termina
+## sacando al jugador del mapa.
+@export_range(5.0, 60.0, 0.5) var velocidad_maxima: float = 22.0
 
 # --- Dash: esquive UNIDIRECCIONAL -------------------------------------------
 # El dash es un esquive, no un desplazamiento. Corto, seco y en una sola
@@ -114,6 +121,9 @@ extends Resource
 @export_range(0.0, 100.0, 0.5) var surf_stamina: float = 10.0
 ## Alabeo del cuerpo al girar surfeando. Vende la inercia desde lejos.
 @export_range(0.0, 45.0, 1.0) var surf_alabeo: float = 16.0
+## Ventana durante la que saltar NO cancela el surf: al aterrizar se recupera.
+## Saltar en mitad de una linea rapida no deberia costarte la linea.
+@export_range(0.0, 6.0, 0.1) var surf_persistencia: float = 2.5
 
 # --- Planeo -----------------------------------------------------------------
 @export_group("Planeo")

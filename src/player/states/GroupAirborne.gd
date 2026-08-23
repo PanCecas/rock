@@ -17,7 +17,17 @@ func shared_update(delta: float) -> void:
 		var impacto := player.impacto_ultimo
 		if impacto > tuning.aterrizaje_duro:
 			fsm.cambiar(&"Landing", {"impacto": impacto})
-		elif buffer.move_vector().length() > 0.25:
+			return
+		# Recuperar el surf: saltar en mitad de una linea rapida no deberia
+		# costarte la linea.
+		var quiere_surf := buffer.is_held(InputActions.DASH) or buffer.is_held(InputActions.SPRINT)
+		if player.surf_pendiente > 0.0 and quiere_surf and not player.stamina.vacia():
+			fsm.cambiar(&"Surf", {
+				"direccion": motor.direccion_plana(),
+				"rapidez": player.surf_rapidez,
+			})
+			return
+		if buffer.move_vector().length() > 0.25:
 			fsm.cambiar(&"Move")
 		else:
 			fsm.cambiar(&"Idle")
@@ -33,7 +43,7 @@ func shared_update(delta: float) -> void:
 	#    después de perder el contacto. Sin eso, encadenar dos muros exige
 	#    precisión de frame y es justo lo que hace que se sienta incómodo.
 	if fsm.actual.name != &"WallRun" and player.pared.reciente(tuning.pared_coyote):
-		if buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+		if player.consumir_salto():
 			player.saltar_de_pared()
 			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true})
 			return
@@ -78,7 +88,7 @@ func shared_update(delta: float) -> void:
 
 	# 7) Doble salto. Requiere una pulsación NUEVA: mantener el salto planea, no
 	#    salta, así que las dos acciones dejan de pelearse por la misma tecla.
-	if player.saltos_aereos > 0 and buffer.consume(InputActions.JUMP, tuning.jump_buffer):
+	if player.saltos_aereos > 0 and player.consumir_salto():
 		player.saltos_aereos -= 1
 		fsm.cambiar(&"Jump", {"numero": 2})
 		return
