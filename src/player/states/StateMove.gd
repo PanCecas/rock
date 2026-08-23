@@ -63,9 +63,9 @@ func physics_update(delta: float) -> void:
 	motor.set_vertical(-2.0)
 
 	# Deslizarse exige llevar velocidad: es la recompensa por haber cogido
-	# carrerilla, no un botón de agacharse.
-	if buffer.consume(InputActions.CROUCH) and motor.rapidez_plana() >= tuning.slide_velocidad_min:
-		fsm.cambiar(&"Slide")
+	# carrerilla. Sin ella, agacharse es agacharse.
+	if buffer.consume(InputActions.CROUCH):
+		fsm.cambiar(&"Slide" if motor.rapidez_plana() >= tuning.slide_velocidad_min else &"Crouch")
 
 
 ## Carrerilla equivalente a una velocidad dada, para heredarla sin saltos.

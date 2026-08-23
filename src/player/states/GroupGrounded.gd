@@ -11,9 +11,11 @@ func shared_update(delta: float) -> void:
 	player.recargar_aire()
 
 	# El salto se pregunta desde el buffer, nunca desde Input directamente.
-	if player.consumir_salto():
-		fsm.cambiar(&"Jump", {"numero": 1}, true)
-		return
+	# Si la hoja tiene su propio salto (Crouch, Surf), el grupo no se lo roba.
+	if not (fsm.actual != null and fsm.actual.maneja_salto()):
+		if player.consumir_salto():
+			fsm.cambiar(&"Jump", {"numero": 1}, true)
+			return
 
 	if player.puede_dashear() and buffer.consume(InputActions.DASH):
 		fsm.cambiar(&"Dash")
@@ -47,3 +49,9 @@ func shared_update(delta: float) -> void:
 	# Una pendiente imposible te tira: no puedes quedarte quieto en un tejado.
 	if player.suelo.demasiado_empinado() and fsm.actual.name != &"Slide":
 		fsm.cambiar(&"Slide", {"forzado": true})
+		return
+
+	# TECHO BAJO: si no cabes de pie, te agachas quieras o no. Es lo que hace que
+	# un tunel sea un obstaculo y no una sugerencia.
+	if player.techo_bloquea() and not player.esta_agachado():
+		fsm.cambiar(&"Crouch", {"forzado": true})

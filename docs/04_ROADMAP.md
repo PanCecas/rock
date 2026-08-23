@@ -209,6 +209,23 @@ desde `exit()` recibia su propio nombre. Afectaba a `StateLedgeHang` y
   es un frenazo plantado con empujon.
 - **Dash aereo + Shift** marca el surf pendiente y el aterrizaje entra solo.
 
+### Correccion 2.7 — agachado, techo, escalada BotW y patada baja
+- Estado `Crouch`, capsula a la mitad con transicion suave, y `CeilingSensor` con
+  shapecast: bajo un techo bajo NO te puedes levantar. Un tunel pasa a ser un
+  obstaculo de verdad y no una sugerencia.
+- Salto alto desde agachado quieto y **long jump** desde surf agachado.
+- Escalada universal estilo BotW: cualquier pared, limitada por stamina. La roca
+  lisa cuesta `escalada_coste_liso` veces mas que un asidero marcado.
+- **Patada baja** con `AttackData.derribo`: tumba al enemigo (`Estado.DERRIBADO`)
+  y abre una ventana larga para rematar.
+- Tunel de 1.2 m en el Gym como banco de pruebas del techo.
+
+**Tercera aparicion del mismo fallo estructural:** los grupos corren antes que las
+hojas y les roban el input. El salto alto y el long jump no existian porque
+`GroupGrounded` se quedaba la pulsacion. Ya paso con la cadena de combos y con los
+ataques de surf. Ahora hay `maneja_salto()` ademas de `maneja_ataques()`, y esta
+como regla dura #13 en CLAUDE.md para que no vuelva a pasar en la Fase 3.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

@@ -1,4 +1,4 @@
-[gd_scene load_steps=50 format=3]
+[gd_scene load_steps=53 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://src/player/sensors/GroundSensor.gd" id="s_ground"]
 [ext_resource type="Script" path="res://src/player/sensors/LedgeSensor.gd" id="s_ledge"]
 [ext_resource type="Script" path="res://src/player/sensors/WallSensor.gd" id="s_wall"]
+[ext_resource type="Script" path="res://src/player/sensors/CeilingSensor.gd" id="s_ceil"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="c_hit"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="c_hurt"]
 [ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="c_hp"]
@@ -19,6 +20,7 @@
 [ext_resource type="Resource" path="res://content/data/attacks/espada_dash.tres" id="a_dash"]
 [ext_resource type="Resource" path="res://content/data/attacks/surf_ligero.tres" id="a_sligero"]
 [ext_resource type="Resource" path="res://content/data/attacks/surf_pesado.tres" id="a_spesado"]
+[ext_resource type="Resource" path="res://content/data/attacks/patada_baja.tres" id="a_baja"]
 [ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
 [ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
@@ -39,6 +41,7 @@
 [ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
 [ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
 [ext_resource type="Script" path="res://src/player/states/StateSurf.gd" id="st_surf"]
+[ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
 [ext_resource type="Script" path="res://src/player/states/StateAttack.gd" id="st_atk"]
 [ext_resource type="Script" path="res://src/player/states/StateAirAttack.gd" id="st_air_atk"]
 [ext_resource type="Script" path="res://src/player/states/StatePlunge.gd" id="st_plunge"]
@@ -80,6 +83,7 @@ ataque_plunge = ExtResource("a_plunge")
 ataque_dash = ExtResource("a_dash")
 ataque_surf_ligero = ExtResource("a_sligero")
 ataque_surf_pesado = ExtResource("a_spesado")
+ataque_agachado = ExtResource("a_baja")
 ataque_contra = ExtResource("a_contra")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
@@ -110,6 +114,9 @@ script = ExtResource("s_ledge")
 
 [node name="WallSensor" type="Node" parent="."]
 script = ExtResource("s_wall")
+
+[node name="CeilingSensor" type="Node" parent="."]
+script = ExtResource("s_ceil")
 
 [node name="Salud" type="Node" parent="."]
 script = ExtResource("c_hp")
@@ -153,6 +160,9 @@ script = ExtResource("st_slide")
 
 [node name="Surf" type="Node" parent="StateMachine/Grounded"]
 script = ExtResource("st_surf")
+
+[node name="Crouch" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_crouch")
 
 [node name="Landing" type="Node" parent="StateMachine/Grounded"]
 script = ExtResource("st_land")

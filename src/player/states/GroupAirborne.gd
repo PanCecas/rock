@@ -103,7 +103,10 @@ func shared_update(delta: float) -> void:
 				fsm.cambiar(&"Glide")
 				return
 
-	# 9) Escalada a mano sobre superficie marcada.
-	if player.pared.hay_pared and player.pared.escalable and buffer.is_held(InputActions.GRAB):
+	# 9) Escalada a mano. Estilo BotW: vale CUALQUIER pared, no solo las marcadas.
+	#    Lo que la limita es la stamina, no el nivel: escalar pasa a ser una
+	#    decision de recurso en vez de un carril que el disenador te concede.
+	var vale_pared := player.pared.escalable or tuning.escalada_universal
+	if player.pared.hay_pared and vale_pared and buffer.is_held(InputActions.GRAB):
 		if fsm.actual.name != &"Climb" and not player.stamina.vacia():
 			fsm.cambiar(&"Climb")

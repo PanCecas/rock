@@ -16,11 +16,12 @@ func enter(msg: Dictionary = {}) -> void:
 
 	if not _forzado:
 		motor.impulso(_dir, motor.rapidez_plana() + tuning.slide_impulso)
-	player.set_altura_colision(0.55)
+	player.set_altura_colision(tuning.agachado_altura)
 
 
 func exit(_siguiente: StringName = &"") -> void:
-	player.set_altura_colision(1.0)
+	if not player.techo_bloquea():
+		player.set_altura_colision(1.0)
 
 
 func physics_update(delta: float) -> void:

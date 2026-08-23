@@ -76,6 +76,10 @@ const FPS := 60.0
 ## FRENAZO: el atacante para en seco al iniciar el golpe y no avanza nada. Es lo
 ## contrario de la estocada, y lo que hace que un golpe pesado se sienta plantado.
 @export var frenazo: bool = false
+## DERRIBO: tumba al enemigo en vez de solo tambalearlo. Abre una ventana larga
+## para rematar. Es lo que hace que agacharse tenga una razon ofensiva.
+@export var derribo: bool = false
+@export_range(0.0, 6.0, 0.1) var derribo_duracion: float = 1.6
 ## Al terminar, si se sigue manteniendo Shift y hay suelo, se vuelve al surf en vez
 ## de a la locomocion normal. Mantiene la forma fluida entre golpe y golpe.
 @export var vuelve_a_surf: bool = false

@@ -16,6 +16,8 @@ extends CharacterBody3D
 @export var ataque_pesado: AttackData
 @export var ataque_aereo: AttackData
 @export var ataque_plunge: AttackData
+## Patada baja desde agachado. Derriba en vez de tambalear.
+@export var ataque_agachado: AttackData
 ## Ataque lanzado desde el dash: hereda el momentum y cierra distancia.
 @export var ataque_dash: AttackData
 ## Shift + ataque ligero: estocada de esgrima que conserva la forma del surf.
@@ -30,6 +32,7 @@ extends CharacterBody3D
 @onready var suelo: GroundSensor = $GroundSensor
 @onready var borde: LedgeSensor = $LedgeSensor
 @onready var pared: WallSensor = $WallSensor
+@onready var techo: CeilingSensor = $CeilingSensor
 @onready var fsm: StateMachine = $StateMachine
 @onready var hitbox: Hitbox = $Hitbox
 @onready var hurtbox: Hurtbox = $Hurtbox
@@ -60,6 +63,8 @@ var surf_rapidez: float = 0.0
 var _coyote: float = 0.0
 var _alabeo: float = 0.0
 var _altura_base: float = 1.8
+var _altura_objetivo: float = 1.0
+var _altura_actual: float = 1.0
 var _giro_objetivo: float = 0.0
 var _tiene_giro: bool = false
 var _bloqueo_control: float = 0.0
@@ -85,6 +90,8 @@ func _ready() -> void:
 		_collider.shape = _collider.shape.duplicate()
 		if _collider.shape is CapsuleShape3D:
 			_altura_base = (_collider.shape as CapsuleShape3D).height
+	_altura_objetivo = 1.0
+	_altura_actual = 1.0
 	_pos_anterior = global_position
 
 	fsm.configurar(self)
@@ -108,6 +115,7 @@ func _physics_process(delta: float) -> void:
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	suelo.sondear()
 	pared.sondear(frente)
+	techo.sondear(_altura_base)
 	if tiempo_sin_borde <= 0.0:
 		borde.sondear(frente)
 	else:
@@ -126,6 +134,7 @@ func _physics_process(delta: float) -> void:
 		EventBus.player_landed.emit(impacto_ultimo, impacto_ultimo > tuning.aterrizaje_duro)
 
 	_antiatasco(delta)
+	_actualizar_altura(delta)
 	_actualizar_visual(delta)
 	_reset_si_cae()
 	_debug()
@@ -326,13 +335,45 @@ func set_alabeo(grados: float) -> void:
 	_alabeo = grados
 
 
-## Encoge o restaura la cápsula (deslizamiento).
+## Pide una altura de cápsula (fracción de la normal). NO se aplica de golpe:
+## `_actualizar_altura()` interpola. Un cambio instantáneo hace que el personaje
+## dé un salto vertical al agacharse y se ve fatal.
 func set_altura_colision(fraccion: float) -> void:
+	_altura_objetivo = clampf(fraccion, 0.2, 1.0)
+
+
+## ¿Hay techo que impida volver a la altura completa?
+##
+## Es lo que atrapa al jugador dentro de un túnel bajo: soltar el botón no basta,
+## hace falta que haya sitio.
+func techo_bloquea() -> bool:
+	return techo.bloqueado
+
+
+## ¿La cápsula está encogida ahora mismo? Lo consultan los ataques para saber si
+## toca patada baja.
+func esta_agachado() -> bool:
+	return _altura_actual < 0.85
+
+
+func _actualizar_altura(delta: float) -> void:
 	if _collider == null or not _collider.shape is CapsuleShape3D:
 		return
+	if is_equal_approx(_altura_actual, _altura_objetivo):
+		return
+	_altura_actual = lerpf(
+		_altura_actual, _altura_objetivo,
+		1.0 - exp(-delta / maxf(tuning.agachado_transicion, 0.001))
+	)
+	if absf(_altura_actual - _altura_objetivo) < 0.01:
+		_altura_actual = _altura_objetivo
+
+	var alto := _altura_base * _altura_actual
 	var forma := _collider.shape as CapsuleShape3D
-	forma.height = _altura_base * fraccion
-	_collider.position.y = (_altura_base * fraccion) * 0.5
+	forma.height = alto
+	_collider.position.y = alto * 0.5
+	if visual != null:
+		visual.scale.y = _altura_actual
 
 
 func camara() -> Camera3D:
@@ -445,6 +486,7 @@ func _debug() -> void:
 	])
 	DebugOverlay.set_line("suelo", suelo.debug_line())
 	DebugOverlay.set_line("pared", pared.debug_line())
+	DebugOverlay.set_line("techo", "%s   capsula %.0f%%" % [techo.debug_line(), _altura_actual * 100.0])
 	DebugOverlay.set_line("borde", borde.debug_line())
 	DebugOverlay.set_line("superficie", superficie.debug_line())
 	DebugOverlay.set_line("vida", "%s %.0f%%   poise %.0f%%%s" % [

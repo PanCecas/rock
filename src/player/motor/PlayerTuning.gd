@@ -141,6 +141,22 @@ extends Resource
 ## que un salto corto normal despliegue la capa nada mas despegar.
 @export_range(0.0, 1.0, 0.01) var planeo_retardo_despliegue: float = 0.12
 
+# --- Agachado -----------------------------------------------------------------
+@export_group("Agachado")
+## Fraccion de la altura normal de la capsula al agacharse o surfear.
+@export_range(0.3, 1.0, 0.05) var agachado_altura: float = 0.5
+## Segundos que tarda la capsula en encogerse o estirarse. Instantaneo hace que
+## el personaje "salte" verticalmente al agacharse; lento se siente pastoso.
+@export_range(0.01, 1.0, 0.01) var agachado_transicion: float = 0.12
+@export_range(0.5, 8.0, 0.1) var velocidad_agachado: float = 2.6
+## Altura del salto estatico desde agachado. Muy por encima del salto normal: es
+## el salto alto de Mario Odyssey, y su precio es tener que pararse a cargarlo.
+@export_range(1.0, 12.0, 0.1) var altura_salto_agachado: float = 4.4
+## LONG JUMP: agacharse surfeando y saltar. Multiplica la velocidad horizontal y
+## deja poca vertical: es distancia, no altura.
+@export_range(1.0, 4.0, 0.05) var longjump_mult: float = 1.55
+@export_range(1.0, 20.0, 0.1) var longjump_vertical: float = 6.5
+
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
 ## Velocidad mínima para poder entrar en slide. Debajo de esto no engancha.
@@ -201,6 +217,12 @@ extends Resource
 @export_range(0.0, 1.5, 0.05) var ledge_assist: float = 0.4
 @export_range(0.1, 3.0, 0.05) var ledge_alcance: float = 0.7
 @export_range(0.1, 3.0, 0.05) var ledge_altura_max: float = 2.1
+## ESCALADA ESTILO BOTW: cualquier pared vale, no solo las marcadas como
+## CLIMBABLE. Lo que la limita es la stamina, no el nivel: es lo que convierte
+## escalar en una decision de recurso en vez de en un carril.
+@export var escalada_universal: bool = true
+## Multiplicador de gasto en superficies NO marcadas. La roca lisa cansa mas.
+@export_range(1.0, 5.0, 0.1) var escalada_coste_liso: float = 1.6
 @export_range(0.1, 6.0, 0.1) var escalada_velocidad: float = 2.4
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
 

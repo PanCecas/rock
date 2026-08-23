@@ -60,6 +60,16 @@ func maneja_ataques() -> bool:
 	return false
 
 
+## ¿Y el salto? Mismo motivo, y es el tercer sitio donde aparece el patrón: el
+## salto alto de agachado y el long jump de surf nunca llegaban a ejecutarse
+## porque el grupo se quedaba la pulsación y hacía un salto normal.
+##
+## Regla general: si una hoja tiene una versión PROPIA de una acción compartida,
+## tiene que poder reclamarla, o el grupo se la come sin avisar.
+func maneja_salto() -> bool:
+	return false
+
+
 ## Texto para el DebugOverlay. Se sobrescribe si el estado tiene algo que contar.
 func debug_line() -> String:
 	return ""

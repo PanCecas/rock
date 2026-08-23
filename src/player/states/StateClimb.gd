@@ -25,7 +25,7 @@ func physics_update(delta: float) -> void:
 		player.tiempo_sin_borde = 0.2
 		fsm.cambiar(&"Fall")
 		return
-	if not player.pared.hay_pared or not player.pared.escalable:
+	if not player.pared.hay_pared or not (player.pared.escalable or tuning.escalada_universal):
 		# Llegar arriba del todo: si hay canto, se sube; si no, se cae.
 		if player.borde.hay_borde:
 			fsm.cambiar(&"LedgeClimb")
@@ -45,10 +45,10 @@ func physics_update(delta: float) -> void:
 			arriba = -arriba
 		var mov := (lateral * entrada.x - arriba * entrada.y).normalized()
 		player.global_position += mov * tuning.escalada_velocidad * delta
-		player.stamina.drenar(tuning.stamina_escalar, delta)
+		player.stamina.drenar(tuning.stamina_escalar * _coste(), delta)
 	else:
 		# Agarre tenso: quedarse quieto también cuesta, solo que mucho menos.
-		player.stamina.drenar(tuning.stamina_escalar * 0.25, delta)
+		player.stamina.drenar(tuning.stamina_escalar * 0.25 * _coste(), delta)
 
 	# Pegarse a la pared para seguir el relieve.
 	player.global_position -= sc.plano(_normal).normalized() * 0.6 * delta
@@ -62,5 +62,14 @@ func physics_update(delta: float) -> void:
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 
 
+## La roca lisa cansa mas que un asidero marcado. Es lo que sigue haciendo
+## especiales a las superficies disenadas para escalar sin prohibir el resto.
+func _coste() -> float:
+	return 1.0 if player.pared.escalable else tuning.escalada_coste_liso
+
+
 func debug_line() -> String:
-	return "stam %.0f%%" % (player.stamina.fraccion() * 100.0)
+	return "stam %.0f%%  %s" % [
+		player.stamina.fraccion() * 100.0,
+		"asidero" if player.pared.escalable else "roca lisa",
+	]

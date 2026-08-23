@@ -25,10 +25,15 @@ func enter(msg: Dictionary = {}) -> void:
 	_rapidez = maxf(float(msg.get("rapidez", 0.0)), tuning.surf_velocidad)
 	_alabeo = 0.0
 	player.orientar_a(_dir)
+	# Surfeando se va agachado: la capsula baja a la mitad. Ademas de venderlo
+	# visualmente, es lo que deja pasar por los tuneles sin soltar la velocidad.
+	player.set_altura_colision(tuning.agachado_altura)
 
 
 func exit(siguiente: StringName = &"") -> void:
 	player.set_alabeo(0.0)
+	if not player.techo_bloquea():
+		player.set_altura_colision(1.0)
 	# Saltar NO cancela el surf: se marca pendiente y se recupera al aterrizar.
 	# Perder la linea rapida por haber saltado un bache es exactamente el tipo de
 	# castigo que rompe el ritmo de un juego de movilidad.
@@ -67,6 +72,20 @@ func physics_update(delta: float) -> void:
 	_alabeo = lerpf(_alabeo, -giro * tuning.surf_alabeo, 1.0 - exp(-7.0 * delta))
 	player.set_alabeo(_alabeo)
 
+	# El salto del surf es suyo, y tiene dos formas:
+	#   agachado -> LONG JUMP: convierte el momentum en distancia, no en altura.
+	#   normal   -> salto corriente, pero el surf queda pendiente y se recupera
+	#               al aterrizar (lo marca exit()).
+	if player.consumir_salto():
+		if buffer.is_held(InputActions.CROUCH):
+			motor.impulso(_dir, _rapidez * tuning.longjump_mult)
+			motor.set_vertical(tuning.longjump_vertical)
+			EventBus.camara_shake.emit(0.3, 0.14)
+			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+		else:
+			fsm.cambiar(&"Jump", {"numero": 1}, true)
+		return
+
 	# Deslizarse desde el surf: entras al slide con toda la velocidad acumulada.
 	if buffer.consume(InputActions.CROUCH):
 		fsm.cambiar(&"Slide")
@@ -96,8 +115,13 @@ func _terminar() -> void:
 	fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
 
 
-## Los ataques de surf son suyos: el grupo no puede robarle la pulsacion.
+## Los ataques y el salto del surf son suyos: el grupo no puede robarle la
+## pulsacion y convertirlos en la version generica.
 func maneja_ataques() -> bool:
+	return true
+
+
+func maneja_salto() -> bool:
 	return true
 
 

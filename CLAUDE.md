@@ -13,6 +13,7 @@ plataformas en movimiento.
 ## Documentación — leer antes de tocar nada
 | Doc | Contiene |
 |---|---|
+| `project.md` | **Ideas futuras sin implementar.** Aros, parkour, enemigo mediano. |
 | `docs/00_VISION.md` | Pilares. Toda decisión se justifica contra ellos. |
 | `docs/01_DIRECCION_ARTE.md` | **Paleta con hex exactos, regla 60/30/10, shaders, post.** |
 | `docs/02_PIPELINE_PERSONAJES_ANIM.md` | Rig, ~205 clips por tiers, concept art, export. |
@@ -43,6 +44,11 @@ plataformas en movimiento.
     reentrada la FSM se traga la pulsacion en silencio.
 12. **La velocidad horizontal se limita en un solo sitio** (`_limitar_velocidad()`,
     justo antes de `move_and_slide`). Nunca en un estado.
+13. **Los grupos corren ANTES que las hojas y les roban el input.** Si una hoja
+    tiene su version propia de una accion compartida, tiene que reclamarla con
+    `maneja_ataques()` o `maneja_salto()`. Es el fallo que mas veces ha aparecido
+    en este proyecto y siempre es silencioso: la accion generica se ejecuta y la
+    especifica no existe nunca.
 
 ## Autoloads
 `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.
@@ -60,6 +66,9 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | **Planear** | **Ctrl** o **Mouse 4** (mantener) | LB (mantener) |
 | Dash / sprint / esquiva | Shift | B |
 | Agacharse / slide | C | D-pad abajo |
+| Salto alto | C (quieto) + Espacio | |
+| Long jump | Shift + C + Espacio | |
+| Patada baja (derriba) | C + click | |
 | Agarrar / escalar | F | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
 | Ataque de dash (estocada) | Click izq. durante dash | RB |

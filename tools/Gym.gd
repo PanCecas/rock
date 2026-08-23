@@ -54,6 +54,7 @@ func construir() -> void:
 	_torre()
 	_pilares_gancho()
 	_pared_escalable()
+	_tunel()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -176,6 +177,30 @@ func _pared_escalable() -> void:
 	pared.set_collision_layer_value(1, true)
 	pared.set_collision_layer_value(4, true)  # CLIMBABLE
 	_etiqueta("ESCALABLE", Vector3(24.0, 0.05, 21.5))
+
+
+## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza
+## agachado o surfeando, y una vez dentro NO se puede uno levantar: el
+## CeilingSensor obliga a seguir agachado hasta salir.
+##
+## Es la prueba de que agacharse es un estado y no un boton.
+func _tunel() -> void:
+	var pos := Vector3(-14.0, 0.0, 8.0)
+	var largo := 14.0
+	var ancho := 5.0
+	var hueco := 1.2
+
+	# Techo: la pieza que obliga. Se apoya justo a la altura del hueco.
+	_bloque("Tunel_Techo", Vector3(ancho, 1.2, largo), pos + Vector3(0, hueco + 0.6, 0), _mat_piedra_osc)
+	# Paredes laterales, para que no se pueda rodear por dentro.
+	for i in 2:
+		var lado := -1.0 if i == 0 else 1.0
+		_bloque("Tunel_Muro_%d" % i, Vector3(0.8, hueco + 1.2, largo),
+			pos + Vector3(lado * (ancho * 0.5 + 0.4), (hueco + 1.2) * 0.5, 0), _mat_piedra_osc)
+
+	# Rampa de entrada: invita a llegar con velocidad y cruzarlo surfeando.
+	_bloque("Tunel_Entrada", Vector3(ancho, 0.4, 4.0), pos + Vector3(0, 0.2, -largo * 0.5 - 2.0), _mat_marca)
+	_etiqueta("TUNEL 1.2 m — agachado o surf", pos + Vector3(0, 0.45, -largo * 0.5 - 4.5))
 
 
 # --- Utilidades --------------------------------------------------------------

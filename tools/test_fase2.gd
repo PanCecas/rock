@@ -436,6 +436,65 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() == &"Surf",
 			"tocar suelo con Shift mantenido tras un dash aereo debe entrar en surf"),
 
+		# --- Correccion 2.7 ----------------------------------------------------
+		_paso_("asentar para crouch", 0.3, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle"), &"Idle"),
+		_chequeo_("agacharse encoge la capsula", 0.4,
+			func() -> void: _pulsar(&"crouch"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Crouch" and _p.esta_agachado(),
+			"agacharse debe entrar en Crouch y bajar la capsula a la mitad"),
+		_chequeo_("salto agachado sube mas", 0.06,
+			func() -> void:
+				_saltos_contados = 0
+				_pulsar(&"jump"),
+			func() -> bool: return _p.motor.get_vertical() > _p.tuning.velocidad_salto() + 1.0,
+			"el salto estatico agachado debe superar al salto normal"),
+
+		# Tunel del Gym: 1.2 m de hueco. Dentro no se puede uno levantar.
+		_paso_("entrar en el tunel", 0.4, func() -> void:
+			_soltar_todo()
+			_reponer()
+			# Centro del tunel (Gym: pos -14, 0, 8 con hueco de 1.2 m).
+			_p.global_position = Vector3(-14.0, 0.1, 8.0)
+			_p.velocity = Vector3.ZERO
+			_pulsar(&"crouch"), &"Crouch"),
+		_chequeo_("el techo obliga a seguir agachado", 0.4,
+			func() -> void: _soltar(&"crouch"),
+			func() -> bool: return _p.techo_bloquea() and _p.fsm.nombre_actual() == &"Crouch",
+			"bajo un techo bajo, soltar el boton no debe levantar al personaje"),
+
+		# Patada baja: derriba, no tambalea.
+		_chequeo_("la patada baja derriba", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_colocar(1.8)
+				_g.velocity = Vector3.ZERO
+				_g.poise.actual = 100.0
+				_g.recibir_golpe(Golpe.new(
+					_p, _p.ataque_agachado, _g.global_position,
+					(_g.global_position - _p.global_position).normalized())),
+			func() -> bool: return _g.estado == Guardian.Estado.DERRIBADO,
+			"la patada baja debe derribar, no solo tambalear"),
+
+		# Escalada estilo BotW: cualquier pared, no solo las marcadas.
+		_chequeo_("se escala pared no marcada", 0.5,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				# Muro del pasillo de wall-run: NO tiene capa CLIMBABLE.
+				_p.global_position = Vector3(-0.8, 3.0, -34.0)
+				_p.velocity = Vector3(-2.0, 0.0, 0.0)
+				_p.orientar_a(Vector3(-1, 0, 0))
+				_p.fsm.cambiar(&"Fall")
+				_pulsar(&"grab"),
+			func() -> bool: return _visitados.has(&"Climb"),
+			"con escalada_universal cualquier pared debe poder escalarse"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:

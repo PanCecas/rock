@@ -12,7 +12,7 @@ extends CharacterBody3D
 ## importa es que telegrafíe con claridad para que el parry se pueda entrenar.
 
 enum Tipo { LANCERO, ESCUDO, VIGIA }
-enum Estado { DORMIDO, ACERCARSE, TELEGRAFIA, ATACAR, RECUPERAR, ATURDIDO, QUEBRADO, MUERTO }
+enum Estado { DORMIDO, ACERCARSE, TELEGRAFIA, ATACAR, RECUPERAR, ATURDIDO, DERRIBADO, QUEBRADO, MUERTO }
 
 @export var tipo: Tipo = Tipo.LANCERO
 @export var ataque: AttackData
@@ -52,6 +52,7 @@ var _mat: StandardMaterial3D
 ## El golpe que está matando: lo necesita `_al_morir` para lanzar el cadáver.
 var _golpe_mortal: Golpe = null
 var _stagger: float = 0.45
+var _derribo: float = 1.6
 
 
 func _ready() -> void:
@@ -84,7 +85,7 @@ func _physics_process(delta: float) -> void:
 		Estado.TELEGRAFIA: _telegrafia()
 		Estado.ATACAR: _atacar()
 		Estado.RECUPERAR: _recuperar()
-		Estado.ATURDIDO, Estado.QUEBRADO: _quieto(delta)
+		Estado.ATURDIDO, Estado.DERRIBADO, Estado.QUEBRADO: _quieto(delta)
 		Estado.MUERTO: _quieto(delta)
 
 	move_and_slide()
@@ -165,6 +166,8 @@ func _quieto(delta: float) -> void:
 	velocity.z = move_toward(velocity.z, 0.0, 20.0 * delta)
 	if estado == Estado.ATURDIDO and _t >= _stagger:
 		_ir_a(Estado.ACERCARSE)
+	elif estado == Estado.DERRIBADO and _t >= _derribo:
+		_ir_a(Estado.ACERCARSE)
 
 
 # --- Daño --------------------------------------------------------------------
@@ -196,6 +199,15 @@ func recibir_golpe(golpe: Golpe) -> int:
 
 	var empuje := golpe.empuje_mundo()
 	velocity = Vector3(empuje.x, maxf(empuje.y, 0.0), empuje.z)
+
+	# DERRIBO: la patada baja no tambalea, tumba. La ventana es larga a proposito:
+	# es lo que le da una razon ofensiva a agacharse.
+	if golpe.datos != null and golpe.datos.derribo:
+		_derribo = golpe.datos.derribo_duracion
+		CombatFX.onda(get_parent(), global_position + Vector3.UP * 0.2, _color(&"oro_palido"), 2.0)
+		_ir_a(Estado.DERRIBADO)
+		return Golpe.Resultado.IMPACTO
+
 	if not quiebre and estado != Estado.QUEBRADO:
 		# El stagger lo dicta el ataque: es el castigo terrestre, la alternativa a
 		# mandar al enemigo por los aires.
@@ -338,7 +350,7 @@ func _actualizar_color() -> void:
 	match estado:
 		Estado.TELEGRAFIA:
 			base = _color(&"carmesi")
-		Estado.QUEBRADO:
+		Estado.QUEBRADO, Estado.DERRIBADO:
 			base = _color(&"oro_palido")
 		Estado.ATURDIDO:
 			base = _color(&"lavanda_gris")

@@ -393,3 +393,70 @@ rápidas dan dos saltos, soltar pronto recorta la altura, Shift+ligero lanza el
 ataque de surf y no el de suelo, Shift+pesado deja al personaje plantado, y el
 dash aéreo con Shift aterriza en surf— y pasa la regresión de TestFase1.tscn.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.7 — agachado, techo, escalada BotW y patada baja
+
+```
+Corrección de movimiento y combate en ROCK, en tres partes. Lee CLAUDE.md y
+docs/03_ARQUITECTURA_MECANICAS.md antes de tocar nada. Todo número nuevo va en
+PlayerTuning.tres o en un AttackData .tres, nunca dentro de un .gd.
+
+PARTE 1 — DOCUMENTACIÓN (solo texto, NO implementar)
+En project.md, sección "Ideas Futuras (Por Implementar)", añade:
+  1. Minijuego: pasar por dentro de unos aros en el aire sin tocar el suelo.
+  2. Minijuego: completar un circuito de obstáculos haciendo parkour.
+  3. Enemigo Mediano, cuya particularidad es que su TORSO ES ESCALABLE.
+Del tercero, deja anotado por qué importa: es el puente pedagógico hacia los
+colosos. El jugador aprende a agarrarse a algo que se mueve en un enemigo que
+cabe en pantalla, antes de tener que hacerlo a sesenta metros del suelo.
+
+PARTE 2 — CÓDIGO
+
+1. AGACHARSE, SURF Y TECHO
+- Estado Crouch nuevo (quieto y en movimiento). Al entrar en Crouch o en Surf la
+  cápsula baja a la mitad, y de forma SUAVE: cambiarla de golpe hace que el
+  personaje dé un salto vertical y se ve fatal. Interpola la altura.
+- MECÁNICA ESTRICTA DE TECHO: un sensor hacia arriba decide si se PUEDE volver a
+  la altura completa. Si hay techo, soltar el botón no basta: el jugador se queda
+  agachado hasta salir. Usa un shapecast y no un rayo central; un rayo deja pasar
+  al jugador por debajo del canto de una viga y luego lo empotra al estirarse.
+
+2. SALTOS AGACHADOS (Mario Odyssey)
+- Quieto y agachado + salto = salto MUCHO más alto. Su precio es tener que
+  pararse a cargarlo, así que no compite con el flujo.
+- Surfeando + agacharse + salto = LONG JUMP: multiplica el momentum horizontal y
+  deja poca vertical. Es distancia, no altura.
+
+  OJO, es el error que más va a costar encontrar: si los grupos de la FSM corren
+  ANTES que las hojas, el grupo se queda la pulsación de salto y ejecuta el salto
+  genérico; el salto alto y el long jump no llegan a existir nunca. Deja que la
+  hoja pueda RECLAMAR la acción (un `maneja_salto()` o equivalente). Lo mismo
+  aplica a los ataques.
+
+3. ESCALADA ESTILO BREATH OF THE WILD
+- El estado Climb ya existe pero solo funciona en superficies marcadas. Hazlo
+  universal: cualquier pared vale. Lo que lo limita es la STAMINA, no el nivel.
+  Escalar pasa a ser una decisión de recurso en vez de un carril concedido.
+- Mantén una diferencia: la roca lisa cuesta más stamina que un asidero marcado.
+  Así las superficies diseñadas siguen siendo especiales sin prohibir el resto.
+
+4. PATADA BAJA (Low Kick)
+- Atacar desde Crouch —o estando forzado a agacharse por un techo— ejecuta una
+  patada baja en vez del ataque normal.
+- Aplica DERRIBO, no aturdimiento: el enemigo se cae y queda una ventana larga
+  para rematar. Es lo que le da una razón ofensiva a agacharse.
+
+PARTE 3 — ZONA DE PRUEBAS
+En el Gym, genera por código un TÚNEL de 1.2 m de hueco (el jugador mide 1.8),
+con techo y paredes laterales para que no se pueda rodear, y una rampa de entrada
+que invite a cruzarlo con velocidad. Solo debe poder atravesarse agachado o
+surfeando, y una vez dentro NO se debe poder uno levantar. Es la prueba de que
+agacharse es un estado y no un botón.
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn —la cápsula encoge, el
+salto agachado supera al normal, bajo el túnel no se puede uno levantar, la patada
+baja derriba, y se escala una pared no marcada— y pasa la regresión de
+tools/TestFase1.tscn.
+```
