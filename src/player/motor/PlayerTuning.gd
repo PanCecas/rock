@@ -32,18 +32,31 @@ extends Resource
 @export_range(1.0, 200.0, 1.0) var aceleracion_aire: float = 25.0
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
 @export_range(0.0, 200.0, 1.0) var frenado_aire: float = 4.0
+## Frenado cuando vas MÁS RÁPIDO que tu velocidad objetivo y sigues empujando.
+## Muy bajo a propósito: es lo que hace que la velocidad de un dash o de un slide
+## sobreviva unos segundos en vez de evaporarse en dos frames.
+@export_range(0.5, 60.0, 0.5) var frenado_momentum: float = 6.0
 ## Grados por segundo a los que el modelo gira hacia la dirección de movimiento.
 @export_range(90.0, 2160.0, 10.0) var giro_grados_seg: float = 900.0
 @export_range(0.0, 89.0, 1.0) var angulo_max_suelo: float = 50.0
 
-# --- Dash -------------------------------------------------------------------
+# --- Dash (evasión estilo NieR: Automata) -----------------------------------
 @export_group("Dash")
-@export_range(1.0, 20.0, 0.1) var dash_distancia: float = 6.0
-@export_range(0.05, 1.0, 0.01) var dash_duracion: float = 0.18
+## Corto y rápido. Un dash largo bloquea la lectura del combate y se siente tieso.
+@export_range(1.0, 20.0, 0.1) var dash_distancia: float = 4.5
+@export_range(0.05, 1.0, 0.01) var dash_duracion: float = 0.16
 @export_range(0.0, 0.5, 0.01) var dash_iframes: float = 0.10
-@export_range(0.0, 2.0, 0.01) var dash_recuperacion: float = 0.12
+@export_range(0.0, 2.0, 0.01) var dash_recuperacion: float = 0.10
 @export var dash_cargas_aire: int = 1
-## Grados dentro de los que el dash se autoalinea al enemigo cercano.
+## TAP vs HOLD: si el botón sigue pulsado más de esto al acabar el dash, se
+## encadena a sprint continuo en vez de volver a carrera normal.
+@export_range(0.05, 1.0, 0.01) var dash_tap_max: float = 0.20
+## Corrección de rumbo DURANTE el dash. 0 = bloqueo total (tieso).
+## Es la diferencia entre una evasión que se siente viva y un empujón escriptado.
+@export_range(0.0, 1440.0, 10.0) var dash_giro_grados_seg: float = 420.0
+## Fracción de la velocidad del dash que sobrevive al terminar.
+@export_range(0.0, 1.0, 0.01) var dash_salida_mult: float = 0.55
+## Grados dentro de los que el dash se autoalinea al enemigo cercano (Fase 2).
 @export_range(0.0, 90.0, 1.0) var dash_correccion_grados: float = 20.0
 
 # --- Planeo -----------------------------------------------------------------
@@ -53,7 +66,63 @@ extends Resource
 @export_range(1.0, 90.0, 1.0) var planeo_giro_grados_seg: float = 120.0
 ## Grados de alabeo visual al girar. La capa vende el planeo.
 @export_range(0.0, 60.0, 1.0) var planeo_alabeo: float = 28.0
-@export_range(0.0, 1.0, 0.01) var planeo_retardo_despliegue: float = 0.18
+## Retardo antes de que la capa pueda abrirse. Con "mantener para planear" evita
+## que un salto corto normal despliegue la capa nada mas despegar.
+@export_range(0.0, 1.0, 0.01) var planeo_retardo_despliegue: float = 0.12
+
+# --- Deslizamiento ----------------------------------------------------------
+@export_group("Deslizamiento")
+## Velocidad mínima para poder entrar en slide. Debajo de esto no engancha.
+@export_range(0.0, 20.0, 0.1) var slide_velocidad_min: float = 5.0
+## Impulso que se suma al entrar. Deslizarse tiene que GANAR velocidad, no perderla.
+@export_range(0.0, 15.0, 0.1) var slide_impulso: float = 3.5
+@export_range(0.0, 30.0, 0.1) var slide_friccion: float = 3.0
+## Aceleración extra cuesta abajo por unidad de pendiente. Premia leer el terreno.
+@export_range(0.0, 60.0, 0.5) var slide_pendiente: float = 22.0
+@export_range(0.1, 5.0, 0.05) var slide_duracion_max: float = 2.5
+@export_range(0.0, 15.0, 0.1) var slide_salto_extra: float = 2.0
+
+# --- Pared (wall-jump estilo Mario 3D) --------------------------------------
+@export_group("Pared")
+@export_range(0.0, 20.0, 0.1) var wallrun_velocidad: float = 8.5
+@export_range(0.1, 5.0, 0.05) var wallrun_duracion: float = 1.6
+## Gravedad durante el wall-run: casi nula al principio, crece al final.
+@export_range(-30.0, 0.0, 0.5) var wallrun_gravedad: float = -4.0
+@export_range(0.1, 10.0, 0.1) var wallrun_velocidad_min: float = 4.0
+## Caida durante el wall-slide. Baja = da tiempo a reaccionar y encadenar.
+@export_range(0.0, 20.0, 0.1) var wallslide_caida: float = 3.2
+## Velocidad minima CONTRA la pared para engancharse sin tener que empujar hacia
+## ella. En Mario basta con chocar; exigir input hace que se sienta esquivo.
+@export_range(0.0, 10.0, 0.1) var wallslide_entrada_min: float = 1.0
+
+## Impulso VERTICAL del wall-jump, absoluto en m/s. Es el que manda: en Mario el
+## salto de pared sube de verdad, no es un empujon lateral con propina.
+@export_range(0.0, 25.0, 0.1) var walljump_vertical: float = 10.5
+## Empuje perpendicular a la pared.
+@export_range(0.0, 25.0, 0.1) var walljump_lateral: float = 9.0
+## Cuanto momentum A LO LARGO de la pared sobrevive. Con 0 el salto se siente
+## rigido: da igual como llegues, siempre rebotas igual.
+@export_range(0.0, 1.5, 0.05) var walljump_conserva: float = 0.55
+## Cuanto pesa la direccion que pide el jugador con la camara. Permite orientar
+## el rebote sin poder volver contra la pared.
+@export_range(0.0, 1.5, 0.05) var walljump_intencion: float = 0.5
+## Ventana tras un wall-jump en la que el control aereo baja de autoridad. Sin
+## esto, seguir apuntando a la pared cancela el propio salto y no despegas nunca.
+@export_range(0.0, 0.6, 0.01) var walljump_bloqueo: float = 0.14
+@export_range(0.0, 1.0, 0.05) var control_bloqueado_mult: float = 0.25
+## PERDON: sigues pudiendo saltar de la pared este tiempo despues de perder el
+## contacto. Es lo que hace que encadenar dos muros no exija precision de frame.
+@export_range(0.0, 0.6, 0.01) var pared_coyote: float = 0.15
+## Tiempo tras un wall-jump en que la misma pared se ignora, para poder alternar.
+@export_range(0.0, 1.0, 0.01) var pared_bloqueo: float = 0.18
+## Cuanto se reorienta la camara detras del salto de pared. 0 = nada.
+@export_range(0.0, 1.0, 0.05) var camara_realinea_walljump: float = 0.6
+
+# --- Aterrizaje -------------------------------------------------------------
+@export_group("Aterrizaje")
+## Velocidad de impacto a partir de la que el aterrizaje es "duro" y cuesta control.
+@export_range(0.0, 60.0, 0.5) var aterrizaje_duro: float = 20.0
+@export_range(0.0, 1.0, 0.01) var aterrizaje_duro_duracion: float = 0.22
 
 # --- Bordes y escalada ------------------------------------------------------
 @export_group("Bordes y escalada")

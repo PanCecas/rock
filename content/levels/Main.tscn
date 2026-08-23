@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://src/art/WorldMood.gd" id="1_mood"]
 [ext_resource type="Resource" path="res://content/data/default_palette.tres" id="2_palette"]
 [ext_resource type="Script" path="res://tools/Gym.gd" id="3_gym"]
 [ext_resource type="PackedScene" path="res://src/player/Player.tscn" id="4_player"]
 [ext_resource type="PackedScene" path="res://src/camera/CameraRig.tscn" id="5_camera"]
+[ext_resource type="Script" path="res://tools/Circuito.gd" id="6_circuito"]
 
 [node name="Main" type="Node3D"]
 
@@ -19,6 +20,10 @@ sol_path = NodePath("../Sol")
 
 [node name="Gym" type="Node3D" parent="."]
 script = ExtResource("3_gym")
+palette = ExtResource("2_palette")
+
+[node name="Circuito" type="Node3D" parent="."]
+script = ExtResource("6_circuito")
 palette = ExtResource("2_palette")
 
 [node name="Player" parent="." instance=ExtResource("4_player")]

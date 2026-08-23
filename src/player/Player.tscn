@@ -1,8 +1,29 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=30 format=3]
 
-[ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_ctrl"]
-[ext_resource type="Script" path="res://src/input/InputBuffer.gd" id="2_buffer"]
-[ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="3_tuning"]
+[ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
+[ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
+[ext_resource type="Script" path="res://src/input/InputBuffer.gd" id="buffer"]
+[ext_resource type="Script" path="res://src/player/motor/StaminaComponent.gd" id="stamina"]
+[ext_resource type="Script" path="res://src/player/sensors/GroundSensor.gd" id="s_ground"]
+[ext_resource type="Script" path="res://src/player/sensors/LedgeSensor.gd" id="s_ledge"]
+[ext_resource type="Script" path="res://src/player/sensors/WallSensor.gd" id="s_wall"]
+[ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
+[ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
+[ext_resource type="Script" path="res://src/player/states/GroupAirborne.gd" id="g_air"]
+[ext_resource type="Script" path="res://src/player/states/GroupAttached.gd" id="g_att"]
+[ext_resource type="Script" path="res://src/player/states/StateIdle.gd" id="st_idle"]
+[ext_resource type="Script" path="res://src/player/states/StateMove.gd" id="st_move"]
+[ext_resource type="Script" path="res://src/player/states/StateSlide.gd" id="st_slide"]
+[ext_resource type="Script" path="res://src/player/states/StateLanding.gd" id="st_land"]
+[ext_resource type="Script" path="res://src/player/states/StateJump.gd" id="st_jump"]
+[ext_resource type="Script" path="res://src/player/states/StateFall.gd" id="st_fall"]
+[ext_resource type="Script" path="res://src/player/states/StateGlide.gd" id="st_glide"]
+[ext_resource type="Script" path="res://src/player/states/StateWallSlide.gd" id="st_wslide"]
+[ext_resource type="Script" path="res://src/player/states/StateWallRun.gd" id="st_wrun"]
+[ext_resource type="Script" path="res://src/player/states/StateLedgeHang.gd" id="st_hang"]
+[ext_resource type="Script" path="res://src/player/states/StateLedgeClimb.gd" id="st_lclimb"]
+[ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
+[ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
 
 [sub_resource type="CapsuleShape3D" id="Shape_body"]
 radius = 0.35
@@ -28,9 +49,10 @@ size = Vector3(0.22, 0.16, 0.18)
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 1025
-script = ExtResource("1_ctrl")
-tuning = ExtResource("3_tuning")
+script = ExtResource("ctrl")
+tuning = ExtResource("tuning")
 visual_path = NodePath("Visual")
+collider_path = NodePath("Collider")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
@@ -47,4 +69,68 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0.3)
 mesh = SubResource("Mesh_frente")
 
 [node name="InputBuffer" type="Node" parent="."]
-script = ExtResource("2_buffer")
+script = ExtResource("buffer")
+
+[node name="Stamina" type="Node" parent="."]
+script = ExtResource("stamina")
+
+[node name="GroundSensor" type="Node" parent="."]
+script = ExtResource("s_ground")
+
+[node name="LedgeSensor" type="Node" parent="."]
+script = ExtResource("s_ledge")
+
+[node name="WallSensor" type="Node" parent="."]
+script = ExtResource("s_wall")
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("fsm")
+estado_inicial = &"Fall"
+
+[node name="Grounded" type="Node" parent="StateMachine"]
+script = ExtResource("g_ground")
+
+[node name="Idle" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_idle")
+
+[node name="Move" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_move")
+
+[node name="Slide" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_slide")
+
+[node name="Landing" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_land")
+
+[node name="Airborne" type="Node" parent="StateMachine"]
+script = ExtResource("g_air")
+
+[node name="Jump" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_jump")
+
+[node name="Fall" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_fall")
+
+[node name="Glide" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_glide")
+
+[node name="WallSlide" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_wslide")
+
+[node name="WallRun" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_wrun")
+
+[node name="Attached" type="Node" parent="StateMachine"]
+script = ExtResource("g_att")
+
+[node name="LedgeHang" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_hang")
+
+[node name="LedgeClimb" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_lclimb")
+
+[node name="Climb" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_climb")
+
+[node name="Dash" type="Node" parent="StateMachine"]
+script = ExtResource("st_dash")

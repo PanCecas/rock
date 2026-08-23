@@ -26,26 +26,53 @@ encuadre, el horizonte se disuelve en crema y el sol proyecta sombras tintadas.
 2. Los exports `@export var x: Node3D` no se resuelven al instanciar la escena. Todas las
    referencias a nodos van como `NodePath` + `get_node_or_null()`. Es la regla #10.
 
-## FASE 1 — El juguete de movimiento · 3–4 semanas · **LA FASE MÁS IMPORTANTE**
+## FASE 1 — El juguete de movimiento · ~~3-4 semanas~~ **HECHA**
 **Objetivo:** que moverse sea divertido **sin combate, sin arte y sin enemigos**.
 
-- [ ] `SurfaceContext` (aunque solo haya suelo estático — la arquitectura se pone ahora)
-- [ ] FSM del jugador: `Grounded` / `Airborne` / `Attached`
-- [ ] Salto con gravedad asimétrica, coyote time, jump buffer, jump cut
-- [ ] Dash terrestre y aéreo con cargas
-- [ ] Planeo con la capa
-- [ ] Deslizamiento, wall-run, wall-slide
-- [ ] Detección de bordes: `ledge_catch`, colgado, shimmy, subida, ledge assist
-- [ ] Escalada libre sobre superficies marcadas
-- [ ] Stamina unificada
-- [ ] `CameraRig` con modos `Explore` y `Climb`
-- [ ] `DebugOverlay` completo
+- [x] `SurfaceContext` con arrastre por delta de transform (marco estatico de momento)
+- [x] `LocomotionMotor`: toda la mate en el plano del SurfaceContext, nunca en XZ del mundo
+- [x] FSM jerarquica: 3 grupos (Grounded / Airborne / Attached) + 13 estados
+- [x] Salto con gravedad asimetrica, coyote time, jump buffer y jump cut
+- [x] Dash terrestre y aereo con cargas, i-frames y conservacion de momentum
+- [x] Planeo con picado, remontada y alabeo de capa
+- [x] Deslizamiento que ACELERA cuesta abajo, con salto potenciado
+- [x] Wall-run con gravedad progresiva, wall-slide y wall-jump alternable
+- [x] `LedgeSensor` de 3 rayos + ledge assist, colgado, shimmy y subida escriptada
+- [x] Escalada libre sobre CLIMBABLE, con salto de escalada y resbalon por stamina
+- [x] `StaminaComponent` unificado: escalar, planear, correr, dashear
+- [x] `CameraRig` con modos Explore y Climb interpolados + FOV por velocidad
+- [x] `DebugOverlay` completo: FSM, velocidad, buffer, sensores, stamina, marco
+- [x] `tools/Circuito.gd`: la carrera de obstaculos con cronometro y 6 checkpoints
+- [x] `tools/TestFase1.tscn`: test funcional que recorre los 12 estados
 
-**HITO 1:** monta una **carrera de obstáculos** en el Gym y crónometra tu mejor tiempo.
-Si te apetece repetirla para bajar el tiempo, la fase está aprobada. **Si no, no sigas.**
-Este es el único filtro real del proyecto.
+**HITO 1 — pendiente de tu veredicto.** El circuito esta montado y el test automatico
+alcanza los 12 estados. Lo que falta es lo unico que no se puede automatizar:
+**correrlo y ver si apetece repetirlo**. Ese sigue siendo el filtro del proyecto.
 
----
+**Lo que se aprendio y cambio el plan:**
+1. El rayo del `LedgeSensor` que busca el canto se lanzaba a una fraccion fija del
+   alcance, asi que caia POR DELANTE de la pared si el jugador estaba pegado a ella.
+   Ahora se ancla al punto de impacto. Sin esto el agarre fallaba justo cuando mas
+   se necesita.
+2. Encadenar los ifs de pared dejaba al jugador sin wall-slide despues de gastar el
+   wall-run en ese muro: chocaba y caia a plomo. `puede_correr` se calcula entero
+   antes de decidir.
+3. Niebla y perspectiva aerea son efectos DISTINTOS. El circuito de 150 m demostro
+   que `fog_density` come legibilidad a media distancia mientras que
+   `fog_aerial_perspective` solo tine la silueta lejana. El look de la referencia lo
+   da la segunda: se subio a 0.78 y se bajo la densidad a menos de la mitad.
+4. `--script` no registra los autoloads, asi que cualquier test que use un tipo con
+   `class_name` que a su vez toque `EventBus` no compila. Los tests van como ESCENA.
+6. **Segundo pase de feel: referencias concretas.** El dash pasa a evasion de
+   NieR (corta, con correccion de rumbo, y tap/hold para encadenar a sprint), el
+   planeo vuelve a "mantener" pero sin robarle la pulsacion al doble salto, y el
+   wall-jump se rehace estilo Mario 3D: vertical absoluto y fuerte, coyote de
+   pared, enganche por choque sin exigir input, y realineado suave de camara.
+5. **Pase de feel tras jugarlo.** Cinco correcciones que solo aparecen con el mando
+   en la mano: dos acciones en la misma tecla se robaban la pulsacion (doble salto
+   contra planeo), el wall-jump tiraba todo el momentum a lo largo del muro y salia
+   siempre igual, el dash frenaba en seco al aterrizar, la capsula se atascaba en
+   las esquinas interiores, y saltar colgado de un canto solo sabia subir.
 
 ## FASE 2 — Combate · 3–4 semanas
 **Objetivo:** 30 segundos de combo que se sientan bien contra una cápsula.

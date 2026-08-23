@@ -49,3 +49,17 @@ const HELD: Array[StringName] = [
 	MOVE_FORWARD, MOVE_BACK, MOVE_LEFT, MOVE_RIGHT,
 	SPRINT, CROUCH, JUMP, GLIDE, AIM, GRAB, PARRY,
 ]
+
+## Acciones que COMPARTEN TECLA. Una sola pulsación de Espacio registra `jump` y
+## `glide` a la vez, así que consumir una tiene que invalidar a la otra o los dos
+## estados se pelean por la misma pulsación: doble salto y planeo se disparaban
+## juntos y el jugador gastaba el salto aéreo sin querer.
+##
+## Sprint queda fuera a propósito: se consulta con is_held(), no se consume, así
+## que mantener Shift tras un dash sigue corriendo.
+const EXCLUSIVAS := {
+	JUMP: [GLIDE],
+	GLIDE: [JUMP],
+	DASH: [DODGE],
+	DODGE: [DASH],
+}

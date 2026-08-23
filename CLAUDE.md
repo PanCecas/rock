@@ -46,21 +46,49 @@ plataformas en movimiento.
 Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistema),
 `content/` (assets y datos), `tools/` (Gym, ColossusTestRoom), `docs/`.
 
+## Controles y teclas compartidas
+Dos teclas llevan dos acciones cada una, a propósito (es el esquema de TotK):
+
+| Tecla | Acciones | Cómo se desambigua |
+|---|---|---|
+| Espacio / A | `jump` + `glide` | **Pulsar = saltar. Mantener en el aire = planear** (desde el apice). Una pulsacion nueva siempre salta; el planeo solo mira si la tecla sigue abajo. |
+| Shift / B | `dash` + `sprint` + `dodge` | **Toque = evasion corta. Mantener = evasion y luego sprint continuo** (`dash_tap_max`). |
+
+Lo resuelve `InputActions.EXCLUSIVAS` + `InputBuffer.consume()`: consumir una accion
+invalida a su hermana **si vino de la misma pulsacion** (ventana de 30 ms). `sprint`
+queda fuera de esa lista a proposito, o mantener Shift tras un dash dejaria de correr.
+
+Colgado de un canto: **empujar arriba sube**, **saltar salta desde el canto** (y te
+deja el doble salto disponible para encadenar en el vacio).
+
+Junto a una pared, **saltar rebota** en vez de gastar el salto aereo: el wall-jump
+tiene prioridad sobre el doble salto en `GroupAirborne`, y sigue disponible durante
+`pared_coyote` segundos despues de perder el contacto.
+
 ## Herramientas
 | Script | Para qué |
 |---|---|
 | `tools/Gym.gd` | Genera la sala de pruebas por código. Editar parámetros, no cubos. |
 | `tools/smoke_test.gd` | Comprobación de humo. `godot --headless --path . --script tools/smoke_test.gd` |
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
-| `tools/captura.gd` | Guarda una captura sin abrir el editor. |
+| `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
+| `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
+| `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
 
 ## Estado actual
-**Fase 0 cerrada.** Existen: los 4 autoloads, `Palette` + `PlayerTuning` como Resources,
-`InputBuffer` + input map de 27 acciones, `WorldMood`, el Gym generado, `DebugOverlay` (F3),
-y un `PlayerController` **provisional** con salto, coyote time, jump buffer y jump cut.
+**Fases 0 y 1 cerradas.** El jugador tiene los verbos completos de traversal:
 
-Siguiente paso: **Fase 1** — `SurfaceContext` y la FSM jerárquica. El `PlayerController`
-actual se sustituye entero; conservar solo sus tres reglas (tuning, buffer, perdones).
+- `SurfaceContext` + `LocomotionMotor`: toda la matematica en el plano del marco de
+  referencia, nunca en XZ del mundo. Listo para colosos sin tocar una linea.
+- FSM jerarquica con 3 grupos y 13 estados. Los grupos resuelven las transiciones
+  compartidas; las hojas solo su propio comportamiento.
+- Correr, esprintar, saltar, doble salto, dash (suelo/aire), planear, deslizarse,
+  wall-run, wall-slide, wall-jump, agarrar cantos, shimmy, subir, escalar.
+- Stamina unica, camara con modos, DebugOverlay completo, circuito cronometrado.
+
+Siguiente paso: **Fase 2** — combate. `AttackData` como Resource, `HitstopManager`
+conectado, ventanas de cancelacion y parry. El hitstop ya existe como autoload con
+su API; en la Fase 2 se le enchufan los consumidores.
