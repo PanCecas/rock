@@ -86,7 +86,7 @@ PlayerStateMachine
 │   ├── AttackGround · AttackAir · Charge · Parry · ParryCounter
 │   ├── Dodge · Hitstun · Knockdown · GuardBreak
 └── Special
-    └── Aim · Throw · Recall · Interact · Cinematic
+	└── Aim · Throw · Recall · Interact · Cinematic
 ```
 
 Cada estado es un `Node` con `enter()`, `exit()`, `physics_update(delta)`,
@@ -261,12 +261,12 @@ Colossus (Node3D)
 ### 6.2 El ciclo de combate del coloso
 ```
 DORMANT -> AWARE -> GROUND_PHASE (te ataca de pie; buscas la apertura)
-                      └─ tú rompes su guardia / clavas la lanza / enganchas
-                         -> CLIMB_PHASE (plataformas sobre él, él se sacude)
-                            -> WEAKPOINT_EXPOSED (ventana corta, apuñalas)
-                               -> PHASE_TRANSITION (cambia la geometría escalable)
-                                  -> vuelve a GROUND o CLIMB
-                                     -> DEATH
+					  └─ tú rompes su guardia / clavas la lanza / enganchas
+						 -> CLIMB_PHASE (plataformas sobre él, él se sacude)
+							-> WEAKPOINT_EXPOSED (ventana corta, apuñalas)
+							   -> PHASE_TRANSITION (cambia la geometría escalable)
+								  -> vuelve a GROUND o CLIMB
+									 -> DEATH
 ```
 
 ### 6.3 `ShakeDirector` — la tensión

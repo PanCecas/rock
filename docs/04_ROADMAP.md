@@ -72,7 +72,7 @@ VFX, el combate funciona. El arte solo puede mejorarlo, nunca arreglarlo.
 - [ ] `RopeSystem`: zip, swing (restricción analítica), pull de `RigidBody3D`
 - [ ] Arco con apuntado en cámara lenta
 - [ ] Puzzle-gym: una sección vertical que **solo** se puede superar combinando
-      lanza + lazo + planeo
+	  lanza + lazo + planeo
 
 **HITO 3:** subir una torre de 60 m sin tocar una escalera.
 

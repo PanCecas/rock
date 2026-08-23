@@ -147,10 +147,10 @@ IDLE:       idle_dormant, idle_alert, breathe_loop, look_at_player
 LOCOMOCIÓN: walk_loop, walk_turn_L/R, walk_start/stop, stomp_step
 ATAQUES:    attack_swipe, attack_slam, attack_stomp, attack_ranged (según diseño)
 REACCIÓN:   flinch_light, flinch_heavy, stagger_kneel (ventana de escalada),
-            recover_from_kneel
+			recover_from_kneel
 ANTI-JUGADOR (lo más importante):
-            shake_light, shake_violent, scratch_at_player, roll_body,
-            slam_body_against_wall
+			shake_light, shake_violent, scratch_at_player, roll_body,
+			slam_body_against_wall
 FASES:      phase_transition_01/02, enrage
 MUERTE:     death_stagger, death_collapse (largo, 8–15 s, cinematográfico)
 ```
@@ -205,13 +205,13 @@ Sin barra de vida numérica — el daño se comunica con el viraje de color de p
 ```
 Concept 2D (con la paleta bloqueada)
    └─> Blockout gris en Godot        <- se JUEGA antes de modelar nada
-        └─> Modelado (Blender)        low-poly, silueta primero
-             └─> UV + textura         colores planos + AO horneado, sin PBR complejo
-                  └─> Rig (Rigify)
-                       └─> Animación (Blender, root motion en el hueso Root)
-                            └─> Export glTF 2.0 (.glb) -> Godot
-                                 └─> AnimationTree + AnimationLibrary por sistema
-                                      └─> Test en el Gym -> iterar
+		└─> Modelado (Blender)        low-poly, silueta primero
+			 └─> UV + textura         colores planos + AO horneado, sin PBR complejo
+				  └─> Rig (Rigify)
+					   └─> Animación (Blender, root motion en el hueso Root)
+							└─> Export glTF 2.0 (.glb) -> Godot
+								 └─> AnimationTree + AnimationLibrary por sistema
+									  └─> Test en el Gym -> iterar
 ```
 
 **Reglas de export**

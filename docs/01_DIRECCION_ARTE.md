@@ -110,11 +110,11 @@ vegetación es **verde profundo** (`#24301C`).
 
 ```
 ██████████████████████████████████████████████████████████  60%  Verde + piedra desaturados
-                                                                 (terreno, ruinas, arquitectura)
+																 (terreno, ruinas, arquitectura)
 ████████████████████████████████                            30%  Crema + lavanda
-                                                                 (cielo, bruma, profundidad, luz volumétrica)
+																 (cielo, bruma, profundidad, luz volumétrica)
 ██████████                                                  10%  Acentos
-                                                                 (jugador, weakpoints, VFX, objetivos)
+																 (jugador, weakpoints, VFX, objetivos)
 ```
 
 **Excepción autorizada:** durante un golpe de parry perfecto o el impacto en un punto débil,

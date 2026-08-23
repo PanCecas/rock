@@ -26,10 +26,10 @@ saturado en pantalla. Esto reemplaza a la UI: la legibilidad la da el color, no 
 ```
 Explorar (planeo/gancho, silencio, escala)
    └─> Encontrar el coloso (silueta contra la bruma)
-        └─> FASE A: acercarte y quebrar su guardia (combate en suelo, parry, lanza)
-             └─> FASE B: clavar la lanza / enganchar y SUBIR (plataformas sobre carne y piedra en movimiento)
-                  └─> FASE C: aguantar las sacudidas, llegar al punto débil, golpear
-                       └─> El coloso cambia de fase -> vuelve a A o B con nueva geometría
+		└─> FASE A: acercarte y quebrar su guardia (combate en suelo, parry, lanza)
+			 └─> FASE B: clavar la lanza / enganchar y SUBIR (plataformas sobre carne y piedra en movimiento)
+				  └─> FASE C: aguantar las sacudidas, llegar al punto débil, golpear
+					   └─> El coloso cambia de fase -> vuelve a A o B con nueva geometría
 ```
 
 ## Lo que NO es
