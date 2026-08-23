@@ -78,7 +78,7 @@ alcanza los 12 estados. Lo que falta es lo unico que no se puede automatizar:
 **Objetivo:** 30 segundos de combo que se sientan bien contra una capsula.
 
 - [x] `Hitbox` por consulta de forma (no Area3D: un Area llega con un frame de
-      retraso y en ventanas de 4 frames eso es un 25% de error), `Hurtbox`, `Golpe`
+	  retraso y en ventanas de 4 frames eso es un 25% de error), `Hurtbox`, `Golpe`
 - [x] `AttackData` como Resource, tiempos en FRAMES a 60 Hz. 11 ataques en .tres
 - [x] `HitstopManager` conectado: micro-pausa global + congelado de participantes
 - [x] Cadena ligera L1-L2-L3 con finisher, pesado que LANZA al aire
