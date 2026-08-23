@@ -460,3 +460,90 @@ salto agachado supera al normal, bajo el túnel no se puede uno levantar, la pat
 baja derriba, y se escala una pared no marcada— y pasa la regresión de
 tools/TestFase1.tscn.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.8 — crouch reactivo, paredes por ángulo, dive y agua
+
+```
+Extensión del controlador 3D de ROCK. Lee CLAUDE.md y
+docs/03_ARQUITECTURA_MECANICAS.md antes de tocar nada. Todo número nuevo va en
+PlayerTuning.tres o en un AttackData .tres, nunca dentro de un .gd.
+
+1. AGACHARSE REACTIVO Y SUS TRES SALTOS
+El crouch actual se siente flojo y lento. Debe activarse casi al instante
+(<0.1 s) y mantenerse solo mientras el botón esté pulsado. Permite caminar
+agachado a velocidad reducida. Y dale vocabulario propio: el salto desde
+agachado NO es uno, son tres, y los decide lo que estés haciendo.
+  · quieto (sin input)   -> BACKFLIP: el DOBLE de fuerza vertical más un empujón
+    hacia atrás. La parábola sale del empujón, no de la animación.
+  · input lateral        -> SIDE HOP: brinco rápido y BAJO para evadir de lado,
+    con i-frames. Poca altura a propósito: es una evasión, no movilidad.
+  · avanzando            -> salto normal.
+
+2. PAREDES: RESUELVE EL CONFLICTO ENTRE CLIMB, WALL RUN Y WALL JUMP
+Hoy wall-run y wall-jump se pisan. La solución que quiero es de DISEÑO, en dos
+niveles, y tiene que ser una regla que el jugador pueda tener en la cabeza:
+
+  PRIORIDAD 1 — si mantienes el botón de agarre, ESCALAS. Punto. Así la
+  ambigüedad solo queda entre los dos verbos que NO pediste explícitamente.
+    · Escalada libre en 2D sobre la pared (estilo BotW/TotK).
+    · Apuntar atrás o sin input + salto -> te SUELTAS con un salto normal hacia
+      atrás. Nada de backflips aquí: el backflip es del agachado, y mezclarlos
+      confunde.
+    · Apuntar arriba o en diagonal superior + salto -> WALL LUNGE: un tirón a lo
+      largo de la pared que gana altura y deja el agarre disponible, así que
+      encadenar lunges es la forma rápida de subir.
+
+  PRIORIDAD 2 — sin botón de agarre, decide el ÁNGULO con el que llegas, medido
+  entre tu dirección de avance y la NORMAL de la pared:
+    · de frente (ángulo pequeño) -> no hay componente a lo largo del muro que
+      aprovechar, así que rebotas: wall-slide y wall-jump.
+    · rozando (ángulo grande) -> ya vas casi paralelo: WALL RUN.
+  NO lo decidas por de qué lado te queda la pared: eso es una propiedad del
+  sensor, no de tu intención, y es justo por lo que hoy se pisan.
+
+3. DIVE Y DIVE ATTACK
+Atacar en el aire LLEVANDO CARRERA es un clavado, no un picado vertical. Sale
+igual desde correr que desde surfear: lo que importa es el momentum, no el estado
+de origen. Es un modo propio, no una variante de caer: gravedad más fuerte,
+empuje hacia delante, giro reducido.
+  · Pulsar ataque OTRA VEZ durante el dive lo arma: DIVE ATTACK, con la hitbox
+    viva durante TODO el trayecto —no es un golpe con ventana, es un proyectil
+    que eres tú— y capaz de LANZAR a los enemigos por el aire.
+  · Si el clavado termina en agua, la entrada gana profundidad de verdad y dibuja
+    una curva submarina. Una caída normal solo deja flotando.
+
+4. AGUA — FASE 1 (movimiento y transiciones)
+  · Volumen de agua como Area3D, no como cuerpo sólido: se atraviesa, y lo que
+    cambia es el ESTADO, no la colisión.
+  · Nado en superficie: movimiento 2D con el cuerpo flotando. La flotación debe
+    ser un MUELLE hacia el nivel del agua, no un booleano: así entrar desde una
+    caída se amortigua solo.
+  · Tecla de agacharse -> bucear: movimiento 3D completo, usando la base COMPLETA
+    de la cámara incluida la vertical. Proyectarla al plano convierte el buceo en
+    nadar contra un techo invisible.
+  · Mantener salto bajo el agua asciende; al romper la superficie se vuelve a
+    nado de superficie automáticamente.
+  · Dale grupo propio en la FSM. El agua no es "suelo con otra gravedad": es un
+    tercer medio, y los verbos de tierra (coyote, doble salto, dash) no se cuelan.
+
+  NO implementes la Fase 2 (combate acuático por dash e IA de enemigos
+  acuáticos). Documéntala en project.md y para.
+
+5. ZONA DE PRUEBAS
+Añade al Gym un estanque con torre y trampolín altos, para poder probar el
+clavado de verdad y no solo flotar. Ojo: si el suelo del Gym es una losa maciza,
+no se puede excavar una piscina con una sola caja — construye el vaso hacia
+arriba.
+
+AVISO QUE TE VA A AHORRAR HORAS: en esta FSM los grupos corren ANTES que las
+hojas y les roban el input. Cualquier estado con una versión PROPIA de una acción
+compartida (el salto del agachado, los ataques del surf, la segunda pulsación del
+dive) tiene que poder RECLAMARLA, y el guardia debe existir en TODOS los grupos,
+no solo en el de suelo. El fallo siempre es silencioso: se ejecuta la acción
+genérica y la específica no llega a existir nunca.
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn y pasa la regresión de
+tools/TestFase1.tscn.
+```

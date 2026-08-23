@@ -46,9 +46,14 @@ plataformas en movimiento.
     justo antes de `move_and_slide`). Nunca en un estado.
 13. **Los grupos corren ANTES que las hojas y les roban el input.** Si una hoja
     tiene su version propia de una accion compartida, tiene que reclamarla con
-    `maneja_ataques()` o `maneja_salto()`. Es el fallo que mas veces ha aparecido
-    en este proyecto y siempre es silencioso: la accion generica se ejecuta y la
-    especifica no existe nunca.
+    `maneja_ataques()` o `maneja_salto()`, **y el guardia tiene que existir en
+    TODOS los grupos**, no solo en el de suelo. Es el fallo que mas veces ha
+    aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
+    DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
+    especifica no llega a existir nunca.
+14. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+    sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
+    o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
 ## Autoloads
 `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.
@@ -66,9 +71,12 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | **Planear** | **Ctrl** o **Mouse 4** (mantener) | LB (mantener) |
 | Dash / sprint / esquiva | Shift | B |
 | Agacharse / slide | C | D-pad abajo |
-| Salto alto | C (quieto) + Espacio | |
+| Backflip | C (quieto) + Espacio | |
+| Side hop | C + lateral + Espacio | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
+| Dive / DiveAttack | Ataque en el aire con carrera (×2 arma) | |
+| Nadar / bucear | C bucea · mantener Espacio sube | |
 | Agarrar / escalar | F | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
 | Ataque de dash (estocada) | Click izq. durante dash | RB |
@@ -134,6 +142,11 @@ Tras crear o renombrar una clase con `class_name`, corre
   parry normal y perfecto, poise con GuardBreak, soft-lock y 3 Guardianes.
   **El jugador se mueve mientras ataca** (`AttackData.movilidad`) y al morir los
   enemigos salen despedidos como cadaver fisico (`Ragdoll`).
+
+Ademas: agachado con backflip y side hop, escalada BotW con wall lunge, Dive y
+DiveAttack, y el sistema de agua Fase 1 (nado en superficie, buceo, clavado).
+La Fase 2 del agua —combate por dash e IA acuatica— esta documentada en
+`project.md`, sin implementar.
 
 Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

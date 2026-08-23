@@ -10,8 +10,6 @@ extends PlayerState
 ## Y no se sale cuando quieres: si hay techo encima, te quedas agachado. Eso es
 ## lo que convierte un túnel bajo en un obstáculo de verdad.
 
-## Por debajo de esta velocidad el salto agachado cuenta como "estático".
-const QUIETO := 1.5
 
 
 func enter(_msg: Dictionary = {}) -> void:
@@ -48,16 +46,52 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Move" if entrada.length() > 0.2 else &"Idle")
 
 
-## Quieto: salto alto. En movimiento: salto normal, para no premiar el agacharse
-## como forma de ir rápido —de eso ya se encarga el surf—.
+## Tres saltos distintos según lo que estés haciendo. Es lo que convierte
+## agacharse en un verbo con vocabulario propio en vez de en un modificador.
+##
+##   quieto        -> BACKFLIP: el doble de fuerza vertical y retroceso hacia
+##                    atrás. La parábola sale del empujón, no de la animación.
+##   input lateral -> SIDE HOP: brinco rápido y BAJO para evadir de lado.
+##   avanzando     -> salto normal, para no premiar agacharse como forma de ir
+##                    rápido; de eso ya se encarga el surf.
 func _saltar() -> void:
-	if motor.rapidez_plana() < QUIETO:
-		var v := sqrt(2.0 * absf(tuning.gravedad_subida) * tuning.altura_salto_agachado)
-		motor.set_vertical(v)
-		EventBus.camara_shake.emit(0.25, 0.12)
-		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
-	else:
-		fsm.cambiar(&"Jump", {"numero": 1}, true)
+	var entrada := buffer.move_vector()
+	var quieto := motor.rapidez_plana() < tuning.crouch_quieto and entrada.length() < 0.25
+
+	if quieto:
+		_backflip()
+		return
+
+	# Lateral dominante sobre el avance: es una evasión, no un desplazamiento.
+	if absf(entrada.x) > absf(entrada.y) + 0.15:
+		_side_hop(entrada)
+		return
+
+	fsm.cambiar(&"Jump", {"numero": 1}, true)
+
+
+func _backflip() -> void:
+	var atras := -player.direccion_frontal()
+	motor.impulso(atras, tuning.backflip_retroceso)
+	motor.set_vertical(tuning.velocidad_salto() * tuning.backflip_mult)
+	player.girar_visual(tuning.backflip_giro_visual)
+	EventBus.camara_shake.emit(0.4, 0.16)
+	CombatFX.onda(
+		player.get_parent(), player.global_position + Vector3.UP * 0.1,
+		player.color_de(&"crema_bruma"), 1.6
+	)
+	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+
+
+func _side_hop(entrada: Vector2) -> void:
+	var lateral := sc.direccion_movimiento(Vector2(signf(entrada.x), 0.0), player.camara())
+	if lateral.is_zero_approx():
+		lateral = sc.plano(player.global_basis.x) * signf(entrada.x)
+	motor.impulso(lateral, tuning.sidehop_lateral)
+	motor.set_vertical(tuning.sidehop_vertical)
+	player.iframes = maxf(player.iframes, tuning.dash_iframes)
+	player.orientar_a(lateral)
+	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
 
 
 ## El salto alto es suyo: el grupo no puede convertirlo en un salto normal.
@@ -67,4 +101,8 @@ func maneja_salto() -> bool:
 
 func debug_line() -> String:
 	var extra := "  TECHO" if player.techo_bloquea() else ""
-	return "%s%s" % ["quieto → salto alto" if motor.rapidez_plana() < QUIETO else "moviendo", extra]
+	var entrada := buffer.move_vector()
+	var etiqueta := "quieto → BACKFLIP"
+	if motor.rapidez_plana() >= tuning.crouch_quieto or entrada.length() >= 0.25:
+		etiqueta = "lateral → side hop" if absf(entrada.x) > absf(entrada.y) + 0.15 else "avanzando"
+	return "%s%s" % [etiqueta, extra]

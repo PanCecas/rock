@@ -495,6 +495,76 @@ func _construir_guion() -> void:
 			func() -> bool: return _visitados.has(&"Climb"),
 			"con escalada_universal cualquier pared debe poder escalarse"),
 
+		# --- Correccion 2.8 ----------------------------------------------------
+		_paso_("asentar para backflip", 0.3, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"crouch"), &"Crouch"),
+		_chequeo_("backflip: doble altura y hacia atras", 0.06,
+			func() -> void: _pulsar(&"jump"),
+			func() -> bool: return (
+				_p.motor.get_vertical() > _p.tuning.velocidad_salto() * 1.7
+				and _p.motor.rapidez_plana() > 3.0),
+			"el backflip debe subir el doble y retroceder"),
+
+		_paso_("asentar para side hop", 0.35, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"crouch")
+			# El lateral se pulsa YA: necesita registrarse en el buffer antes de
+			# que llegue el salto, o el side hop se lee como salto normal.
+			_pulsar(&"move_right"), &"Crouch"),
+		_chequeo_("side hop: lateral y bajo", 0.08,
+			func() -> void: _pulsar(&"jump"),
+			func() -> bool: return (
+				_p.motor.rapidez_plana() > 7.0
+				and _p.motor.get_vertical() < _p.tuning.velocidad_salto()),
+			"el side hop debe salir lateral y con poca altura"),
+
+		# DIVE: atacar en el aire llevando carrera.
+		_chequeo_("dive desde carrera", 0.3,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 8.0, 0.0)
+				_p.velocity = Vector3(0.0, 2.0, -12.0)
+				_p.fsm.cambiar(&"Fall")
+				_esperar_pesado = 3,
+			func() -> bool: return _visitados.has(&"Dive"),
+			"atacar en el aire con velocidad debe entrar en Dive"),
+		_chequeo_("segunda pulsacion = DiveAttack", 0.2,
+			func() -> void: _esperar_ataque = 2,
+			func() -> bool: return _visitados.has(&"DiveAttack"),
+			"volver a atacar durante el dive debe armarlo"),
+
+		# AGUA: la piscina del Gym esta en (28, 0, -28).
+		_chequeo_("caer al agua = nado en superficie", 1.2,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				# Superficie del estanque a y=8.5; se entra desde arriba.
+				_p.global_position = Vector3(28.0, 12.0, -28.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Fall"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Swim",
+			"caer al agua sin dive debe dejar nadando en superficie"),
+		_chequeo_("C bucea", 0.4,
+			func() -> void: _pulsar(&"crouch"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Underwater",
+			"agacharse nadando debe pasar a buceo"),
+		_chequeo_("mantener salto sube a superficie", 1.6,
+			func() -> void:
+				_soltar(&"crouch")
+				_pulsar(&"jump"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Swim",
+			"mantener salto buceando debe devolver a la superficie"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:

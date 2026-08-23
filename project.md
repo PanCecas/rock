@@ -54,6 +54,36 @@ después. Lo que se aprenda aquí se paga solo en la Fase 4.
 
 ---
 
+## Agua — Fase 2 (NO implementada)
+
+La Fase 1 (nado en superficie, buceo, transiciones y clavado) **ya está**. Lo que
+sigue queda aparcado hasta validarla jugando, tal y como se acordó.
+
+### Combate acuático por dash
+Dentro del agua el combate **prescinde de animaciones**: son desplazamientos con
+hitbox. Es la decisión correcta para el agua y no una limitación técnica — bajo el
+agua no hay suelo del que empujar, así que un golpe *es* un desplazamiento.
+
+- **Ataque ligero:** dash corto y rápido hacia delante con hitbox activa.
+- **Ataque pesado:** el mismo dash, más lento y con más peso, con hitbox y daño
+  distintos.
+- **Idéntico en superficie y buceando.** No hay dos movesets: hay uno que respeta
+  el medio.
+
+Encaja con lo que ya existe: `AttackData` ya modela una estocada
+(`estocada` + `estocada_velocidad` + `overshoot`), que es exactamente esto. Un
+ataque acuático debería ser un `.tres` más, no un sistema nuevo.
+
+### Enemigos acuáticos
+Reutilizan el árbol de comportamiento de los Guardianes terrestres —los mismos
+estados: dormido, acercarse, telegrafiar, atacar, recuperar— adaptados al volumen
+de navegación. Lo único que cambia de verdad es que el movimiento es 3D y que la
+gravedad no existe.
+
+**Riesgo anotado:** el `Guardian` actual asume suelo (`is_on_floor()`, gravedad
+manual). Antes de escribir un enemigo acuático hay que extraer su FSM del cuerpo,
+o se acabará duplicando el script entero.
+
 ## Backlog técnico
 
 El diseño de **Active Ragdoll** y del **grappler con cuerda física real** vive en

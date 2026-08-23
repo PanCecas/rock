@@ -157,6 +157,19 @@ extends Resource
 @export_range(1.0, 4.0, 0.05) var longjump_mult: float = 1.55
 @export_range(1.0, 20.0, 0.1) var longjump_vertical: float = 6.5
 
+@export_subgroup("Backflip y side hop")
+## BACKFLIP: el salto agachado estatico. Multiplica la velocidad del salto normal
+## —el doble por defecto— y anade un empujon HACIA ATRAS que dibuja la parabola.
+@export_range(1.0, 3.0, 0.05) var backflip_mult: float = 2.0
+@export_range(0.0, 20.0, 0.1) var backflip_retroceso: float = 7.0
+@export_range(0.0, 1440.0, 10.0) var backflip_giro_visual: float = 720.0
+## SIDE HOP: agachado con input lateral, saltar da un brinco rapido y BAJO para
+## evadir. Poca altura a proposito: es una evasion, no una via de movilidad.
+@export_range(0.0, 25.0, 0.1) var sidehop_lateral: float = 11.0
+@export_range(0.0, 20.0, 0.1) var sidehop_vertical: float = 6.0
+## Por debajo de esta velocidad el salto agachado cuenta como estatico.
+@export_range(0.0, 6.0, 0.1) var crouch_quieto: float = 1.5
+
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
 ## Velocidad mínima para poder entrar en slide. Debajo de esto no engancha.
@@ -197,6 +210,16 @@ extends Resource
 ## esto, seguir apuntando a la pared cancela el propio salto y no despegas nunca.
 @export_range(0.0, 0.6, 0.01) var walljump_bloqueo: float = 0.14
 @export_range(0.0, 1.0, 0.05) var control_bloqueado_mult: float = 0.25
+## ANGULO que decide entre wall-jump y wall-run, en grados, medido entre tu
+## direccion de avance y la NORMAL de la pared.
+##
+## Llegar de frente (angulo pequeno) no deja correr: no hay componente a lo largo
+## del muro que aprovechar, asi que rebotas. Llegar rozando (angulo grande) si:
+## ahi el wall-run es la lectura natural. Antes lo decidia de que lado quedaba la
+## pared, que es una propiedad del sensor y no de como llegas, y por eso los dos
+## verbos se pisaban.
+@export_range(10.0, 89.0, 1.0) var pared_umbral_frontal: float = 55.0
+
 ## PERDON: sigues pudiendo saltar de la pared este tiempo despues de perder el
 ## contacto. Es lo que hace que encadenar dos muros no exija precision de frame.
 @export_range(0.0, 0.6, 0.01) var pared_coyote: float = 0.15
@@ -204,6 +227,33 @@ extends Resource
 @export_range(0.0, 1.0, 0.01) var pared_bloqueo: float = 0.18
 ## Cuanto se reorienta la camara detras del salto de pared. 0 = nada.
 @export_range(0.0, 1.0, 0.05) var camara_realinea_walljump: float = 0.6
+
+# --- Dive (clavado) ----------------------------------------------------------
+@export_group("Dive")
+## Velocidad horizontal minima para que atacar en el aire sea un DIVE y no un
+## picado vertical. El clavado nace del momentum: sin carrera no hay clavado.
+@export_range(0.0, 20.0, 0.1) var dive_velocidad_min: float = 6.0
+## Empuje hacia delante al entrar en dive. Es lo que dibuja la parabola.
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
+## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
+@export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
+@export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
+
+# --- Agua ---------------------------------------------------------------------
+@export_group("Agua")
+@export_range(0.5, 20.0, 0.1) var nado_velocidad: float = 4.6
+@export_range(0.5, 20.0, 0.1) var buceo_velocidad: float = 5.4
+## Flotabilidad en superficie: cuanto empuja hacia arriba al hundirse.
+@export_range(0.0, 60.0, 0.5) var agua_flotacion: float = 18.0
+@export_range(0.0, 20.0, 0.1) var agua_rozamiento: float = 4.5
+## Velocidad de ascenso manteniendo salto bajo el agua.
+@export_range(0.5, 20.0, 0.1) var buceo_ascenso: float = 5.0
+## Impulso hacia abajo al bucear desde la superficie.
+@export_range(0.0, 20.0, 0.1) var buceo_impulso: float = 5.0
+## Profundidad extra que gana una entrada en DIVE frente a una caida normal. Es
+## la curva de clavado del esquema.
+@export_range(0.0, 40.0, 0.5) var dive_penetracion: float = 16.0
+@export_range(0.0, 60.0, 0.5) var agua_stamina: float = 4.0
 
 # --- Aterrizaje -------------------------------------------------------------
 @export_group("Aterrizaje")

@@ -53,13 +53,48 @@ func physics_update(delta: float) -> void:
 	# Pegarse a la pared para seguir el relieve.
 	player.global_position -= sc.plano(_normal).normalized() * 0.6 * delta
 
-	# Salto de escalada: te despegas hacia donde apuntas.
+	# Dos saltos distintos, y los decide hacia donde apuntas:
+	#
+	#   atras / sin input -> SOLTARSE: salto normal separandote de la pared. Nada
+	#     de backflips aqui; el backflip es del agachado y mezclarlos confunde.
+	#   arriba / diagonal superior -> WALL LUNGE: impulso a lo largo de la pared
+	#     que gana altura de golpe. Es el "buff" de escalar con intencion.
 	if player.consumir_salto():
 		if player.stamina.gastar(tuning.stamina_escalar * 2.0):
-			var salida := sc.plano(_normal).normalized()
-			motor.impulso(salida, tuning.walljump_lateral * 0.7)
-			player.tiempo_sin_borde = 0.15
-			fsm.cambiar(&"Jump", {"numero": 1}, true)
+			if entrada.y < -0.4:
+				_wall_lunge(entrada)
+			else:
+				_soltarse()
+
+
+## Soltarse hacia atras: salto corriente separandose del muro.
+func _soltarse() -> void:
+	var salida := sc.plano(_normal).normalized()
+	motor.impulso(salida, tuning.walljump_lateral * 0.7)
+	player.tiempo_sin_borde = 0.15
+	fsm.cambiar(&"Jump", {"numero": 1}, true)
+
+
+## WALL LUNGE: apuntar arriba o en diagonal superior y saltar impulsa A LO LARGO
+## de la pared. Gana altura sin soltarse del todo y deja el agarre disponible, asi
+## que encadenar lunges es la forma rapida de subir un muro alto.
+func _wall_lunge(entrada: Vector2) -> void:
+	var lateral := sc.up.cross(sc.plano(_normal)).normalized()
+	var arriba := sc.plano(_normal).normalized().cross(lateral).normalized()
+	if arriba.dot(sc.up) < 0.0:
+		arriba = -arriba
+
+	var dir := (arriba - sc.plano(_normal).normalized() * 0.25 + lateral * entrada.x * 0.5).normalized()
+	player.velocity = dir * tuning.walljump_vertical * 1.05
+	player.tiempo_sin_borde = 0.1
+	EventBus.camara_shake.emit(0.3, 0.12)
+	CombatFX.impacto(
+		player.get_parent(), player.global_position + Vector3.UP * 1.0,
+		player.color_de(&"crema_bruma"), 0.8
+	)
+	# Vuelve a Fall y no a Jump: el lunge no es un salto, es un tiron. Si sigues
+	# manteniendo el agarre, GroupAirborne te reengancha solo mas arriba.
+	fsm.cambiar(&"Fall")
 
 
 ## La roca lisa cansa mas que un asidero marcado. Es lo que sigue haciendo

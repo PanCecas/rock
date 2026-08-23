@@ -55,6 +55,7 @@ func construir() -> void:
 	_pilares_gancho()
 	_pared_escalable()
 	_tunel()
+	_piscina()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -201,6 +202,41 @@ func _tunel() -> void:
 	# Rampa de entrada: invita a llegar con velocidad y cruzarlo surfeando.
 	_bloque("Tunel_Entrada", Vector3(ancho, 0.4, 4.0), pos + Vector3(0, 0.2, -largo * 0.5 - 2.0), _mat_marca)
 	_etiqueta("TUNEL 1.2 m — agachado o surf", pos + Vector3(0, 0.45, -largo * 0.5 - 4.5))
+
+
+## Piscina de pruebas: un hueco en el suelo con una ZonaAgua dentro. Tiene un
+## trampolin alto a proposito, porque lo que hay que poder probar no es flotar:
+## es el CLAVADO desde un dive y la curva de penetracion que gana.
+## Estanque de pruebas. ELEVADO y no excavado: el suelo del Gym es una losa
+## maciza de 70x70 y un agujero exigiria trocearla. Un vaso construido hacia
+## arriba resuelve lo mismo y deja ver el agua desde fuera.
+##
+## Tiene torre y trampolin a proposito: lo que hay que poder probar no es flotar,
+## es el CLAVADO desde un dive y la profundidad que gana.
+func _piscina() -> void:
+	var centro := Vector3(28.0, 0.0, -28.0)
+	var ancho := 18.0
+	var alto := 9.0
+
+	for i in 4:
+		var a := float(i) * PI * 0.5
+		var d := Vector3(sin(a), 0.0, cos(a)) * (ancho * 0.5 + 0.5)
+		var tam := Vector3(ancho + 2.0, alto, 1.0) if i % 2 == 0 else Vector3(1.0, alto, ancho + 2.0)
+		_bloque("Piscina_Muro_%d" % i, tam, centro + d + Vector3(0, alto * 0.5, 0), _mat_piedra_osc)
+
+	# Torre y trampolin: 16 m de caida, de sobra para entrar en dive.
+	_bloque("Piscina_Torre", Vector3(3, 16.0, 3), centro + Vector3(0, 8.0, -ancho * 0.5 - 6.0), _mat_piedra)
+	_bloque("Piscina_Trampolin", Vector3(4, 0.5, 7), centro + Vector3(0, 16.0, -ancho * 0.5 - 3.0), _mat_marca)
+
+	# El agua llena el vaso casi hasta arriba. Superficie en y = alto - 0.5.
+	var agua := ZonaAgua.new()
+	agua.name = "Agua"
+	agua.tamano = Vector3(ancho, alto - 0.5, ancho)
+	agua.palette = palette
+	_raiz.add_child(agua)
+	agua.position = centro + Vector3(0, (alto - 0.5) * 0.5, 0)
+
+	_etiqueta("ESTANQUE — clavate desde la torre", centro + Vector3(0, 0.06, ancho * 0.5 + 2.5))
 
 
 # --- Utilidades --------------------------------------------------------------

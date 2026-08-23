@@ -16,6 +16,8 @@ extends CharacterBody3D
 @export var ataque_pesado: AttackData
 @export var ataque_aereo: AttackData
 @export var ataque_plunge: AttackData
+## Clavado armado. Su hitbox vive todo el trayecto y lanza por los aires.
+@export var ataque_dive: AttackData
 ## Patada baja desde agachado. Derriba en vez de tambalear.
 @export var ataque_agachado: AttackData
 ## Ataque lanzado desde el dash: hereda el momentum y cierra distancia.
@@ -33,6 +35,7 @@ extends CharacterBody3D
 @onready var borde: LedgeSensor = $LedgeSensor
 @onready var pared: WallSensor = $WallSensor
 @onready var techo: CeilingSensor = $CeilingSensor
+@onready var agua: WaterSensor = $WaterSensor
 @onready var fsm: StateMachine = $StateMachine
 @onready var hitbox: Hitbox = $Hitbox
 @onready var hurtbox: Hurtbox = $Hurtbox
@@ -71,6 +74,8 @@ var _bloqueo_control: float = 0.0
 var _cooldown_salto: float = 0.0
 var _pos_anterior: Vector3 = Vector3.ZERO
 var _atascado: float = 0.0
+var _giro_visual: float = 0.0
+var _giro_visual_restante: float = 0.0
 
 
 func _ready() -> void:
@@ -116,6 +121,7 @@ func _physics_process(delta: float) -> void:
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base)
+	agua.sondear()
 	if tiempo_sin_borde <= 0.0:
 		borde.sondear(frente)
 	else:
@@ -335,6 +341,22 @@ func set_alabeo(grados: float) -> void:
 	_alabeo = grados
 
 
+## Giro de cortesía sobre el eje lateral: el backflip. No afecta a la física, solo
+## cuenta lo que ha pasado. Se consume solo.
+func girar_visual(grados_seg: float) -> void:
+	_giro_visual = grados_seg
+	_giro_visual_restante = 360.0
+
+
+## Encara el visual hacia donde se mueve. Devuelve true si ha girado.
+func orientar_si_se_mueve() -> bool:
+	var plano := superficie.plano(velocity)
+	if plano.length_squared() < 0.25:
+		return false
+	orientar_a(plano)
+	return true
+
+
 ## Pide una altura de cápsula (fracción de la normal). NO se aplica de golpe:
 ## `_actualizar_altura()` interpola. Un cambio instantáneo hace que el personaje
 ## dé un salto vertical al agacharse y se ve fatal.
@@ -457,6 +479,14 @@ func _actualizar_visual(delta: float) -> void:
 		)
 	visual.rotation.z = lerpf(visual.rotation.z, deg_to_rad(_alabeo), 1.0 - exp(-9.0 * delta))
 
+	# Voltereta del backflip: gira sobre su eje lateral y se apaga sola.
+	if _giro_visual_restante > 0.0:
+		var paso: float = minf(_giro_visual * delta, _giro_visual_restante)
+		visual.rotate_object_local(Vector3.RIGHT, deg_to_rad(-paso))
+		_giro_visual_restante -= paso
+		if _giro_visual_restante <= 0.0:
+			visual.rotation.x = 0.0
+
 
 ## En el Gym caerse no mata: te devuelve al spawn. En el juego real la caída larga
 ## es LA muerte (docs/00_VISION.md P2).
@@ -487,6 +517,7 @@ func _debug() -> void:
 	DebugOverlay.set_line("suelo", suelo.debug_line())
 	DebugOverlay.set_line("pared", pared.debug_line())
 	DebugOverlay.set_line("techo", "%s   capsula %.0f%%" % [techo.debug_line(), _altura_actual * 100.0])
+	DebugOverlay.set_line("agua", agua.debug_line())
 	DebugOverlay.set_line("borde", borde.debug_line())
 	DebugOverlay.set_line("superficie", superficie.debug_line())
 	DebugOverlay.set_line("vida", "%s %.0f%%   poise %.0f%%%s" % [

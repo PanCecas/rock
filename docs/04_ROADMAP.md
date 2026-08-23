@@ -226,6 +226,27 @@ hojas y les roban el input. El salto alto y el long jump no existian porque
 ataques de surf. Ahora hay `maneja_salto()` ademas de `maneja_ataques()`, y esta
 como regla dura #13 en CLAUDE.md para que no vuelva a pasar en la Fase 3.
 
+### Correccion 2.8 — agachado, paredes, dive y agua
+- **Crouch reactivo** con tres saltos distintos: backflip (doble altura + retroceso),
+  side hop (lateral, bajo, con i-frames) y salto normal avanzando. Caminar agachado.
+- **Conflicto de paredes resuelto por diseno en dos niveles:** agarre = escalar
+  (prioridad 1, sin ambiguedad posible); sin agarre, el ANGULO entre tu avance y la
+  normal decide wall-jump (de frente) o wall-run (rozando). Antes lo decidia
+  `pared.lado`, que es del sensor y no de tu intencion, y por eso se pisaban.
+  Se anaden soltarse hacia atras y el **wall lunge** hacia arriba/diagonales.
+- **Dive y DiveAttack:** atacar en el aire con carrera es un clavado con modo
+  propio; la segunda pulsacion lo arma y su hitbox vive todo el trayecto lanzando
+  enemigos por el aire. Es la unica via deliberada de abrir juego aereo desde que
+  el pesado dejo de lanzar en la 2.4.
+- **Agua Fase 1:** `ZonaAgua` como Area3D, `WaterSensor`, grupo `Water` propio con
+  nado en superficie (flotacion por muelle) y buceo 3D. Entrar en dive gana
+  profundidad de verdad. Estanque con torre en el Gym.
+- Fase 2 del agua documentada en `project.md`, sin implementar.
+
+**Cuarta y quinta aparicion del fallo de grupos:** el DiveAttack no existia porque
+`GroupAirborne` no tenia el guardia de `maneja_ataques()` que si tenia
+`GroupGrounded`. La regla dura #13 se amplia: el guardia va en TODOS los grupos.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

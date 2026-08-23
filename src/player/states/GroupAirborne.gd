@@ -12,6 +12,12 @@ extends PlayerStateGroup
 func shared_update(delta: float) -> void:
 	player.stamina.regenerar(tuning.stamina_regen_colgado * 0.5, delta)
 
+	# 0) El agua manda sobre todo lo demas: si hay agua, se entra al agua. Y la
+	#    forma de entrar depende de como llegues, no de donde caigas.
+	if player.agua.en_agua:
+		fsm.cambiar(&"Swim")
+		return
+
 	# 1) Aterrizar.
 	if player.is_on_floor() and motor.get_vertical() <= 0.0:
 		var impacto := player.impacto_ultimo
@@ -48,15 +54,42 @@ func shared_update(delta: float) -> void:
 			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
 			return
 
-	# 4) Pegarse a la pared: correr si la llevas al costado con velocidad,
-	#    resbalar si vas contra ella. No hace falta empujar hacia el muro: basta
-	#    con chocar, como en Mario. Exigir input hacía que se sintiera esquivo.
+	# 3.5) PRIORIDAD 1 — ESCALAR. Mantener el agarre gana a wall-run y wall-jump.
+	#      Con tres verbos compitiendo por la misma pared hace falta una regla que
+	#      el jugador pueda tener en la cabeza, y "si agarro, escalo" es la mas
+	#      simple que existe: la ambiguedad solo queda entre los dos que NO pides
+	#      explicitamente, y esa se resuelve por angulo.
+	if player.pared.hay_pared and buffer.is_held(InputActions.GRAB):
+		var vale_pared := player.pared.escalable or tuning.escalada_universal
+		if vale_pared and fsm.actual.name != &"Climb" and not player.stamina.vacia():
+			fsm.cambiar(&"Climb")
+			return
+
+	# 4) PARED. La ambiguedad entre wall-run y wall-jump se resuelve por el ANGULO
+	#    con el que llegas, no por de que lado te queda el muro:
+	#
+	#      de frente (angulo pequeno con la normal) -> no hay componente a lo
+	#        largo del muro que aprovechar. Rebotas: wall-slide y wall-jump.
+	#      rozando (angulo grande) -> ya vas casi paralelo. Correr es la lectura
+	#        natural: wall-run.
+	#
+	#    Antes lo decidia `pared.lado`, que es una propiedad del sensor y no de
+	#    tu intencion, y por eso los dos verbos se pisaban.
 	if player.pared.hay_pared and fsm.actual.name != &"Dash":
-		var contra_pared := -sc.plano(player.velocity).dot(sc.plano(player.pared.normal).normalized())
+		var normal := sc.plano(player.pared.normal).normalized()
+		var avance := motor.direccion_plana()
+		var contra_pared := -sc.plano(player.velocity).dot(normal)
 		var quiere := buffer.move_vector().length() > 0.3 or contra_pared > tuning.wallslide_entrada_min
+
 		if quiere:
+			# Angulo entre el avance y la normal. 0 = de frente, 90 = rozando.
+			var grados := 0.0
+			if not avance.is_zero_approx():
+				grados = rad_to_deg(avance.angle_to(-normal))
+			var oblicuo := grados >= tuning.pared_umbral_frontal
+
 			var puede_correr := (
-				player.pared.lado != 0
+				oblicuo
 				and player.wallrun_disponible
 				and motor.rapidez_plana() >= tuning.wallrun_velocidad_min
 				and buffer.move_vector().length() > 0.3
@@ -72,9 +105,22 @@ func shared_update(delta: float) -> void:
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
 		return
+
+	# Si la hoja gestiona sus propios ataques (Dive), el grupo no se los roba.
+	# Este guardia existia solo en GroupGrounded y por eso el DiveAttack no
+	# llegaba a ejecutarse: la segunda pulsacion se convertia en ataque aereo.
+	if fsm.actual != null and fsm.actual.maneja_ataques():
+		return
 	if player.ataque_aereo != null and buffer.consume(InputActions.ATTACK_LIGHT):
 		fsm.cambiar(&"AirAttack", {"datos": player.ataque_aereo})
 		return
+	# DIVE: atacar en el aire llevando carrera es un clavado, no un picado. Sale
+	# igual desde correr que desde surfear: lo que importa es el momentum.
+	if motor.rapidez_plana() >= tuning.dive_velocidad_min and motor.get_vertical() < 2.0:
+		if buffer.consume(InputActions.ATTACK_HEAVY) or buffer.consume(InputActions.ATTACK_LIGHT):
+			fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
+			return
+
 	if player.ataque_plunge != null and buffer.consume(InputActions.ATTACK_HEAVY):
 		fsm.cambiar(&"Plunge")
 		return
@@ -102,11 +148,3 @@ func shared_update(delta: float) -> void:
 			if buffer.is_held(InputActions.GLIDE) and not player.stamina.vacia():
 				fsm.cambiar(&"Glide")
 				return
-
-	# 9) Escalada a mano. Estilo BotW: vale CUALQUIER pared, no solo las marcadas.
-	#    Lo que la limita es la stamina, no el nivel: escalar pasa a ser una
-	#    decision de recurso en vez de un carril que el disenador te concede.
-	var vale_pared := player.pared.escalable or tuning.escalada_universal
-	if player.pared.hay_pared and vale_pared and buffer.is_held(InputActions.GRAB):
-		if fsm.actual.name != &"Climb" and not player.stamina.vacia():
-			fsm.cambiar(&"Climb")
