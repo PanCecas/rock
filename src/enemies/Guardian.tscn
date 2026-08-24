@@ -1,0 +1,57 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/enemies/Guardian.gd" id="g"]
+[ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="hp"]
+[ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="po"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
+[ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
+
+[sub_resource type="CapsuleShape3D" id="cap"]
+radius = 0.45
+height = 2.0
+
+[sub_resource type="CapsuleMesh" id="malla"]
+radius = 0.45
+height = 2.0
+
+[sub_resource type="BoxMesh" id="marca"]
+size = Vector3(0.3, 0.3, 0.12)
+
+[node name="Guardian" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("g")
+
+[node name="Collider" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("cap")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Cuerpo" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("malla")
+
+[node name="Marca" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -0.42)
+mesh = SubResource("marca")
+
+[node name="Salud" type="Node" parent="."]
+script = ExtResource("hp")
+
+[node name="Poise" type="Node" parent="."]
+script = ExtResource("po")
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("hb")
+equipo = 1
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 64
+collision_mask = 0
+script = ExtResource("hu")
+equipo = 1
+
+[node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("cap")

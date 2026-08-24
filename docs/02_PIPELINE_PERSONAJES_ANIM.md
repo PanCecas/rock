@@ -225,3 +225,113 @@ Concept 2D (con la paleta bloqueada)
 
 **Regla de oro:** nunca se anima un clip de combate antes de que exista su `AttackData` y se
 haya probado con una **cápsula gris**. El feel se afina con cubos; el arte solo lo viste.
+
+---
+
+## 7. Blender → Godot, paso a paso
+
+Todo lo de abajo es **específico de este proyecto**. La parte genérica de un pipeline
+glTF está en cualquier tutorial; lo que no está en ningún tutorial es cómo encaja un
+personaje real en un `PlayerController` que ya lleva escritos siete meses de reglas.
+
+### 7.1 Ajustes de Blender antes de modelar
+
+| Ajuste | Valor | Por qué |
+|---|---|---|
+| Unit System | Metric, **1.0 = 1 m** | Godot es métrico. Si Blender está a otra escala, el `.glb` llega escalado y todo el tuning miente. |
+| Altura del personaje | **1.8 m exactos** | Es la altura de la cápsula (`_altura_base`). Cualquier otra cosa obliga a reescalar en Godot, y el escalado se pelea con `pedir_postura()`. |
+| Orientación | mirando a **−Y** en Blender | Blender exporta a glTF rotando: −Y de Blender acaba siendo **−Z** en Godot, que es el "adelante" de un `Node3D`. |
+| Transform | **Apply All** antes de riguear | Escala o rotación sin aplicar viaja al `.glb` y descoloca los `BoneAttachment3D`. |
+| Origen | **entre los pies**, en (0,0,0) | El origen del `PlayerController` está en los pies. Si el modelo tiene el origen en la cadera, flota o se hunde medio metro. |
+
+### 7.2 Presupuesto
+
+- **Malla:** 8–15 k triángulos. Es un juego de silueta y color plano, no de detalle.
+- **Texturas:** 1 atlas de 1024², colores planos + AO horneado. Sin normal map, sin
+  roughness/metallic complejos: chocarían con la dirección de arte (`01_DIRECCION_ARTE.md`).
+- **Materiales:** 1, máximo 2 (cuerpo + capa). Cada material extra es un draw call.
+- **Huesos:** 65–75, según §2.
+- **Regla de croma:** el personaje es lo único saturado del encuadre (pilar P3). Sus
+  colores salen de `Palette.tres`, no del color picker de Blender.
+
+### 7.3 Export glTF desde Blender
+
+Formato **glTF Binary (.glb)**. Casillas que importan:
+
+- Include → **Limit to: Selected Objects** (malla + armature, nada más).
+- Transform → **+Y Up** ✔
+- Data → Mesh: Apply Modifiers ✔ · Normals ✔ · UVs ✔ · **Tangents ✘** (no hay normal map).
+- Data → Armature: **Export Deformation Bones Only ✘** — los huesos de socket
+  (`Weapon_Hand_R`, `Holster_Back`) no deforman nada y aun así hacen falta.
+- Animation → **Group by NLA Track** ✔ · Always Sample Animations ✔ · **30 fps**.
+- Animation → Optimize Animation Size ✘ *(recorta claves y se come poses de 2 frames,
+  que en un ataque de 4 frames activos es la mitad del golpe)*.
+
+**El nombre de cada NLA track es el nombre del clip en Godot.** De ahí sale la
+nomenclatura `sistema/accion_variante` de §6, y de ahí sale que el `AnimationTree`
+pueda pedir `combat/atk_L2` sin traducción intermedia.
+
+### 7.4 Import en Godot
+
+En el `.glb` importado, pestaña Import:
+- **Root Type:** `Node3D` · **Root Name:** `Modelo`.
+- **Skins → Use Named Skins** ✔.
+- **Animation → Import** ✔, **Trimming** ✔, **Remove Immutable Tracks** ✔.
+- **Save to File** las animaciones a `content/characters/anim/*.res`, agrupadas en una
+  `AnimationLibrary` por sistema. Un `AnimationPlayer` con 205 pistas es ingobernable.
+- Marcar el `.glb` como **"Advanced… → Skeleton3D → Retarget"** solo si vienen clips de
+  Mixamo. Los propios no lo necesitan.
+
+### 7.5 Dónde enchufarlo — **la parte que sí es de este proyecto**
+
+El modelo sustituye a los dos `MeshInstance3D` grises que hoy cuelgan de `Visual`:
+
+```
+Player (PlayerController)
+├─ Visual (Node3D)          <- NO se toca: lo escribe el controlador
+│   └─ Modelo (el .glb)     <- aquí entra el personaje
+│       └─ Skeleton3D
+│           ├─ BoneAttachment3D "Mano_R" -> socket espada
+│           └─ BoneAttachment3D "Espalda" -> socket lanza
+├─ Collider (CapsuleShape3D)
+└─ …
+```
+
+**Cinco trampas que el código actual te va a poner, y cómo esquivarlas:**
+
+1. **`Visual` no se toca.** El controlador le escribe `rotation.y`, `rotation.z`,
+   `quaternion` y `scale.y`. El modelo va **dentro**, como hijo. Si metes el `.glb`
+   en el sitio de `Visual`, el import lo pisará y perderás las referencias.
+2. **`pedir_postura()` aplica `visual.scale.y`.** Al agacharse, hoy el personaje se
+   *aplasta* al 50%. Con una cápsula da el pego; con un humano es grotesco. Cuando
+   exista el modelo hay que cambiar esa línea por una **animación de agachado** y dejar
+   que la cápsula de colisión encoja sola. Está anotado como deuda: el sistema de
+   postura ya está centralizado (regla dura #14), así que es **una** línea.
+3. **`orientar_a_3d()` escribe `visual.quaternion`.** El modelo debe colgar de `Visual`
+   con transform identidad; cualquier rotación propia se suma y sale torcido.
+4. **`HitstopManager` congela el primer `AnimationTree` que encuentra** bajo el nodo.
+   Hoy no hay ninguno, así que el hitstop es solo la micro-pausa global. En cuanto
+   exista el `AnimationTree`, la otra mitad del sistema se enciende **sola**.
+5. **Los `method tracks` sustituyen a los frames del `AttackData`.** Hoy la hitbox se
+   abre por número de frame (`frames_windup`). Cuando el clip tenga `hitbox_on`, los dos
+   tienen que decir lo mismo o el golpe saldrá desincronizado de la animación.
+   Recomendación: que el `.tres` siga mandando y el clip se anime **contra** él, no al
+   revés. El feel ya está afinado; la animación lo viste.
+
+### 7.6 Orden de trabajo recomendado
+
+No modeles los 205 clips. El orden que minimiza trabajo tirado:
+
+1. **T-pose + rig + 6 clips** (`idle`, `walk`, `run`, `jump`, `fall`, `land`) y méteselo
+   al juego. Ahí ya vas a descubrir que la mitad de los números de `PlayerTuning` se
+   sienten distintos con un cuerpo que tiene peso visual.
+2. **Reajusta el tuning** con el modelo puesto. Corre `tools/MedirMovimiento.tscn` antes
+   y después para saber qué has cambiado de verdad.
+3. **Añade una toma al `TestVisual`** con el modelo. A partir de ahí, cualquier
+   regresión de pose se caza sola.
+4. Solo entonces, los clips de combate — y cada uno después de que su `AttackData` esté
+   cerrado.
+
+**La razón de este orden:** el paso 1 cuesta una semana y puede invalidar decisiones de
+las siete correcciones de feel. Descubrirlo con 6 clips es barato; descubrirlo con 205,
+no.

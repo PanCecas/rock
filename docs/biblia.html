@@ -369,12 +369,12 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);}
     <div class="sysbox">
       <span class="tag">Movimiento</span>
       <h3>FSM jerárquica</h3>
-      <p>Grounded / Airborne / Attached / Combat / Special. Cada estado es un nodo con sus transiciones declaradas. Coyote time, jump buffer, jump cut, ledge assist y dash correction: el perdón es lo que separa un plataformero bueno de uno roto.</p>
+      <p>Tres grupos —Grounded, Airborne, Attached— y trece estados. El grupo corre antes que la hoja y resuelve lo compartido: sin eso, cada hoja repetiría los mismos ocho ifs. Coyote time, jump buffer, jump cut, ledge assist: el perdón es lo que separa un plataformero bueno de uno roto.</p>
     </div>
     <div class="sysbox">
       <span class="tag">Combate</span>
       <h3>AttackData + Hitstop</h3>
-      <p>Cada ataque es un <code>.tres</code>, nunca código. El hitstop congela el AnimationTree del atacante y del receptor, nunca <code>Engine.time_scale</code> — eso se siente como lag.</p>
+      <p>Cada ataque es un <code>.tres</code> con sus tiempos en frames a 60 Hz, nunca código. Y la hitbox no puede ser un <code>Area3D</code>: con ventanas activas de 4 frames, el frame de retraso de las áreas es un 25% de error, así que golpea con una consulta de forma en el frame exacto.</p>
     </div>
     <div class="sysbox">
       <span class="tag">Combate</span>
@@ -458,20 +458,20 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);}
         <p class="hito"><b>Hito cumplido</b>Una cápsula cobalto se mueve por el Gym, es lo único saturado del encuadre, el horizonte se disuelve en crema y el sol proyecta sombras tintadas.</p>
       </div>
     </div>
-    <div class="phase key">
+    <div class="phase done">
       <span class="pnum">1</span>
       <div class="phase-body">
-        <div class="phase-top"><h3>El juguete de movimiento</h3><span class="dur">3–4 semanas</span></div>
-        <p class="desc">SurfaceContext, FSM, salto con todos los perdones, dash, planeo, deslizamiento, wall-run, bordes, escalada, stamina, cámara.</p>
-        <p class="hito"><b>Hito · el único filtro real del proyecto</b>Monta una carrera de obstáculos y crónometrate. Si te apetece repetirla para bajar el tiempo, sigue. Si no, para.</p>
+        <div class="phase-top"><h3>El juguete de movimiento</h3><span class="badge">hecha</span></div>
+        <p class="desc">SurfaceContext con arrastre por delta de transform, LocomotionMotor, FSM jerárquica de 3 grupos y 13 estados, stamina unificada, cámara con modos, y el circuito cronometrado con 6 checkpoints.</p>
+        <p class="hito"><b>Hito · pendiente de tu veredicto</b>El test automático recorre los 12 estados. Lo que no se puede automatizar es lo único que decide: correr el circuito y ver si apetece repetirlo.</p>
       </div>
     </div>
-    <div class="phase">
+    <div class="phase done">
       <span class="pnum">2</span>
       <div class="phase-body">
-        <div class="phase-top"><h3>Combate</h3><span class="dur">3–4 semanas</span></div>
-        <p class="desc">HitBox, AttackData, hitstop, cancelaciones, parry, esquiva, poise, targeting, tres Guardianes de Ruina.</p>
-        <p class="hito"><b>Hito</b>Grábate 30 s peleando contra tres cápsulas. Si el vídeo se ve bien sin arte, el combate funciona.</p>
+        <div class="phase-top"><h3>Combate</h3><span class="badge">hecha</span></div>
+        <p class="desc">AttackData como Resource con los tiempos en frames, hitbox por consulta de forma, hitstop conectado, ventanas de cancelación, cadena con finisher, pesado launcher, aéreos que reponen el dash, picado, parry normal y perfecto, poise con guard break, soft-lock y los tres Guardianes.</p>
+        <p class="hito"><b>Hito · pendiente de tu veredicto</b>12 comprobaciones funcionales en verde. Lo que no se automatiza: grabar 30 s y ver si el vídeo se sostiene sin arte.</p>
       </div>
     </div>
     <div class="phase">

@@ -1,28 +1,96 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://btyhml3avr6at"]
 
-[ext_resource type="Script" path="res://src/art/WorldMood.gd" id="1_mood"]
+[ext_resource type="Script" uid="uid://d3hp2dloe4u0y" path="res://src/art/WorldMood.gd" id="1_mood"]
 [ext_resource type="Resource" path="res://content/data/default_palette.tres" id="2_palette"]
-[ext_resource type="Script" path="res://tools/Gym.gd" id="3_gym"]
+[ext_resource type="Script" uid="uid://0fm64rmn8vb8" path="res://tools/Gym.gd" id="3_gym"]
 [ext_resource type="PackedScene" path="res://src/player/Player.tscn" id="4_player"]
 [ext_resource type="PackedScene" path="res://src/camera/CameraRig.tscn" id="5_camera"]
+[ext_resource type="Script" uid="uid://cigtgmwkixwb6" path="res://tools/Circuito.gd" id="6_circuito"]
+[ext_resource type="Script" uid="uid://cbmjc1r4m0nge" path="res://tools/Arena.gd" id="7_arena"]
 
-[node name="Main" type="Node3D"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o8nxp"]
+sky_top_color = Color(0.81058824, 0.7780392, 0.7529412, 1)
+sky_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
+sky_curve = 0.18
+ground_bottom_color = Color(0.14117648, 0.1882353, 0.10980392, 1)
+ground_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
+ground_curve = 0.04
+sun_angle_max = 25.0
+sun_curve = 0.12
 
-[node name="Sol" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.642788, 0.406153, -0.649519, 0, 0.848048, 0.529919, 0.766044, -0.340719, 0.544895, 0, 30, 0)
+[sub_resource type="Sky" id="Sky_oma3v"]
+sky_material = SubResource("ProceduralSkyMaterial_o8nxp")
+
+[sub_resource type="Environment" id="Environment_kk0tq"]
+background_mode = 2
+sky = SubResource("Sky_oma3v")
+ambient_light_source = 3
+ambient_light_color = Color(0.7207843, 0.7356863, 0.76235294, 1)
+ambient_light_sky_contribution = 0.75
+ambient_light_energy = 0.55
+tonemap_mode = 2
+tonemap_exposure = 1.05
+tonemap_white = 3.2
+ssao_enabled = true
+ssao_radius = 1.4
+ssao_intensity = 1.1
+ssao_power = 1.4
+glow_enabled = true
+glow_levels/3 = 0.6
+glow_levels/5 = 0.9
+glow_levels/7 = 0.5
+glow_intensity = 0.42
+glow_bloom = 0.06
+glow_blend_mode = 2
+glow_hdr_threshold = 1.05
+fog_enabled = true
+fog_light_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
+fog_sun_scatter = 0.12
+fog_density = 0.0035
+fog_aerial_perspective = 0.78
+fog_sky_affect = 0.45
+fog_height = -45.0
+fog_height_density = 0.02
+adjustment_enabled = true
+adjustment_contrast = 1.02
+adjustment_saturation = 0.92
+
+[node name="Main" type="Node3D" unique_id=490195209]
+
+[node name="Sol" type="DirectionalLight3D" parent="." unique_id=1130198979]
+transform = Transform3D(0.6427876, 0.4059894, -0.6495125, 0, 0.84814775, 0.52981323, 0.7660444, -0.34066558, 0.54500574, 0, 30, 0)
+light_color = Color(1, 0.9529412, 0.84705883, 1)
+light_energy = 1.15
+light_angular_distance = 1.2
 shadow_enabled = true
+shadow_bias = 0.04
+shadow_normal_bias = 1.4
+shadow_opacity = 0.86
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 220.0
 
-[node name="WorldMood" type="WorldEnvironment" parent="."]
+[node name="WorldMood" type="WorldEnvironment" parent="." unique_id=939690339]
+environment = SubResource("Environment_kk0tq")
 script = ExtResource("1_mood")
 palette = ExtResource("2_palette")
-sol_path = NodePath("../Sol")
 
-[node name="Gym" type="Node3D" parent="."]
+[node name="Gym" type="Node3D" parent="." unique_id=1918491371]
 script = ExtResource("3_gym")
 palette = ExtResource("2_palette")
+angulos_rampa = PackedFloat32Array(15, 25, 35, 45, 60)
+angulos_escalada = null
+huecos = PackedFloat32Array(2, 4, 6, 8, 10, 12)
+alturas_repisa = PackedFloat32Array(1, 2, 3, 4.2)
 
-[node name="Player" parent="." instance=ExtResource("4_player")]
+[node name="Circuito" type="Node3D" parent="." unique_id=1955614518]
+script = ExtResource("6_circuito")
+palette = ExtResource("2_palette")
+
+[node name="Arena" type="Node3D" parent="." unique_id=520377400]
+script = ExtResource("7_arena")
+palette = ExtResource("2_palette")
+
+[node name="Player" parent="." unique_id=621856872 instance=ExtResource("4_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
 
-[node name="CameraRig" parent="." instance=ExtResource("5_camera")]
-objetivo_path = NodePath("../Player")
+[node name="CameraRig" parent="." unique_id=436052055 instance=ExtResource("5_camera")]

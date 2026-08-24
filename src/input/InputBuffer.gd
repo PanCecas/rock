@@ -56,10 +56,20 @@ func peek(accion: StringName, ventana: float = -1.0) -> bool:
 
 
 ## Igual que peek() pero marca la pulsación como usada. Es lo que llaman los estados.
+##
+## Consumir también invalida las acciones que comparten tecla (InputActions.EXCLUSIVAS):
+## si Espacio dispara `jump` y `glide`, quien llegue primero se queda la pulsación.
 func consume(accion: StringName, ventana: float = -1.0) -> bool:
 	if not peek(accion, ventana):
 		return false
-	_consumidas[accion] = _ultima(accion)
+	var cuando := _ultima(accion)
+	_consumidas[accion] = cuando
+	for hermana in InputActions.EXCLUSIVAS.get(accion, []):
+		var suya := _ultima(hermana)
+		# Solo si vino de la MISMA pulsación: dos teclas distintas pulsadas casi a
+		# la vez siguen siendo dos intenciones distintas.
+		if suya >= 0.0 and absf(suya - cuando) < 0.03:
+			_consumidas[hermana] = suya
 	return true
 
 
@@ -76,10 +86,30 @@ func move_vector() -> Vector2:
 	)
 
 
+## Cuánto lleva MANTENIDA la acción. 0 si no está pulsada ahora mismo.
+## Es lo que distingue un toque de un mantener sin duplicar acciones en el mapa.
+func held_time(accion: StringName) -> float:
+	if not Input.is_action_pressed(accion):
+		return 0.0
+	var ultima := _ultima(accion)
+	return 0.0 if ultima < 0.0 else _tiempo - ultima
+
+
 ## Segundos desde la última pulsación de la acción. INF si nunca.
 func time_since(accion: StringName) -> float:
 	var ultima := _ultima(accion)
 	return INF if ultima < 0.0 else _tiempo - ultima
+
+
+## Tira TODAS las pulsaciones pendientes de una acción.
+##
+## Es lo que garantiza "1 pulsación = 1 salto": tras saltar, cualquier pulsación
+## que siguiera viva en la ventana deja de contar. Sin esto, machacar el botón
+## acumulaba saltos que salían solos al aterrizar.
+func invalidar(accion: StringName) -> void:
+	var ultima := _ultima(accion)
+	if ultima >= 0.0:
+		_consumidas[accion] = ultima
 
 
 ## Vacía el buffer. Se llama al respawnear o al entrar en cinemática.

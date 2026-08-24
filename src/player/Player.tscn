@@ -1,8 +1,66 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=67 format=3]
 
-[ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_ctrl"]
-[ext_resource type="Script" path="res://src/input/InputBuffer.gd" id="2_buffer"]
-[ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="3_tuning"]
+[ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
+[ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
+[ext_resource type="Script" path="res://src/input/InputBuffer.gd" id="buffer"]
+[ext_resource type="Script" path="res://src/player/motor/StaminaComponent.gd" id="stamina"]
+[ext_resource type="Script" path="res://src/player/sensors/GroundSensor.gd" id="s_ground"]
+[ext_resource type="Script" path="res://src/player/sensors/LedgeSensor.gd" id="s_ledge"]
+[ext_resource type="Script" path="res://src/player/sensors/WallSensor.gd" id="s_wall"]
+[ext_resource type="Script" path="res://src/player/sensors/CeilingSensor.gd" id="s_ceil"]
+[ext_resource type="Script" path="res://src/player/sensors/WaterSensor.gd" id="s_water"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="c_hit"]
+[ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="c_hurt"]
+[ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="c_hp"]
+[ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="c_poise"]
+[ext_resource type="Script" path="res://src/combat/TargetingSystem.gd" id="c_target"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_L1.tres" id="a_ligero"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_pesado.tres" id="a_pesado"]
+[ext_resource type="Resource" path="res://content/data/attacks/aereo_1.tres" id="a_aereo"]
+[ext_resource type="Resource" path="res://content/data/attacks/plunge.tres" id="a_plunge"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_dash.tres" id="a_dash"]
+[ext_resource type="Resource" path="res://content/data/attacks/surf_ligero.tres" id="a_sligero"]
+[ext_resource type="Resource" path="res://content/data/attacks/surf_pesado.tres" id="a_spesado"]
+[ext_resource type="Resource" path="res://content/data/attacks/patada_baja.tres" id="a_baja"]
+[ext_resource type="Resource" path="res://content/data/attacks/dive_attack.tres" id="a_dive"]
+[ext_resource type="Resource" path="res://content/data/attacks/dive_pesado.tres" id="a_dive_h"]
+[ext_resource type="Resource" path="res://content/data/attacks/slide_kick.tres" id="a_kick"]
+[ext_resource type="Resource" path="res://content/data/attacks/agua_ligero.tres" id="a_agualig"]
+[ext_resource type="Resource" path="res://content/data/attacks/agua_pesado.tres" id="a_aguapes"]
+[ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
+[ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
+[ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
+[ext_resource type="Script" path="res://src/player/states/GroupAirborne.gd" id="g_air"]
+[ext_resource type="Script" path="res://src/player/states/GroupAttached.gd" id="g_att"]
+[ext_resource type="Script" path="res://src/player/states/GroupCombat.gd" id="g_com"]
+[ext_resource type="Script" path="res://src/player/states/StateIdle.gd" id="st_idle"]
+[ext_resource type="Script" path="res://src/player/states/StateMove.gd" id="st_move"]
+[ext_resource type="Script" path="res://src/player/states/StateSlide.gd" id="st_slide"]
+[ext_resource type="Script" path="res://src/player/states/StateLanding.gd" id="st_land"]
+[ext_resource type="Script" path="res://src/player/states/StateJump.gd" id="st_jump"]
+[ext_resource type="Script" path="res://src/player/states/StateFall.gd" id="st_fall"]
+[ext_resource type="Script" path="res://src/player/states/StateGlide.gd" id="st_glide"]
+[ext_resource type="Script" path="res://src/player/states/StateWallSlide.gd" id="st_wslide"]
+[ext_resource type="Script" path="res://src/player/states/StateWallRun.gd" id="st_wrun"]
+[ext_resource type="Script" path="res://src/player/states/StateLedgeHang.gd" id="st_hang"]
+[ext_resource type="Script" path="res://src/player/states/StateLedgeClimb.gd" id="st_lclimb"]
+[ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
+[ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
+[ext_resource type="Script" path="res://src/player/states/StateSurf.gd" id="st_surf"]
+[ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
+[ext_resource type="Script" path="res://src/player/states/StateCrouchLanding.gd" id="st_clanding"]
+[ext_resource type="Script" path="res://src/player/states/StateSideJump.gd" id="st_sidejump"]
+[ext_resource type="Script" path="res://src/player/states/GroupWater.gd" id="g_water"]
+[ext_resource type="Script" path="res://src/player/states/StateDive.gd" id="st_dive"]
+[ext_resource type="Script" path="res://src/player/states/StateSlideKick.gd" id="st_kick"]
+[ext_resource type="Script" path="res://src/player/states/StateSwim.gd" id="st_swim"]
+[ext_resource type="Script" path="res://src/player/states/StateUnderwater.gd" id="st_under"]
+[ext_resource type="Script" path="res://src/player/states/StateWaterAttack.gd" id="st_watk"]
+[ext_resource type="Script" path="res://src/player/states/StateAttack.gd" id="st_atk"]
+[ext_resource type="Script" path="res://src/player/states/StateAirAttack.gd" id="st_air_atk"]
+[ext_resource type="Script" path="res://src/player/states/StatePlunge.gd" id="st_plunge"]
+[ext_resource type="Script" path="res://src/player/states/StateParry.gd" id="st_parry"]
+[ext_resource type="Script" path="res://src/player/states/StateHitstun.gd" id="st_stun"]
 
 [sub_resource type="CapsuleShape3D" id="Shape_body"]
 radius = 0.35
@@ -28,9 +86,24 @@ size = Vector3(0.22, 0.16, 0.18)
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 1025
-script = ExtResource("1_ctrl")
-tuning = ExtResource("3_tuning")
+script = ExtResource("ctrl")
+tuning = ExtResource("tuning")
 visual_path = NodePath("Visual")
+collider_path = NodePath("Collider")
+ataque_ligero = ExtResource("a_ligero")
+ataque_pesado = ExtResource("a_pesado")
+ataque_aereo = ExtResource("a_aereo")
+ataque_plunge = ExtResource("a_plunge")
+ataque_dash = ExtResource("a_dash")
+ataque_surf_ligero = ExtResource("a_sligero")
+ataque_surf_pesado = ExtResource("a_spesado")
+ataque_agachado = ExtResource("a_baja")
+ataque_dive = ExtResource("a_dive")
+ataque_dive_pesado = ExtResource("a_dive_h")
+ataque_slide_kick = ExtResource("a_kick")
+ataque_agua_ligero = ExtResource("a_agualig")
+ataque_agua_pesado = ExtResource("a_aguapes")
+ataque_contra = ExtResource("a_contra")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
@@ -47,4 +120,146 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0.3)
 mesh = SubResource("Mesh_frente")
 
 [node name="InputBuffer" type="Node" parent="."]
-script = ExtResource("2_buffer")
+script = ExtResource("buffer")
+
+[node name="Stamina" type="Node" parent="."]
+script = ExtResource("stamina")
+
+[node name="GroundSensor" type="Node" parent="."]
+script = ExtResource("s_ground")
+
+[node name="LedgeSensor" type="Node" parent="."]
+script = ExtResource("s_ledge")
+
+[node name="WallSensor" type="Node" parent="."]
+script = ExtResource("s_wall")
+
+[node name="CeilingSensor" type="Node" parent="."]
+script = ExtResource("s_ceil")
+
+[node name="WaterSensor" type="Node" parent="."]
+script = ExtResource("s_water")
+
+[node name="Salud" type="Node" parent="."]
+script = ExtResource("c_hp")
+
+[node name="Poise" type="Node" parent="."]
+script = ExtResource("c_poise")
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("c_hit")
+equipo = 0
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 64
+collision_mask = 0
+script = ExtResource("c_hurt")
+equipo = 0
+
+[node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("Shape_body")
+
+[node name="Targeting" type="Node" parent="."]
+script = ExtResource("c_target")
+equipo = 0
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("fsm")
+estado_inicial = &"Fall"
+
+[node name="Grounded" type="Node" parent="StateMachine"]
+script = ExtResource("g_ground")
+
+[node name="Idle" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_idle")
+
+[node name="Move" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_move")
+
+[node name="Slide" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_slide")
+
+[node name="Surf" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_surf")
+
+[node name="Crouch" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_crouch")
+
+[node name="SlideKick" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_kick")
+
+[node name="Landing" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_land")
+
+[node name="CrouchLanding" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_clanding")
+
+[node name="SideJump" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_sidejump")
+
+[node name="Airborne" type="Node" parent="StateMachine"]
+script = ExtResource("g_air")
+
+[node name="Jump" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_jump")
+
+[node name="Fall" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_fall")
+
+[node name="Glide" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_glide")
+
+[node name="WallSlide" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_wslide")
+
+[node name="WallRun" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_wrun")
+
+[node name="Dive" type="Node" parent="StateMachine/Airborne"]
+script = ExtResource("st_dive")
+
+[node name="Water" type="Node" parent="StateMachine"]
+script = ExtResource("g_water")
+
+[node name="Swim" type="Node" parent="StateMachine/Water"]
+script = ExtResource("st_swim")
+
+[node name="Underwater" type="Node" parent="StateMachine/Water"]
+script = ExtResource("st_under")
+
+[node name="WaterAttack" type="Node" parent="StateMachine/Water"]
+script = ExtResource("st_watk")
+
+[node name="Attached" type="Node" parent="StateMachine"]
+script = ExtResource("g_att")
+
+[node name="LedgeHang" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_hang")
+
+[node name="LedgeClimb" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_lclimb")
+
+[node name="Climb" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_climb")
+
+[node name="Combat" type="Node" parent="StateMachine"]
+script = ExtResource("g_com")
+
+[node name="Attack" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_atk")
+
+[node name="AirAttack" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_air_atk")
+
+[node name="Plunge" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_plunge")
+
+[node name="Parry" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_parry")
+
+[node name="Hitstun" type="Node" parent="StateMachine/Combat"]
+script = ExtResource("st_stun")
+
+[node name="Dash" type="Node" parent="StateMachine"]
+script = ExtResource("st_dash")

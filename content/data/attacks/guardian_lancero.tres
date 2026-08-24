@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Estocada"
+frames_windup = 24
+frames_activo = 5
+frames_recuperacion = 26
+dano = 10.0
+dano_poise = 8.0
+empuje = Vector3(0, 0, 5)
+alcance = 2.8
+radio = 1.0
+arco_grados = 55.0
+avance = 0.0
+hitstop = 0.05
+shake = 0.4
+autoencarar = false
+color_vfx = &"carmesi"

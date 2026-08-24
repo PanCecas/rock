@@ -18,7 +18,18 @@ extends Node3D
 
 @export_group("Parámetros")
 @export var angulos_rampa: PackedFloat32Array = [15.0, 25.0, 35.0, 45.0, 60.0]
-## Anchuras de hueco en metros. Con altura_salto 2.2 el jugador debería llegar a ~6.
+## Rampas de calibracion del limite CAMINAR/ESCALAR. La frontera esta en 45 y el
+## techo en 110, asi que 30/40/44 se andan y de 45 en adelante se trepan. Es la
+## unica forma de comprobar el limite sin fiarse de la vista, y por eso estan los
+## dos lados de la frontera, no solo los casos bonitos.
+@export var angulos_escalada: PackedFloat32Array = [
+	30.0, 40.0, 44.0, 45.0, 50.0, 60.0, 75.0, 90.0, 110.0,
+]
+## Radio del domo de calibracion. Una media esfera recorre TODOS los angulos de 0
+## a 90 de forma continua, asi que subir por ella ensena donde esta el umbral sin
+## tener que leer ningun numero: caminas hasta que dejas de caminar.
+@export_range(2.0, 20.0, 0.5) var domo_radio: float = 5.0
+## Anchuras de hueco en metros. Con altura_salto_max 2.6 el jugador llega a ~6.
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
@@ -54,6 +65,10 @@ func construir() -> void:
 	_torre()
 	_pilares_gancho()
 	_pared_escalable()
+	_rampas_escalada()
+	_domo()
+	_tunel()
+	_piscina()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -84,12 +99,22 @@ func _suelo() -> void:
 
 func _rampas() -> void:
 	var x := -26.0
+	var grosor := 0.5
 	for angulo in angulos_rampa:
 		var largo := 8.0
+		var a := deg_to_rad(angulo)
+		# HUNDIDAS lo justo para que la cara superior ARRANQUE BAJO EL SUELO.
+		#
+		# Estaban centradas a `largo/2 * sin(a)`, y con eso su cara util empezaba a
+		# `grosor/2 * cos(a)` de altura: un labio de 13 a 25 cm en el pie de cada
+		# rampa. `CharacterBody3D` no sube escalones por su cuenta, asi que el
+		# jugador chocaba contra ese labio y NINGUNA rampa del campo se podia subir
+		# andando —ni la de 15 grados—. Se notaba sobre todo en la de 45 porque es
+		# la que mas obviamente deberia subirse.
 		var rampa := _bloque(
 			"Rampa_%d" % int(angulo),
-			Vector3(4.0, 0.5, largo),
-			Vector3(x, largo * 0.5 * sin(deg_to_rad(angulo)), -14.0),
+			Vector3(4.0, grosor, largo),
+			Vector3(x, largo * 0.5 * sin(a) - grosor * 0.5 * cos(a) - 0.05, -14.0),
 			_mat_piedra
 		)
 		rampa.rotation_degrees = Vector3(-angulo, 0, 0)
@@ -176,6 +201,154 @@ func _pared_escalable() -> void:
 	pared.set_collision_layer_value(1, true)
 	pared.set_collision_layer_value(4, true)  # CLIMBABLE
 	_etiqueta("ESCALABLE", Vector3(24.0, 0.05, 21.5))
+
+
+## Rampas empinadas, todas con el BORDE INFERIOR en la misma linea (z = borde_z).
+##
+## Que el pie de todas coincida no es cosmetica: es lo que permite acercarse a
+## cualquiera de ellas desde la misma linea de salida y comparar. Si cada una
+## empezara donde le tocase, medir "a partir de que angulo se escala" seria medir
+## tambien lo bien que uno se coloca.
+func _rampas_escalada() -> void:
+	var borde_z := -30.0
+	var largo := 10.0
+	var grosor := 0.6
+	var x := -33.0
+	for angulo in angulos_escalada:
+		var a := deg_to_rad(angulo)
+		# Ejes de la cara inclinada: `u` sube por ella, `n` sale de ella.
+		var u := Vector3(0.0, sin(a), cos(a))
+		var n := Vector3(0.0, cos(a), -sin(a))
+		# El centro del bloque se deduce del borde que se quiere fijar, no al reves.
+		var centro := Vector3(x, 0.0, borde_z) + u * (largo * 0.5) - n * (grosor * 0.5)
+		var rampa := _bloque(
+			"RampaEscalada_%d" % int(angulo),
+			Vector3(2.6, grosor, largo),
+			centro,
+			_mat_piedra_osc
+		)
+		rampa.rotation_degrees = Vector3(-angulo, 0.0, 0.0)
+		_etiqueta("%d°" % int(angulo), Vector3(x, 0.05, borde_z - 1.6))
+		x += 3.4
+	_etiqueta("SE ESCALA DE 45° A 110°", Vector3(-19.4, 0.05, borde_z - 3.4))
+
+
+## DOMO DE CALIBRACION. Media esfera: en la cima la superficie es horizontal y en
+## la base es vertical, recorriendo todos los angulos intermedios sin un solo
+## escalon. Es la forma honesta de ensenar donde esta el slope limit —subes
+## andando hasta que el suelo deja de dejarte, y ese punto es el umbral—, y de
+## paso el mejor sitio para notar si el umbral esta donde tiene que estar.
+##
+## El anillo dorado marca la latitud exacta del limite. Es geometria, no adorno:
+## si el numero cambia, el anillo se mueve solo.
+func _domo() -> void:
+	# Esquina propia: el domo es una montana de 5 m y en cualquier otro sitio se
+	# come el espacio libre que necesitan las pruebas de carrera.
+	var centro := Vector3(28.0, 0.0, 30.0)
+	var r := domo_radio
+
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "DomoCalibracion"
+	cuerpo.position = centro
+	cuerpo.collision_layer = 1
+
+	var malla := MeshInstance3D.new()
+	var esfera := SphereMesh.new()
+	esfera.radius = r
+	esfera.height = r * 2.0
+	esfera.radial_segments = 48
+	esfera.rings = 24
+	malla.mesh = esfera
+	malla.material_override = _mat_piedra
+	cuerpo.add_child(malla)
+
+	var col := CollisionShape3D.new()
+	var forma := SphereShape3D.new()
+	forma.radius = r
+	col.shape = forma
+	cuerpo.add_child(col)
+	_raiz.add_child(cuerpo)
+
+	# El anillo del umbral: la latitud donde la superficie alcanza el slope limit.
+	# En una esfera el angulo de la superficie coincide con la latitud, asi que
+	# sale directo del tuning sin ninguna constante intermedia.
+	# El tuning se carga del disco y no del autoload: este script es `@tool` y en
+	# el editor los autoloads no estan garantizados.
+	var limite: float = 45.0
+	var tun := ResourceLoader.load("res://content/data/default_tuning.tres") as PlayerTuning
+	if tun != null:
+		limite = tun.climb_angulo_min
+	var a := deg_to_rad(limite)
+	var anillo := MeshInstance3D.new()
+	anillo.name = "DomoUmbral"
+	var toro := TorusMesh.new()
+	toro.inner_radius = r * sin(a) - 0.08
+	toro.outer_radius = r * sin(a) + 0.08
+	anillo.mesh = toro
+	anillo.material_override = _mat_marca
+	anillo.position = centro + Vector3(0.0, r * cos(a), 0.0)
+	_raiz.add_child(anillo)
+
+	_etiqueta("DOMO — el anillo es el limite (%d°)" % int(limite), centro + Vector3(0, 0.06, r + 2.0))
+
+
+## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza
+## agachado o surfeando, y una vez dentro NO se puede uno levantar: el
+## CeilingSensor obliga a seguir agachado hasta salir.
+##
+## Es la prueba de que agacharse es un estado y no un boton.
+func _tunel() -> void:
+	var pos := Vector3(-14.0, 0.0, 8.0)
+	var largo := 14.0
+	var ancho := 5.0
+	var hueco := 1.2
+
+	# Techo: la pieza que obliga. Se apoya justo a la altura del hueco.
+	_bloque("Tunel_Techo", Vector3(ancho, 1.2, largo), pos + Vector3(0, hueco + 0.6, 0), _mat_piedra_osc)
+	# Paredes laterales, para que no se pueda rodear por dentro.
+	for i in 2:
+		var lado := -1.0 if i == 0 else 1.0
+		_bloque("Tunel_Muro_%d" % i, Vector3(0.8, hueco + 1.2, largo),
+			pos + Vector3(lado * (ancho * 0.5 + 0.4), (hueco + 1.2) * 0.5, 0), _mat_piedra_osc)
+
+	# Rampa de entrada: invita a llegar con velocidad y cruzarlo surfeando.
+	_bloque("Tunel_Entrada", Vector3(ancho, 0.4, 4.0), pos + Vector3(0, 0.2, -largo * 0.5 - 2.0), _mat_marca)
+	_etiqueta("TUNEL 1.2 m — agachado o surf", pos + Vector3(0, 0.45, -largo * 0.5 - 4.5))
+
+
+## Piscina de pruebas: un hueco en el suelo con una ZonaAgua dentro. Tiene un
+## trampolin alto a proposito, porque lo que hay que poder probar no es flotar:
+## es el CLAVADO desde un dive y la curva de penetracion que gana.
+## Estanque de pruebas. ELEVADO y no excavado: el suelo del Gym es una losa
+## maciza de 70x70 y un agujero exigiria trocearla. Un vaso construido hacia
+## arriba resuelve lo mismo y deja ver el agua desde fuera.
+##
+## Tiene torre y trampolin a proposito: lo que hay que poder probar no es flotar,
+## es el CLAVADO desde un dive y la profundidad que gana.
+func _piscina() -> void:
+	var centro := Vector3(28.0, 0.0, -28.0)
+	var ancho := 18.0
+	var alto := 9.0
+
+	for i in 4:
+		var a := float(i) * PI * 0.5
+		var d := Vector3(sin(a), 0.0, cos(a)) * (ancho * 0.5 + 0.5)
+		var tam := Vector3(ancho + 2.0, alto, 1.0) if i % 2 == 0 else Vector3(1.0, alto, ancho + 2.0)
+		_bloque("Piscina_Muro_%d" % i, tam, centro + d + Vector3(0, alto * 0.5, 0), _mat_piedra_osc)
+
+	# Torre y trampolin: 16 m de caida, de sobra para entrar en dive.
+	_bloque("Piscina_Torre", Vector3(3, 16.0, 3), centro + Vector3(0, 8.0, -ancho * 0.5 - 6.0), _mat_piedra)
+	_bloque("Piscina_Trampolin", Vector3(4, 0.5, 7), centro + Vector3(0, 16.0, -ancho * 0.5 - 3.0), _mat_marca)
+
+	# El agua llena el vaso casi hasta arriba. Superficie en y = alto - 0.5.
+	var agua := ZonaAgua.new()
+	agua.name = "Agua"
+	agua.tamano = Vector3(ancho, alto - 0.5, ancho)
+	agua.palette = palette
+	_raiz.add_child(agua)
+	agua.position = centro + Vector3(0, (alto - 0.5) * 0.5, 0)
+
+	_etiqueta("ESTANQUE — clavate desde la torre", centro + Vector3(0, 0.06, ancho * 0.5 + 2.5))
 
 
 # --- Utilidades --------------------------------------------------------------

@@ -25,7 +25,7 @@ func _physics_process(_d: float) -> bool:
 	print("Sol: %s energía=%.2f" % [(_main.get_node("Sol") as DirectionalLight3D).light_color.to_html(false), (_main.get_node("Sol") as DirectionalLight3D).light_energy])
 	print("Jugador: y=%.2f  en_suelo=%s" % [p.global_position.y, p.is_on_floor()])
 	print("Tuning: salto %.1fm -> v=%.2f m/s | dash %.1fm en %.2fs -> v=%.1f m/s" % [
-		_gs().tuning.altura_salto, _gs().tuning.velocidad_salto(),
+		_gs().tuning.altura_salto_max, _gs().tuning.velocidad_salto(),
 		_gs().tuning.dash_distancia, _gs().tuning.dash_duracion, _gs().tuning.velocidad_dash()])
 	print("Paleta: %d infracciones" % _gs().palette.validar().size())
 	quit()

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Descarga"
+frames_windup = 34
+frames_activo = 4
+frames_recuperacion = 30
+dano = 8.0
+dano_poise = 5.0
+empuje = Vector3(0, 0, 3)
+alcance = 10.0
+radio = 1.1
+arco_grados = 18.0
+avance = 0.0
+hitstop = 0.04
+shake = 0.3
+autoencarar = false
+color_vfx = &"oro_palido"

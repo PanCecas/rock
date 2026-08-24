@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://d00essagiu4eu"]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" uid="uid://bmuptrnse1qmj" path="res://content/data/attacks/aereo_2.tres" id="2_n"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_air_1"
+nombre = "Aereo 1"
+frames_windup = 4
+frames_recuperacion = 10
+dano = 8.0
+dano_poise = 9.0
+empuje = Vector3(0, 2, 2.5)
+fuerza_muerte = 7.0
+avance = 8.0
+movilidad = 0.5
+siguiente = ExtResource("2_n")
+frame_cadena = 7

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://4svppd8wjtyi"]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_low_kick"
+nombre = "Patada baja"
+frames_windup = 5
+frames_activo = 5
+frames_recuperacion = 16
+dano = 11.0
+dano_poise = 18.0
+empuje = Vector3(0, 0.6, 4)
+fuerza_muerte = 14.0
+torque_muerte = 12.0
+alcance = 2.2
+radio = 1.0
+altura = 0.35
+arco_grados = 75.0
+avance = 2.5
+derribo = true
+derribo_duracion = 1.7
+movilidad = 0.0
+hitstop = 0.08
+shake = 0.55
+color_vfx = &"oro_palido"
+frame_cadena = 99

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://cqcpc35iveixk"]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_H_release"
+nombre = "Pesado"
+frames_windup = 14
+frames_activo = 6
+frames_recuperacion = 22
+dano = 20.0
+dano_poise = 32.0
+empuje = Vector3(0, 0.4, 10)
+stagger = 0.9
+fuerza_muerte = 26.0
+torque_muerte = 11.0
+rompe_guardia = true
+alcance = 2.5
+radio = 1.25
+avance = 4.5
+movilidad = 0.15
+hitstop = 0.1
+shake = 1.0
+color_vfx = &"oro_palido"
+frame_cadena = 99

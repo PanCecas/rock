@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://c28ap0igf4qan"]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" uid="uid://xgmsd4uhged5" path="res://content/data/attacks/espada_L2.tres" id="2_n"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_dash"
+nombre = "Ataque de dash"
+frames_windup = 4
+frames_activo = 5
+frames_recuperacion = 14
+dano = 14.0
+dano_poise = 18.0
+empuje = Vector3(0, 0.3, 6)
+stagger = 0.4
+fuerza_muerte = 18.0
+torque_muerte = 8.0
+alcance = 3.2
+radio = 1.2
+arco_grados = 60.0
+avance = 9.0
+estocada = true
+estocada_velocidad = 14.0
+overshoot = 9.0
+movilidad = 0.15
+hitstop = 0.07
+shake = 0.6
+color_vfx = &"azul_claro"
+siguiente = ExtResource("2_n")

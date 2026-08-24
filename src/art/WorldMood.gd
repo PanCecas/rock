@@ -70,8 +70,9 @@ func _reconstruir() -> void:
 	env.fog_density = palette.densidad_niebla
 	env.fog_aerial_perspective = palette.perspectiva_aerea
 	env.fog_sky_affect = palette.niebla_afecta_cielo
-	env.fog_height = -12.0
-	env.fog_height_density = 0.06
+	# La niebla de altura se hundía sobre el circuito, que baja hasta y=-12.
+	env.fog_height = -45.0
+	env.fog_height_density = 0.02
 
 	# --- Tonemap: ligeramente sobreexpuesto, blancos lavados -----------------
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC

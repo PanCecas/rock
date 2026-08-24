@@ -49,3 +49,17 @@ const HELD: Array[StringName] = [
 	MOVE_FORWARD, MOVE_BACK, MOVE_LEFT, MOVE_RIGHT,
 	SPRINT, CROUCH, JUMP, GLIDE, AIM, GRAB, PARRY,
 ]
+
+## Acciones que COMPARTEN TECLA. Consumir una invalida a su hermana si vino de la
+## misma pulsación, o los dos estados se pelean por ella.
+##
+## JUMP/GLIDE ya NO está aquí: el planeo se mudó a Ctrl y Mouse 4 precisamente
+## porque compartir tecla con el salto resultaba incómodo. Quedan dash y esquiva,
+## que siguen en el mismo botón por diseño.
+##
+## Sprint queda fuera a propósito: se consulta con is_held(), no se consume, así
+## que mantener Shift tras un dash sigue corriendo.
+const EXCLUSIVAS := {
+	DASH: [DODGE],
+	DODGE: [DASH],
+}

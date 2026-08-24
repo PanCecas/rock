@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_plunge_loop"
+nombre = "Clavado pesado"
+frames_windup = 0
+frames_activo = 120
+frames_recuperacion = 0
+dano = 24.0
+dano_poise = 40.0
+empuje = Vector3(0, -6, 8)
+stagger = 0.7
+fuerza_muerte = 30.0
+torque_muerte = 16.0
+rompe_guardia = true
+alcance = 1.9
+radio = 1.5
+arco_grados = 140.0
+max_objetivos = 3
+avance = 0.0
+movilidad = 0.0
+hitstop = 0.11
+shake = 1.1
+color_vfx = &"oro_palido"
+frame_cadena = 999

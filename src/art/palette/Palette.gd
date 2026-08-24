@@ -62,9 +62,15 @@ extends Resource
 # --- Niebla (perspectiva aérea) ---------------------------------------------
 @export_group("Niebla")
 ## Lo lejano se disuelve en crema, nunca en gris. Es el 30% de la paleta hecho profundidad.
-@export_range(0.0, 0.05) var densidad_niebla: float = 0.0075
-## Cuánto tiñe la niebla al cielo. Alto = horizonte disuelto.
-@export_range(0.0, 1.0) var perspectiva_aerea: float = 0.7
+##
+## Bajado de 0.0075 a 0.0035 tras montar el circuito de 150 m: con el valor alto
+## no se veía la siguiente plataforma. Densidad y perspectiva aérea son efectos
+## DISTINTOS y hay que tunearlos por separado — la niebla come legibilidad a media
+## distancia, la perspectiva aérea solo tiñe la silueta lejana. El look de la
+## referencia lo da la segunda, así que se sube esa y se baja esta.
+@export_range(0.0, 0.05) var densidad_niebla: float = 0.0035
+## Cuánto tiñe la niebla al cielo. Alto = horizonte disuelto. AQUÍ vive el look.
+@export_range(0.0, 1.0) var perspectiva_aerea: float = 0.78
 @export_range(0.0, 1.0) var niebla_afecta_cielo: float = 0.45
 
 # --- Reparto de croma (CLAUDE.md #8) ----------------------------------------
