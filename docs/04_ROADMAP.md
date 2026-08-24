@@ -393,6 +393,35 @@ la comprobacion asumia suelo.
 - **Velocidades:** correr 8.7 -> 9.4; surf 15/11 -> 17.5/13.5. La plantada del
   side jump sube a 0.09 s para que se vea.
 
+
+### Correccion 2.05 — el patinaje, el peso del salto y el picado que paga la altura
+- **Arreglado el "ice skating".** `StateMove` trataba igual dos situaciones muy
+  distintas: ir mas rapido que la rampa por traer momentum de un dash, y ir mas
+  rapido porque acabas de soltar el stick. Las dos caian en `frenado_momentum`
+  (6 m/s2), asi que `frenado_suelo` —que existe desde la Fase 1— no llegaba a
+  usarse NUNCA en locomocion normal. Medido: soltar a velocidad de carrera
+  patinaba **6.04 m en 1.35 s**. Ahora son **1.30 m en 0.28 s**.
+- **`frenado_soltar` (26.0)**, parametro propio para el patinaje: `frenado_suelo`
+  lo multiplican ademas el aterrizaje (x1.6) y el picado (x2), y son tres cosas
+  que se ajustan por separado.
+- **El salto vuelve a pesar.** `aceleracion_aire` 25 -> 12, y el techo del control
+  aereo pasa de `velocidad_correr` a `control_aereo_techo` (3.2). Antes un salto
+  desde parado alcanzaba la velocidad maxima de carrera SIN tocar el suelo: la
+  carrerilla no servia para nada porque el aire te la regalaba.
+- **PICADO ESCALADO POR ALTURA DE CAIDA.** Dano, radio, aturdimiento y empuje
+  crecen con la caida entre `plunge_altura_min` (2.5 m) y `plunge_altura_max`
+  (20 m), y pasados `plunge_derribo_desde` (12 m) el aturdimiento se convierte en
+  DERRIBO. Es el unico ataque del juego cuya fuerza la decide una decision de
+  traversal: sin el, subir una torre y bajar peleando son dos juegos distintos que
+  comparten personaje.
+  El `AttackData` se DUPLICA antes de escalarlo — el recurso es compartido y
+  mutarlo dejaria el picado potenciado para el resto de la partida.
+- **`tools/MedirMovimiento.tscn`**, en la linea de `medir_paleta.gd`: cronometra
+  el feel en vez de opinar sobre el, con modo A/B (`-- antes`) que reproduce los
+  valores previos sin tocar codigo ni git.
+- Los constantes magicos del picado (`SUSPENSION`, `VELOCIDAD_CAIDA`) pasan a
+  tuning (regla dura #1).
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

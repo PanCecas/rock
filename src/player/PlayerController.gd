@@ -294,7 +294,11 @@ func control_aereo(delta: float) -> void:
 		return
 	var escala := tuning.control_bloqueado_mult if _bloqueo_control > 0.0 else 1.0
 	var dir := superficie.direccion_movimiento(entrada, camara())
-	var objetivo: float = maxf(tuning.velocidad_correr, motor.rapidez_plana())
+	# El techo del aire es la velocidad con la que DESPEGASTE, no la de correr. Con
+	# `velocidad_correr` como suelo, un salto desde parado alcanzaba la velocidad
+	# maxima de carrera sin tocar el suelo: el salto no pesaba nada porque la
+	# carrerilla no servia para nada.
+	var objetivo: float = maxf(tuning.control_aereo_techo, motor.rapidez_plana())
 	motor.acelerar(dir * objetivo, tuning.aceleracion_aire * escala, delta)
 
 

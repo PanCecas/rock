@@ -105,6 +105,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | **Clavado (Dive)** | **Click izq. en el aire** (siempre) | RB |
 | **Clavado pesado (rebota en cabezas)** | **Click der. en el aire** | RT |
 | Picado vertical (ground pound) | C + click der. en el aire | |
+| | *Su area y su dano crecen con la altura desde la que caes* | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
 | Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
 | Ataque acuatico | Click izq. / der. en el agua (impulso) | |
@@ -153,10 +154,11 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Gym.gd` | Sala de pruebas por código. Editar parámetros, no cubos. Incluye las rampas de calibración de escalada (45–90°, con el pie en la misma línea). |
 | `tools/smoke_test.gd` | Comprobación de humo. `godot --headless --path . --script tools/smoke_test.gd` |
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
+| `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 118 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 122 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre

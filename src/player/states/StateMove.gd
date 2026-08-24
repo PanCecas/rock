@@ -53,11 +53,18 @@ func physics_update(delta: float) -> void:
 
 	var dir := sc.direccion_movimiento(entrada, player.camara())
 
-	# Si vienes más rápido de lo que pide la rampa —de un dash, de un surf, de un
-	# slide— esa velocidad extra NO se tira: se pierde despacio mientras empujes.
+	# Ir mas rapido de lo que pide la rampa significa DOS cosas distintas, y
+	# tratarlas igual era la causa del "ice skating":
+	#
+	#   sigo empujando -> traigo momentum de un dash, un surf o un slide. Esa
+	#     velocidad extra no se tira, se pierde despacio. Es la regla de siempre.
+	#   he soltado     -> quiero PARAR. Frenar a `frenado_momentum` (6 m/s2) hacia
+	#     que soltar el stick a velocidad de carrera patinara 6 metros. Aqui manda
+	#     `frenado_soltar`. Antes caia aqui `frenado_momentum` y por eso soltar el
+	#     stick a velocidad de carrera patinaba seis metros.
 	var tasa := tuning.aceleracion_suelo
 	if motor.rapidez_plana() > _objetivo_suave + 0.5:
-		tasa = tuning.frenado_momentum
+		tasa = tuning.frenado_momentum if fuerza > 0.25 else tuning.frenado_soltar
 
 	motor.acelerar(dir * _objetivo_suave, tasa, delta)
 	motor.set_vertical(-2.0)

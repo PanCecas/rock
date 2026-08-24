@@ -1032,6 +1032,43 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.cd_slide_kick > 0.0,
 			"lanzar la patada tiene que armar la espera que impide spamearla"),
 
+		# --- Correccion 2.05: el picado escala con la altura de la caida -------
+		# Es el unico ataque cuya fuerza la decide una decision de TRAVERSAL. Se mide
+		# el mismo golpe contra el mismo enemigo desde dos alturas: lo unico que
+		# cambia entre los dos pasos es desde donde te tiraste.
+		_paso_("repoblar para el picado", 0.35, func() -> void:
+			_soltar_todo()
+			(_main.get_node("Arena") as Arena).poblar(), &""),
+		_chequeo_("picado bajo: dano de base", 1.0,
+			func() -> void:
+				_soltar_todo()
+				_lancero()
+				_reponer()
+				_plantar_guardian()
+				_p.global_position = Vector3(1.4, 3.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_vida_antes = _g.salud.actual
+				_p.fsm.cambiar(&"Plunge"),
+			func() -> bool:
+				_aux = _vida_antes - _g.salud.actual
+				return _aux > 1.0,
+			"un picado corto tiene que conectar y hacer su dano de base"),
+		_chequeo_("picado alto: mucho mas dano", 1.6,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_plantar_guardian()
+				_p.global_position = Vector3(1.4, 22.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_vida_antes = _g.salud.actual
+				_p.fsm.cambiar(&"Plunge"),
+			func() -> bool: return (_vida_antes - _g.salud.actual) > _aux * 1.8,
+			"caer desde 20 m tiene que pegar MUCHO mas que caer desde 3"),
+		_chequeo_("y ademas derriba", 0.3,
+			func() -> void: pass,
+			func() -> bool: return _g.estado == Guardian.Estado.DERRIBADO,
+			"pasada la altura de derribo el enemigo no se tambalea: se cae"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
@@ -1129,7 +1166,7 @@ func _ante_rampa(angulo: float) -> Callable:
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 170.0:
+	if _reloj > 190.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -1299,6 +1336,20 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Planta al Guardian en el origen, quieto y entero. Las dos medidas del picado
+## tienen que diferenciarse SOLO en la altura de caida; si el enemigo esta cada vez
+## en un sitio, lo que se mide es la punteria.
+func _plantar_guardian() -> void:
+	if not is_instance_valid(_g):
+		return
+	_g.estado = Guardian.Estado.DORMIDO
+	_g.global_position = Vector3(0.0, 0.1, 0.0)
+	_g.velocity = Vector3.ZERO
+	_g.salud.actual = _g.salud.maxima
+	_g.poise.actual = _g.poise.maxima
+	_g.poise.rota = false
 
 
 ## Distancia recorrida en el plano desde `origen`. La vertical no cuenta: lo que

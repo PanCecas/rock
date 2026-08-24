@@ -55,13 +55,27 @@ extends Resource
 ## reinicia en cuanto paras; bajo = perdona los cambios de rumbo.
 @export_range(0.5, 20.0, 0.1) var perdida_carrerilla: float = 3.5
 @export_range(1.0, 200.0, 1.0) var aceleracion_suelo: float = 60.0
-@export_range(1.0, 200.0, 1.0) var aceleracion_aire: float = 25.0
+## Autoridad direccional EN EL AIRE. Estaba en 25 y permitia invertir por completo
+## un rumbo de 9.4 m/s en menos de un segundo: el salto no comprometia a nada.
+@export_range(1.0, 200.0, 1.0) var aceleracion_aire: float = 12.0
+## Velocidad que se puede alcanzar en el aire PARTIENDO DE PARADO. Es el techo que
+## le da peso al salto: si saltas quieto, en el aire te mueves poco; si saltas
+## lanzado, conservas lo que traias. Antes este suelo era `velocidad_correr` y por
+## eso un salto vertical llegaba a maxima velocidad de carrera sin pisar el suelo.
+@export_range(0.0, 20.0, 0.1) var control_aereo_techo: float = 3.2
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
 @export_range(0.0, 200.0, 1.0) var frenado_aire: float = 4.0
 ## Frenado cuando vas MÁS RÁPIDO que tu velocidad objetivo y sigues empujando.
 ## Muy bajo a propósito: es lo que hace que la velocidad de un dash o de un slide
 ## sobreviva unos segundos en vez de evaporarse en dos frames.
 @export_range(0.5, 60.0, 0.5) var frenado_momentum: float = 6.0
+## EL PATINAJE. Frenado al SOLTAR la direccion llevando velocidad. Tiene parametro
+## propio porque es el numero del "ice skating" y se ajusta solo: `frenado_suelo`
+## lo multiplican ademas el aterrizaje y el picado.
+##   6  -> como antes de la 2.05: seis metros de resbalon.
+##   26 -> planta los pies en metro y medio. Conserva la sensacion de peso.
+##   45 -> parada en seco, casi sin derrape.
+@export_range(0.5, 120.0, 0.5) var frenado_soltar: float = 26.0
 ## Grados por segundo a los que el modelo gira hacia la dirección de movimiento.
 @export_range(90.0, 2160.0, 10.0) var giro_grados_seg: float = 900.0
 ## CLAMP DURO de la velocidad horizontal. El momentum se conserva y se encadena,
@@ -407,6 +421,34 @@ extends Resource
 ## eso empujaba en horizontal: el personaje se separaba de la pendiente.
 @export_range(0.0, 4.0, 0.05) var escalada_adherencia: float = 0.6
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
+
+# --- Picado (plunging attack) -----------------------------------------------
+# El picado es el unico ataque del juego cuyo poder lo decide el JUGADOR con una
+# decision previa: desde donde se tira. Escalar treinta metros para caer sobre un
+# grupo tiene que valer mas que dar un saltito, o el traversal y el combate siguen
+# siendo dos juegos distintos que comparten personaje.
+@export_group("Picado")
+## Suspension antes de caer. No es adorno: es la telegrafia que da peso al impacto
+## y el instante en que se elige donde caer.
+@export_range(0.0, 1.0, 0.01) var plunge_suspension: float = 0.16
+## Velocidad de caida del picado. Constante y muy por encima de la gravedad: cae
+## como una piedra, no como un cuerpo.
+@export_range(-120.0, -5.0, 1.0) var plunge_velocidad_caida: float = -34.0
+
+@export_subgroup("Escalado por altura de caida")
+## Por debajo de esta caida el picado vale lo que dice su AttackData y nada mas.
+@export_range(0.0, 30.0, 0.5) var plunge_altura_min: float = 2.5
+## Caida a partir de la cual ya no crece. Sin techo, una torre de 60 m convertiria
+## el picado en un boton de borrar la pantalla.
+@export_range(1.0, 100.0, 0.5) var plunge_altura_max: float = 20.0
+## Multiplicadores en la caida maxima. A 1.0 el escalado queda desactivado.
+@export_range(1.0, 6.0, 0.05) var plunge_dano_mult: float = 2.6
+@export_range(1.0, 6.0, 0.05) var plunge_radio_mult: float = 2.1
+@export_range(1.0, 6.0, 0.05) var plunge_stagger_mult: float = 2.2
+@export_range(1.0, 6.0, 0.05) var plunge_empuje_mult: float = 2.4
+## A partir de esta caida el aturdimiento pasa a DERRIBO. Es el salto cualitativo
+## que hace que merezca la pena subir del todo en vez de un poco.
+@export_range(0.0, 100.0, 0.5) var plunge_derribo_desde: float = 12.0
 
 # --- Combate ----------------------------------------------------------------
 @export_group("Combate")
