@@ -39,10 +39,17 @@ func physics_update(delta: float) -> void:
 		_dir = _dir.slerp(deseada, minf(1.0, 2.2 * delta)).normalized()
 
 	motor.impulso(_dir, maxf(rapidez, 0.0))
+	# Igual que el surf: si el suelo se acaba, el slide se acaba. Mantener la
+	# vertical clavada en -2 hacia que pasarse de largo de una plataforma fuera
+	# una caida flotante en vez de una caida.
+	if not player.is_on_floor():
+		fsm.cambiar(&"Fall")
+		return
 	motor.set_vertical(-2.0)
 
-	# Patada deslizante tambien desde el slide.
-	if player.ataque_slide_kick != null and buffer.consume(InputActions.ATTACK_LIGHT):
+	# Patada deslizante tambien desde el slide, con la misma espera.
+	if player.ataque_slide_kick != null and player.cd_slide_kick <= 0.0 \
+			and buffer.consume(InputActions.ATTACK_LIGHT):
 		var d := motor.direccion_plana()
 		if d.is_zero_approx():
 			d = _dir

@@ -1,4 +1,4 @@
-[gd_scene load_steps=66 format=3]
+[gd_scene load_steps=67 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -23,6 +23,7 @@
 [ext_resource type="Resource" path="res://content/data/attacks/surf_pesado.tres" id="a_spesado"]
 [ext_resource type="Resource" path="res://content/data/attacks/patada_baja.tres" id="a_baja"]
 [ext_resource type="Resource" path="res://content/data/attacks/dive_attack.tres" id="a_dive"]
+[ext_resource type="Resource" path="res://content/data/attacks/dive_pesado.tres" id="a_dive_h"]
 [ext_resource type="Resource" path="res://content/data/attacks/slide_kick.tres" id="a_kick"]
 [ext_resource type="Resource" path="res://content/data/attacks/agua_ligero.tres" id="a_agualig"]
 [ext_resource type="Resource" path="res://content/data/attacks/agua_pesado.tres" id="a_aguapes"]
@@ -98,6 +99,7 @@ ataque_surf_ligero = ExtResource("a_sligero")
 ataque_surf_pesado = ExtResource("a_spesado")
 ataque_agachado = ExtResource("a_baja")
 ataque_dive = ExtResource("a_dive")
+ataque_dive_pesado = ExtResource("a_dive_h")
 ataque_slide_kick = ExtResource("a_kick")
 ataque_agua_ligero = ExtResource("a_agualig")
 ataque_agua_pesado = ExtResource("a_aguapes")

@@ -102,7 +102,11 @@ func shared_update(delta: float) -> void:
 	#
 	#    Antes lo decidia `pared.lado`, que es una propiedad del sensor y no de
 	#    tu intencion, y por eso los dos verbos se pisaban.
-	if player.pared.hay_pared and fsm.actual.name != &"Dash":
+	# El wall-run y el wall-slide piden MAS que escalar: una pared casi vertical.
+	# Escalar vale desde el slope limit (45), pero correr por una ladera de 50
+	# grados no se sostiene ni fisica ni visualmente.
+	if player.pared.hay_pared and player.pared.angulo >= tuning.wallrun_angulo_min \
+			and fsm.actual.name != &"Dash":
 		var normal := sc.plano(player.pared.normal).normalized()
 		var avance := motor.direccion_plana()
 		var contra_pared := -sc.plano(player.velocity).dot(normal)
@@ -138,20 +142,26 @@ func shared_update(delta: float) -> void:
 	# llegaba a ejecutarse: la segunda pulsacion se convertia en ataque aereo.
 	if fsm.actual != null and fsm.actual.maneja_ataques():
 		return
-	# Ataque ligero en el aire: si hay ENEMIGO cerca es un golpe aereo; si no hay
-	# a quien pegar, es un CLAVADO. El mismo boton hace lo unico sensato en cada
-	# situacion, que es mejor que obligar al jugador a recordar dos.
+	# LOS DOS ATAQUES AEREOS SON CLAVADOS, y se diferencian en el peso.
+	#
+	# El ligero era "golpe aereo si hay enemigo, clavado si no", y eso tenia dos
+	# problemas: el clavado casi nunca salia cuando importaba —justo al atacar a
+	# alguien— y el jugador no podia predecir cual de los dos iba a ejecutar. Un
+	# boton que hace dos cosas segun el contexto no se aprende, se sufre.
+	#
+	#   ligero -> DIVE: se proyecta adelante y abajo. Es movilidad ademas de golpe.
+	#   pesado -> DIVE PESADO: mas lejos y mas plomo, y REBOTA en la cabeza del
+	#             enemigo para encadenar el siguiente.
 	if buffer.consume(InputActions.ATTACK_LIGHT):
-		var hay_objetivo := player.targeting.objetivo() != null
-		if hay_objetivo and player.ataque_aereo != null:
-			fsm.cambiar(&"AirAttack", {"datos": player.ataque_aereo})
-		else:
-			fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
+		fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
 		return
-	# El pesado en el aire sigue siendo el picado vertical: es el otro extremo del
-	# clavado —cae a plomo y revienta en area— y conviene que sigan separados.
-	if player.ataque_plunge != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Plunge")
+	if buffer.consume(InputActions.ATTACK_HEAVY):
+		# El picado vertical no desaparece: se muda a agachado + pesado, que es el
+		# gesto de ground pound de toda la vida y libera el pesado a secas.
+		if buffer.is_held(InputActions.CROUCH) and player.ataque_plunge != null:
+			fsm.cambiar(&"Plunge")
+		else:
+			fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana(), "pesado": true})
 		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

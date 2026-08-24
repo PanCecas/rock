@@ -18,13 +18,17 @@ extends Node3D
 
 @export_group("Parámetros")
 @export var angulos_rampa: PackedFloat32Array = [15.0, 25.0, 35.0, 45.0, 60.0]
-## Rampas de calibracion del limite CAMINAR/ESCALAR. La frontera esta en 75 y el
-## techo en 110, asi que 60/70/74 se andan, 75..110 se trepan y 120 no es ninguna
-## de las dos cosas. Es la unica forma de comprobar el limite sin fiarse de la
-## vista, y por eso estan TODOS los casos de la tabla, no solo los bonitos.
+## Rampas de calibracion del limite CAMINAR/ESCALAR. La frontera esta en 45 y el
+## techo en 110, asi que 30/40/44 se andan y de 45 en adelante se trepan. Es la
+## unica forma de comprobar el limite sin fiarse de la vista, y por eso estan los
+## dos lados de la frontera, no solo los casos bonitos.
 @export var angulos_escalada: PackedFloat32Array = [
-	60.0, 70.0, 74.0, 75.0, 80.0, 90.0, 100.0, 110.0, 120.0,
+	30.0, 40.0, 44.0, 45.0, 50.0, 60.0, 75.0, 90.0, 110.0,
 ]
+## Radio del domo de calibracion. Una media esfera recorre TODOS los angulos de 0
+## a 90 de forma continua, asi que subir por ella ensena donde esta el umbral sin
+## tener que leer ningun numero: caminas hasta que dejas de caminar.
+@export_range(2.0, 20.0, 0.5) var domo_radio: float = 5.0
 ## Anchuras de hueco en metros. Con altura_salto_max 2.6 el jugador llega a ~6.
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
@@ -62,6 +66,7 @@ func construir() -> void:
 	_pilares_gancho()
 	_pared_escalable()
 	_rampas_escalada()
+	_domo()
 	_tunel()
 	_piscina()
 
@@ -215,7 +220,66 @@ func _rampas_escalada() -> void:
 		rampa.rotation_degrees = Vector3(-angulo, 0.0, 0.0)
 		_etiqueta("%d°" % int(angulo), Vector3(x, 0.05, borde_z - 1.6))
 		x += 3.4
-	_etiqueta("SE ESCALA DE 75° A 110°", Vector3(-19.4, 0.05, borde_z - 3.4))
+	_etiqueta("SE ESCALA DE 45° A 110°", Vector3(-19.4, 0.05, borde_z - 3.4))
+
+
+## DOMO DE CALIBRACION. Media esfera: en la cima la superficie es horizontal y en
+## la base es vertical, recorriendo todos los angulos intermedios sin un solo
+## escalon. Es la forma honesta de ensenar donde esta el slope limit —subes
+## andando hasta que el suelo deja de dejarte, y ese punto es el umbral—, y de
+## paso el mejor sitio para notar si el umbral esta donde tiene que estar.
+##
+## El anillo dorado marca la latitud exacta del limite. Es geometria, no adorno:
+## si el numero cambia, el anillo se mueve solo.
+func _domo() -> void:
+	# Esquina propia: el domo es una montana de 5 m y en cualquier otro sitio se
+	# come el espacio libre que necesitan las pruebas de carrera.
+	var centro := Vector3(28.0, 0.0, 30.0)
+	var r := domo_radio
+
+	var cuerpo := StaticBody3D.new()
+	cuerpo.name = "DomoCalibracion"
+	cuerpo.position = centro
+	cuerpo.collision_layer = 1
+
+	var malla := MeshInstance3D.new()
+	var esfera := SphereMesh.new()
+	esfera.radius = r
+	esfera.height = r * 2.0
+	esfera.radial_segments = 48
+	esfera.rings = 24
+	malla.mesh = esfera
+	malla.material_override = _mat_piedra
+	cuerpo.add_child(malla)
+
+	var col := CollisionShape3D.new()
+	var forma := SphereShape3D.new()
+	forma.radius = r
+	col.shape = forma
+	cuerpo.add_child(col)
+	_raiz.add_child(cuerpo)
+
+	# El anillo del umbral: la latitud donde la superficie alcanza el slope limit.
+	# En una esfera el angulo de la superficie coincide con la latitud, asi que
+	# sale directo del tuning sin ninguna constante intermedia.
+	# El tuning se carga del disco y no del autoload: este script es `@tool` y en
+	# el editor los autoloads no estan garantizados.
+	var limite: float = 45.0
+	var tun := ResourceLoader.load("res://content/data/default_tuning.tres") as PlayerTuning
+	if tun != null:
+		limite = tun.climb_angulo_min
+	var a := deg_to_rad(limite)
+	var anillo := MeshInstance3D.new()
+	anillo.name = "DomoUmbral"
+	var toro := TorusMesh.new()
+	toro.inner_radius = r * sin(a) - 0.08
+	toro.outer_radius = r * sin(a) + 0.08
+	anillo.mesh = toro
+	anillo.material_override = _mat_marca
+	anillo.position = centro + Vector3(0.0, r * cos(a), 0.0)
+	_raiz.add_child(anillo)
+
+	_etiqueta("DOMO — el anillo es el limite (%d°)" % int(limite), centro + Vector3(0, 0.06, r + 2.0))
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza

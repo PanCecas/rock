@@ -1,26 +1,26 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://oi84k86nypj1"]
 
-[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
 
 [resource]
 script = ExtResource("1_s")
-nombre = "Ligero 3 (finisher)"
 anim = &"combat/atk_L3"
+nombre = "Ligero 3 (finisher)"
 frames_windup = 8
 frames_activo = 6
 frames_recuperacion = 20
 dano = 18.0
 dano_poise = 24.0
 empuje = Vector3(0, 0.5, 7)
+stagger = 0.6
+fuerza_muerte = 16.0
+torque_muerte = 8.0
 rompe_guardia = true
 alcance = 2.6
 radio = 1.3
 arco_grados = 90.0
 avance = 5.0
+movilidad = 0.25
 hitstop = 0.09
 shake = 0.8
 frame_cadena = 99
-movilidad = 0.25
-stagger = 0.6
-fuerza_muerte = 16.0
-torque_muerte = 8.0

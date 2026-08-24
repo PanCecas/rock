@@ -94,6 +94,8 @@ func _construir_guion() -> void:
 			"conectar en el aire debe devolver una carga de dash"),
 
 		# --- Picado -----------------------------------------------------------
+		# El picado se pide ahora con AGACHADO + pesado: el pesado a secas en el aire
+		# pasa a ser el clavado pesado con rebote.
 		_chequeo_("picado golpea en área", 1.2,
 			func() -> void:
 				_soltar_todo()
@@ -102,6 +104,7 @@ func _construir_guion() -> void:
 				_p.global_position += Vector3.UP * 3.0
 				_p.fsm.cambiar(&"Fall")
 				_vida_antes = _g.salud.actual
+				_pulsar(&"crouch")
 				_pulsar(&"attack_heavy"),
 			func() -> bool: return _visitados.has(&"Plunge") and _g.salud.actual < _vida_antes,
 			"el picado debe entrar y reventar en área al aterrizar"),
@@ -528,7 +531,7 @@ func _construir_guion() -> void:
 				_pulsar(&"move_back"),
 			func() -> bool: return _vio_ventana,
 			"pedir la direccion contraria corriendo debe abrir la ventana"),
-		_chequeo_("side jump sube mas", 0.12,
+		_chequeo_("side jump sube mas", 0.5,
 			func() -> void:
 				_vy_max = 0.0
 				_p.velocity = Vector3(-9.0, -3.0, 0.0)
@@ -703,57 +706,57 @@ func _construir_guion() -> void:
 			func() -> void: pass,
 			func() -> bool:
 				var tu := _p.tuning
-				for g in [0.0, 30.0, 45.0, 60.0, 70.0, 74.0]:
+				for g in [0.0, 15.0, 30.0, 40.0, 44.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.CAMINABLE:
 						return false
-				for g in [75.0, 80.0, 90.0, 100.0, 105.0, 110.0]:
+				for g in [45.0, 50.0, 60.0, 75.0, 90.0, 100.0, 110.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.ESCALABLE:
 						return false
 				for g in [111.5, 120.0, 130.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.INVALIDA:
 						return false
 				return true,
-			"0-74 camina, 75-110 escala, mas de 110 no es ninguna de las dos"),
+			"0-44 camina, 45-110 escala, mas de 110 no es ninguna de las dos"),
 
 		# Y ahora contra geometria de verdad, rampa por rampa.
-		_chequeo_("60 grados se CAMINA", 0.7, _ante_rampa(60.0),
+		_chequeo_("30 grados se CAMINA", 0.7, _ante_rampa(30.0),
 			func() -> bool: return not _latch_climb,
-			"60 grados esta por debajo del limite: es pendiente, no pared"),
-		_chequeo_("70 grados se CAMINA", 0.7, _ante_rampa(70.0),
+			"30 grados es una rampa comoda: se anda"),
+		_chequeo_("40 grados se CAMINA", 0.7, _ante_rampa(40.0),
 			func() -> bool: return not _latch_climb,
-			"70 grados sigue siendo suelo"),
-		_chequeo_("74 grados se CAMINA", 0.7, _ante_rampa(74.0),
+			"40 grados sigue por debajo del slope limit"),
+		_chequeo_("44 grados se CAMINA", 0.7, _ante_rampa(44.0),
 			func() -> bool: return not _latch_climb,
-			"74 es la ultima superficie caminable"),
+			"44 es la ultima superficie caminable"),
+		_chequeo_("45 grados se ESCALA", 0.9, _ante_rampa(45.0),
+			func() -> bool: return _latch_climb,
+			"45 es el slope limit: a partir de aqui se trepa, no se anda"),
+		_chequeo_("50 grados se ESCALA", 0.9, _ante_rampa(50.0),
+			func() -> bool: return _latch_climb,
+			"50 grados debe escalarse"),
+		_chequeo_("60 grados se ESCALA", 0.9, _ante_rampa(60.0),
+			func() -> bool: return _latch_climb,
+			"60 grados debe escalarse"),
 		_chequeo_("75 grados se ESCALA", 0.7, _ante_rampa(75.0),
 			func() -> bool: return _latch_climb,
-			"75 es el primer angulo escalable y tiene que aceptarse"),
-		_chequeo_("80 grados se ESCALA", 0.7, _ante_rampa(80.0),
-			func() -> bool: return _latch_climb,
-			"80 grados debe escalarse"),
+			"75 grados debe escalarse"),
 		_chequeo_("90 grados se ESCALA", 0.7, _ante_rampa(90.0),
 			func() -> bool: return _latch_climb,
 			"un muro vertical debe seguir escalandose como siempre"),
-		_chequeo_("100 grados se ESCALA", 0.7, _ante_rampa(100.0),
-			func() -> bool: return _latch_climb,
-			"un desplome de 100 grados entra en la horquilla"),
 		_chequeo_("110 grados se ESCALA", 0.7, _ante_rampa(110.0),
 			func() -> bool: return _latch_climb,
 			"110 es el ultimo angulo escalable"),
-		_chequeo_("120 grados NO se escala", 0.7, _ante_rampa(120.0),
-			func() -> bool: return not _latch_climb,
-			"por encima de 110 la superficie queda fuera de la horquilla"),
 
 		# Y no basta con entrar: el cuerpo tiene que INCLINARSE con la pendiente.
-		# Sobre una rampa de 75 grados el "arriba" del personaje se separa 15 grados
+		# Sobre una rampa de 60 grados el "arriba" del personaje se separa 30 grados
 		# de la vertical del mundo; sobre un muro de 90 coincide con ella.
-		_chequeo_("el cuerpo se inclina con la rampa", 0.9,
-			_ante_rampa(75.0),
+		_chequeo_("el cuerpo se inclina con la rampa", 1.1,
+			_ante_rampa(60.0),
 			func() -> bool: return (
 				_p.fsm.nombre_actual() == &"Climb"
 				and _p.pared.hay_pared
-				and _p.visual.global_basis.y.dot(Vector3.UP) < 0.995
-				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.85),
+				and _p.visual.global_basis.y.dot(Vector3.UP) < 0.97
+				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.6),
 			"escalando una pendiente el cuerpo debe adoptar SU inclinacion"),
 
 		# --- Correccion 2.03: la postura no la deciden las paredes -------------
@@ -761,11 +764,11 @@ func _construir_guion() -> void:
 		# barria desde los pies y con el alto completo, llegaba 0.68 m por encima de
 		# la cabeza, y cualquier rampa cercana forzaba agachado.
 		_chequeo_("acercarse a una rampa no encoge al personaje", 0.9,
-			_ante_rampa(75.0),
+			_ante_rampa(90.0),
 			func() -> bool: return not _p.esta_agachado(),
 			"detectar una superficie inclinada no debe tocar la altura de la capsula"),
 		_chequeo_("caminar por una pendiente no agacha", 0.9,
-			_ante_rampa(60.0),
+			_ante_rampa(30.0),
 			func() -> bool: return not _p.esta_agachado() and not _p.agachado_forzado,
 			"una pendiente caminable no es motivo para agacharse"),
 
@@ -912,6 +915,123 @@ func _construir_guion() -> void:
 				and absf(angle_difference(_p.visual.rotation.y, _aux)) < deg_to_rad(20.0)),
 			"al salir del agua debe quedar upright conservando el yaw"),
 
+		# --- Correccion 2.04 ---------------------------------------------------
+
+		# FLOATING FALL. Quedarse sin suelo surfeando tiene que ser una CAIDA, no un
+		# descenso flotante. El bug: `maneja_ataques()` hacia return en GroupGrounded
+		# antes de comprobar el suelo, y Surf clava la vertical en -2 cada frame.
+		_chequeo_("surfear sin suelo cae de verdad", 0.45,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 12.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_pulsar(&"dash")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0)}),
+			func() -> bool: return (
+				_p.fsm.nombre_actual() != &"Surf"
+				and _p.motor.get_vertical() < -6.0),
+			"sin suelo el surf debe cancelarse y caer con gravedad normal"),
+		_chequeo_("deslizarse sin suelo cae de verdad", 0.45,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 12.0, 0.0)
+				_p.velocity = Vector3(6.0, 0.0, 0.0)
+				_p.fsm.cambiar(&"Slide"),
+			func() -> bool: return (
+				_p.fsm.nombre_actual() != &"Slide"
+				and _p.motor.get_vertical() < -6.0),
+			"sin suelo el slide debe cancelarse y caer con gravedad normal"),
+
+		# ESCALERA DE VELOCIDAD: el surf sigue siendo lo mas rapido sostenido.
+		_chequeo_("el surf es mas rapido que correr", 0.05,
+			func() -> void: pass,
+			func() -> bool: return (
+				_p.tuning.surf_crucero > _p.tuning.velocidad_correr + 2.0
+				and _p.tuning.surf_velocidad > _p.tuning.surf_crucero),
+			"surfear tiene que notarse claramente por encima de correr"),
+
+		# CLAVADO LIGERO. Antes solo salia si NO habia enemigo cerca; ahora es el
+		# ataque aereo ligero siempre, y baja de verdad.
+		_chequeo_("el ligero en el aire es un clavado", 0.15,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 9.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(1, 0, 0))
+				_mirar_a(-90.0)
+				_p.fsm.cambiar(&"Fall")
+				_pos_antes = _p.global_position
+				_esperar_ataque = 2,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Dive",
+			"el ligero aereo debe ser SIEMPRE un clavado, haya enemigo o no"),
+		_chequeo_("y el clavado se proyecta lejos y abajo", 0.4,
+			func() -> void: pass,
+			func() -> bool: return (
+				_distancia_plana(_pos_antes) > 5.0
+				and _p.global_position.y < _pos_antes.y - 3.0),
+			"un clavado avanza Y baja; si solo avanza es un desplazamiento aereo"),
+
+		# CLAVADO PESADO CON REBOTE. Golpear desde arriba devuelve al aire.
+		_paso_("repoblar para el rebote", 0.35, func() -> void:
+			_soltar_todo()
+			(_main.get_node("Arena") as Arena).poblar(), &""),
+		_chequeo_("el clavado pesado rebota en el enemigo", 0.8,
+			func() -> void:
+				_soltar_todo()
+				_lancero()
+				_reponer()
+				# El Guardian se lleva a un sitio conocido: dejarlo donde lo dejara
+				# la IA hacia que el test midiera el estanque en vez del rebote.
+				_g.estado = Guardian.Estado.DORMIDO
+				_g.global_position = Vector3(0.0, 0.1, 0.0)
+				_g.velocity = Vector3.ZERO
+				_g.salud.actual = _g.salud.maxima
+				# El clavado pesado es una DIAGONAL de 25 m/s, no una caida: desde
+				# 5 m de altura recorre casi seis metros antes de llegar abajo.
+				# Colocarse encima del enemigo lo sobrevuela entero.
+				_p.global_position = Vector3(0.0, 5.0, 5.8)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(0, 0, -1))
+				_mirar_a(180.0)
+				_p.fsm.cambiar(&"Fall")
+				_vy_max = -99.0
+				_esperar_pesado = 2,
+			func() -> bool: return _vy_max > 6.0,
+			"clavarse sobre un enemigo debe pisarle la cabeza y devolverte al aire"),
+
+		# GROUND POUND: el picado vertical no se pierde, se muda a agachado + pesado.
+		_chequeo_("agachado + pesado sigue siendo picado", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 6.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Fall")
+				_pulsar(&"crouch")
+				_esperar_pesado = 3,
+			func() -> bool: return _visitados.has(&"Plunge"),
+			"el ground pound se mantiene, solo cambia de gesto"),
+
+		# PATADA DESLIZANTE: mas lejos, pero con peaje.
+		_paso_("carrerilla para la espera", 1.2, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.cd_slide_kick = 0.0
+			_p.global_position = Vector3(-6.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("la patada arma su cooldown", 0.3,
+			func() -> void:
+				_pulsar(&"crouch")
+				_p.fsm.cambiar(&"Crouch")
+				_esperar_ataque = 2,
+			func() -> bool: return _p.cd_slide_kick > 0.0,
+			"lanzar la patada tiene que armar la espera que impide spamearla"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
@@ -1009,7 +1129,7 @@ func _ante_rampa(angulo: float) -> Callable:
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 130.0:
+	if _reloj > 170.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return

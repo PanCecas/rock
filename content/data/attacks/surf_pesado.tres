@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://8qvvcqgr41tj"]
 
-[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
 
 [resource]
 script = ExtResource("1_s")
-nombre = "Frenazo de surf"
 anim = &"combat/atk_H_release"
+nombre = "Frenazo de surf"
 frames_windup = 8
 frames_activo = 6
 frames_recuperacion = 20
@@ -13,17 +13,17 @@ dano = 19.0
 dano_poise = 34.0
 empuje = Vector3(0, 1.2, 16)
 stagger = 1.0
-rompe_guardia = true
 fuerza_muerte = 30.0
 torque_muerte = 12.0
+rompe_guardia = true
 alcance = 2.8
 radio = 1.5
 arco_grados = 110.0
 max_objetivos = 5
 avance = 0.0
-movilidad = 0.0
 frenazo = true
+movilidad = 0.0
 hitstop = 0.11
 shake = 1.1
-frame_cadena = 99
 color_vfx = &"oro_palido"
+frame_cadena = 99

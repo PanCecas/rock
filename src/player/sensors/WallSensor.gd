@@ -9,6 +9,14 @@ extends Node
 ## asi que a la altura del pecho puede quedar mas lejos que a la de la cabeza. Sin
 ## esta sonda, los angulos por encima de 90 no se detectan nunca.
 @export_range(0.1, 3.0, 0.05) var altura_alta: float = 1.55
+## SONDA BAJA, a la altura de las rodillas. Es la unica que puede ver una rampa
+## tumbada: contra una pendiente cercana al slope limit, el pecho queda por encima
+## de la superficie y su rayo nace dentro del collider.
+@export_range(0.1, 3.0, 0.05) var altura_baja: float = 0.45
+## Techo de angulo SOLO para la sonda baja. Un muro vertical ya lo ven las otras
+## dos; aceptarlo tambien a la altura de las rodillas convertiria cada escalon de
+## medio metro en una pared escalable. La sonda baja existe para las pendientes.
+@export_range(0.0, 180.0, 1.0) var angulo_max_bajo: float = 80.0
 @export_range(0.1, 3.0, 0.05) var alcance: float = 0.6
 
 var hay_pared: bool = false
@@ -84,7 +92,11 @@ func sondear(direccion_avance: Vector3) -> void:
 	# dos ven lo mismo y gana la de abajo, asi que el wall-run y el wall-jump de
 	# siempre se comportan exactamente igual que antes; la alta solo aporta en los
 	# desplomes, donde el pecho se queda corto.
-	var sondas := [altura, altura_alta]
+	# Pecho, hombros y rodillas, en ese orden. En un muro vertical las tres ven lo
+	# mismo y gana la de pecho, asi que el wall-run y el wall-jump se comportan
+	# igual que siempre. Las otras dos solo aportan en los extremos: la alta en los
+	# desplomes, la baja en las pendientes tumbadas.
+	var sondas := [altura, altura_alta, altura_baja]
 
 	for c in candidatos:
 		var dir: Vector3 = c["dir"]
@@ -108,6 +120,8 @@ func sondear(direccion_avance: Vector3) -> void:
 			# `floor_max_angle` del cuerpo. Un sensor con su propio criterio es como
 			# se llega a que una rampa sea "pared" para uno y "suelo" para otro.
 			if _p.tuning.clasificar(grados) != PlayerTuning.Superficie.ESCALABLE:
+				continue
+			if is_equal_approx(float(sonda), altura_baja) and grados > angulo_max_bajo:
 				continue
 			hay_pared = true
 			angulo = grados

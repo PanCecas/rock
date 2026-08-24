@@ -38,7 +38,7 @@ extends Resource
 ## sensacion de que el personaje coge carrerilla.
 @export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
 @export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
-@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 8.7
+@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 9.4
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
 
@@ -113,11 +113,11 @@ extends Resource
 # testigo al sprint. Sin Shift no existe: solo hay caminar y trotar.
 @export_group("Surf")
 ## Velocidad al salir del dash. Por encima del sprint: se nota que vienes lanzado.
-@export_range(1.0, 40.0, 0.1) var surf_velocidad: float = 15.0
+@export_range(1.0, 40.0, 0.1) var surf_velocidad: float = 17.5
 ## Velocidad de crucero del surf una vez consumido el envión del dash. Es la
 ## velocidad de "correr" real del juego: el surf NO caduca, se sostiene mientras
 ## mantengas Shift, y la stamina es su único límite.
-@export_range(1.0, 30.0, 0.1) var surf_crucero: float = 11.0
+@export_range(1.0, 30.0, 0.1) var surf_crucero: float = 13.5
 ## Giro. ALTO: aquí es donde se pilota, y es lo que lo hace sentir fluido.
 @export_range(30.0, 1080.0, 10.0) var surf_giro_grados_seg: float = 320.0
 ## Rozamiento. Bajo = el momentum se conserva y se siente que patinas.
@@ -170,7 +170,7 @@ extends Resource
 ## LA PLANTADA. El side jump ocurre en dos tiempos —frenar, y despues saltar— y
 ## esto es lo que dura el primero. Corto: cinco centesimas se ven, diez ya se
 ## sienten como input perdido.
-@export_range(0.0, 0.4, 0.01) var sidejump_frenazo: float = 0.06
+@export_range(0.0, 0.4, 0.01) var sidejump_frenazo: float = 0.09
 ## Deceleracion durante la plantada. Brutal a proposito: la inercia vieja tiene
 ## que estar muerta antes de que llegue el impulso nuevo.
 @export_range(10.0, 300.0, 5.0) var sidejump_frenado: float = 120.0
@@ -181,13 +181,18 @@ extends Resource
 
 @export_subgroup("Slide kick (salto de conejo)")
 ## Impulso hacia delante de la patada deslizante. Es el salto de conejo de Mario.
-@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 22.0
+@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 26.0
 @export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 6.2
 ## Rozamiento de la patada YA EN EL SUELO. Era la friccion del agachado (14) y por
 ## eso la patada moria en dos metros: el impulso estaba bien, lo que fallaba es
 ## que se lo comia el frenado al aterrizar. Baja: la patada es un DESPLAZAMIENTO
 ## que ademas hace dano, y tiene que llegar lejos.
-@export_range(0.5, 60.0, 0.5) var slide_kick_friccion: float = 4.5
+@export_range(0.5, 60.0, 0.5) var slide_kick_friccion: float = 3.2
+## COOLDOWN. La patada llega mas lejos que nunca, y por eso encadenarla sin pausa
+## superaba al surf: la movilidad mas rapida del juego tiene que seguir siendo el
+## surf, o el shift deja de tener sentido. El pico de la patada es mayor; su
+## velocidad SOSTENIDA, no. Esto es lo que separa las dos cosas.
+@export_range(0.0, 3.0, 0.05) var slide_kick_cooldown: float = 0.9
 
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
@@ -268,7 +273,21 @@ extends Resource
 ## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
 ## mano dentro del estado (numero magico, regla dura #1).
 @export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
-@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 15.0
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 21.0
+## LA COMPONENTE QUE FALTABA. El clavado arrancaba con velocidad vertical 0 y
+## dejaba que la gravedad hiciera el resto, asi que la trayectoria empezaba plana
+## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
+## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
+@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -7.0
+
+@export_subgroup("Clavado pesado")
+## El pesado va mas lejos y mas plomo. Es el que se encadena de cabeza en cabeza.
+@export_range(0.0, 40.0, 0.5) var dive_pesado_impulso: float = 25.0
+@export_range(-30.0, 0.0, 0.5) var dive_pesado_vertical: float = -11.0
+## REBOTE. Al clavarse sobre un enemigo se pisa su cabeza y se sale despedido
+## hacia arriba, de vuelta al aire y con el clavado disponible otra vez. Es lo que
+## convierte el ataque en una cadena en vez de en un punto final.
+@export_range(0.0, 30.0, 0.5) var dive_rebote: float = 12.5
 ## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
 @export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
 @export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
@@ -347,12 +366,19 @@ extends Resource
 # la misma rampa era "demasiado empinada para andar" y "demasiado tumbada para
 # escalar" a la vez, y el jugador se quedaba resbalando sin poder hacer nada.
 @export_group("Superficies")
-## Frontera entre CAMINAR y ESCALAR. Tambien es el `floor_max_angle` del cuerpo:
-## si el motor y la FSM usaran numeros distintos, uno de los dos mentiria.
-@export_range(0.0, 89.0, 1.0) var climb_angulo_min: float = 75.0
+## SLOPE LIMIT. Frontera entre CAMINAR y ESCALAR, y tambien el `floor_max_angle`
+## del cuerpo: si el motor y la FSM usaran numeros distintos, uno de los dos
+## mentiria. Estuvo en 75 y era demasiado: se caminaba por paredes casi
+## perpendiculares y no se sentia como andar, se sentia como un error.
+@export_range(0.0, 89.0, 1.0) var climb_angulo_min: float = 45.0
 ## Techo de la escalada. Por encima de 90 son desplomes: la pared se te viene
 ## encima. Mas de esto ya es un techo, y de un techo no se cuelga nadie.
 @export_range(90.0, 180.0, 1.0) var climb_angulo_max: float = 110.0
+## Requisito EXTRA del wall-run y el wall-slide. No es una segunda clasificacion
+## de superficie —esa sigue siendo una sola—: es que correr en horizontal por la
+## ladera de una colina de 50 grados no es un verbo, es un error. Escalar si vale
+## ahi; correr, no.
+@export_range(45.0, 110.0, 1.0) var wallrun_angulo_min: float = 70.0
 
 # --- Bordes y escalada ------------------------------------------------------
 @export_group("Bordes y escalada")

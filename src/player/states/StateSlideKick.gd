@@ -18,6 +18,11 @@ func enter(msg: Dictionary = {}) -> void:
 		_dir = player.direccion_frontal()
 	_aterrizado = false
 	player.pedir_postura(tuning.agachado_altura)
+	# La espera se arma AL LANZAR, no al terminar: encadenar patadas superaba al
+	# surf, y la movilidad mas rapida del juego tiene que seguir siendo el surf o
+	# el Shift deja de significar nada. El pico de la patada es mayor que nunca;
+	# lo que se limita es poder repetirlo sin pausa.
+	player.cd_slide_kick = tuning.slide_kick_cooldown
 	player.hitbox.nuevo_swing()
 	player.orientar_a(_dir)
 	EventBus.camara_shake.emit(0.3, 0.12)

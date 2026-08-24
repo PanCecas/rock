@@ -23,6 +23,8 @@ extends CharacterBody3D
 @export var ataque_slide_kick: AttackData
 ## Clavado. Su hitbox vive todo el trayecto y lanza por los aires.
 @export var ataque_dive: AttackData
+## Clavado PESADO: mas dano y rebote sobre la cabeza del enemigo.
+@export var ataque_dive_pesado: AttackData
 ## Patada baja desde agachado. Derriba en vez de tambalear.
 @export var ataque_agachado: AttackData
 ## Ataque lanzado desde el dash: hereda el momentum y cierra distancia.
@@ -95,6 +97,10 @@ var _recuperacion: float = 0.0
 var ventana_sidejump: float = 0.0
 ## Tiempo empujando contra una pared. Al pasar del umbral, se escala solo.
 var tiempo_contra_pared: float = 0.0
+## Espera de la patada deslizante. Vive aqui y no en el estado porque tiene que
+## sobrevivir a la patada: un cooldown que muere con el estado que lo pone no es
+## un cooldown, es un adorno.
+var cd_slide_kick: float = 0.0
 var _giro_visual_restante: float = 0.0
 
 
@@ -213,6 +219,7 @@ func _avanzar_relojes(delta: float) -> void:
 	tiempo_sin_borde = maxf(0.0, tiempo_sin_borde - delta)
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
+	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)

@@ -66,7 +66,13 @@ func physics_update(delta: float) -> void:
 	_rapidez = maxf(_rapidez - tuning.surf_friccion * delta, tuning.surf_crucero)
 
 	motor.impulso(_dir, _rapidez)
-	motor.set_vertical(-2.0)
+	# Pegarse al suelo SOLO si hay suelo. Forzar la vertical en el aire es lo que
+	# convertia salirse de una plataforma en un descenso flotante.
+	if player.is_on_floor():
+		motor.set_vertical(-2.0)
+	else:
+		_terminar_en_aire()
+		return
 
 	_alabeo = lerpf(_alabeo, -giro * tuning.surf_alabeo, 1.0 - exp(-7.0 * delta))
 	player.set_alabeo(_alabeo)
@@ -116,6 +122,14 @@ func _terminar() -> void:
 
 ## Los ataques y el salto del surf son suyos: el grupo no puede robarle la
 ## pulsacion y convertirlos en la version generica.
+## Salirse de la plataforma corta el surf, pero no la LINEA: se marca pendiente
+## igual que al saltar, asi que caer a la siguiente plataforma manteniendo Shift
+## te devuelve surfeando. Perder la velocidad por un desnivel seria el mismo
+## castigo que perderla por saltar, y ya decidimos que ese castigo sobra.
+func _terminar_en_aire() -> void:
+	fsm.cambiar(&"Fall")
+
+
 func maneja_ataques() -> bool:
 	return true
 

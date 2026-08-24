@@ -1,25 +1,22 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://xgmsd4uhged5"]
 
-[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
-[ext_resource type="Resource" path="res://content/data/attacks/espada_L3.tres" id="2_n"]
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" uid="uid://oi84k86nypj1" path="res://content/data/attacks/espada_L3.tres" id="2_n"]
 
 [resource]
 script = ExtResource("1_s")
-nombre = "Ligero 2"
 anim = &"combat/atk_L2"
+nombre = "Ligero 2"
 frames_windup = 5
-frames_activo = 4
 frames_recuperacion = 11
 dano = 9.0
-dano_poise = 12.0
 empuje = Vector3(0, 0, 3.5)
+stagger = 0.28
+fuerza_muerte = 7.0
 alcance = 2.3
 radio = 1.15
 avance = 4.0
-hitstop = 0.05
-shake = 0.4
-frame_cadena = 8
 movilidad = 0.5
-stagger = 0.28
-fuerza_muerte = 7.0
+shake = 0.4
 siguiente = ExtResource("2_n")
+frame_cadena = 8

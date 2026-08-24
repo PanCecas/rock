@@ -356,6 +356,43 @@ la comprobacion asumia suelo.
 - Rampas del Gym rehechas (60/70/74/75/80/90/100/110/120) y 20 comprobaciones
   nuevas en `TestFase2`.
 
+
+### Correccion 2.04 — floating fall, slope limit real y clavados encadenables
+- **BUG "floating fall" resuelto.** Salirse de una plataforma surfeando o
+  deslizandose no cambiaba de estado: el personaje se quedaba flotando y bajando
+  a 2 m/s. La causa no era la fisica sino el ORDEN de `GroupGrounded`: el `return`
+  de `maneja_ataques()` —que declaran Surf, Slide, SlideKick y Crouch— dejaba
+  fuera todo lo que venia despues, incluida la comprobacion de haber perdido el
+  suelo. Ahora las preguntas de TERRENO van primero y las de ACCION despues.
+  Surf y Slide ademas solo se pegan al suelo si hay suelo.
+- **Slope limit a 45 grados.** La frontera caminar/escalar baja de 75 a 45: con 75
+  se subia andando por paredes casi perpendiculares y no se leia como andar. Sigue
+  siendo UN solo numero (`climb_angulo_min`) del que salen el sensor de suelo, el
+  de pared, la escalada y el `floor_max_angle`.
+- **`wallrun_angulo_min` (70°)** como requisito EXTRA del wall-run y el wall-slide.
+  No es una segunda clasificacion: escalar una ladera de 50 grados tiene sentido,
+  correr en horizontal por ella no.
+- **Vuelve la sonda de rodillas** al WallSensor. Con el limite en 45 reaparece la
+  geometria de la 2.02: contra una pendiente tumbada el pecho queda por encima de
+  la superficie y su rayo nace dentro del collider.
+- **DOMO DE CALIBRACION en el Gym.** Media esfera que recorre todos los angulos de
+  0 a 90 sin un escalon, con un anillo dorado en la latitud exacta del limite. Es
+  la forma honesta de ver donde esta el umbral: subes andando hasta que dejas de
+  poder. El anillo se calcula del tuning, asi que se mueve solo si el numero cambia.
+- **Los dos ataques aereos son clavados.** El ligero era "golpe aereo si hay
+  enemigo, clavado si no", y eso hacia que el clavado no saliera justo cuando
+  importaba. Ahora ligero = DIVE siempre, y sale hacia delante Y ABAJO desde el
+  primer frame (`dive_vertical_inicial`): arrancaba con vertical 0 y por eso la
+  trayectoria empezaba plana y no se leia como un clavado.
+- **Clavado pesado con REBOTE.** Al clavarse sobre un enemigo se le pisa la cabeza
+  y se sale despedido hacia arriba con todo repuesto, asi que se encadena de
+  cabeza en cabeza. El picado vertical no se pierde: se muda a agachado + pesado.
+- **Patada deslizante:** mas impulso y menos rozamiento —llega mas lejos que
+  nunca— pero con `slide_kick_cooldown`. Encadenarla superaba al surf, y la
+  movilidad mas rapida sostenida tiene que seguir siendo el surf.
+- **Velocidades:** correr 8.7 -> 9.4; surf 15/11 -> 17.5/13.5. La plantada del
+  side jump sube a 0.09 s para que se vea.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

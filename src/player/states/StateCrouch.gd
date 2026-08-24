@@ -28,7 +28,8 @@ func physics_update(delta: float) -> void:
 
 	# SLIDE KICK: solo con velocidad. Es la recompensa por llegar lanzado, no un
 	# ataque más que se pueda hacer desde parado.
-	if rapidez >= tuning.slide_velocidad_min * 0.6 and player.ataque_slide_kick != null:
+	if rapidez >= tuning.slide_velocidad_min * 0.6 and player.ataque_slide_kick != null \
+			and player.cd_slide_kick <= 0.0:
 		if buffer.consume(InputActions.ATTACK_LIGHT):
 			_slide_kick()
 			return

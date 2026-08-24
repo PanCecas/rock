@@ -51,6 +51,12 @@ plataformas en movimiento.
     aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
     DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
     especifica no llega a existir nunca.
+    **Corolario:** ese guardia hace `return` en mitad de `shared_update`, asi que
+    todo lo que quede DEBAJO deja de existir para las hojas que lo declaran. Por
+    eso las preguntas de TERRENO —perder el suelo, pendiente, techo, agarre— van
+    siempre ANTES que las de accion. Ahi vivio el "floating fall": salirse de una
+    plataforma surfeando no cambiaba de estado nunca. Un guardia de INPUT no puede
+    cancelar una transicion de TERRENO.
 14. **La postura la resuelve el controlador, no las transiciones.** Un estado
     PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
     altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
@@ -58,7 +64,10 @@ plataformas en movimiento.
     NO es motivo para agacharse** — ese acoplamiento fue el bug del cambio brusco
     de altura junto a las rampas.
 15. **Un solo numero clasifica las superficies** (`PlayerTuning.clasificar`):
-    `<75° camina · 75–110° escala · >110° nada`. De ahi salen el sensor de suelo,
+    `<45° camina · 45–110° escala · >110° nada`.
+    El wall-run pide ADEMAS `wallrun_angulo_min` (70°), pero eso no es una
+    segunda clasificacion: es un requisito extra del verbo. Correr en horizontal
+    por una ladera de 50° no es una mecanica, es un error. De ahi salen el sensor de suelo,
     el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
     distintos para la misma rampa es como se llega a que sea "demasiado empinada
     para andar" y "demasiado tumbada para escalar" a la vez.
@@ -90,10 +99,12 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Agacharse / slide | C | D-pad abajo |
 | Salto fuerte | C (quieto) + Espacio | |
 | Side jump | Correr, girar en seco y saltar (planta y luego sale) | |
-| Slide kick | C con velocidad + click izq. | |
+| Slide kick | C con velocidad + click izq. (con espera) | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
-| Clavado (Dive) | Click izq. en el aire sin enemigo cerca | RB |
+| **Clavado (Dive)** | **Click izq. en el aire** (siempre) | RB |
+| **Clavado pesado (rebota en cabezas)** | **Click der. en el aire** | RT |
+| Picado vertical (ground pound) | C + click der. en el aire | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
 | Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
 | Ataque acuatico | Click izq. / der. en el agua (impulso) | |
@@ -145,7 +156,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 108 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 118 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
@@ -157,8 +168,9 @@ Tras crear o renombrar una clase con `class_name`, corre
 - **Traversal completo:** `SurfaceContext` + `LocomotionMotor`, FSM jerarquica de
   5 grupos y 27 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
   wall-run/wall-slide/wall-jump/cantos/shimmy/escalada. Stamina unica.
-  La escalada acepta **cualquier superficie de 75 a 110 grados**, desplomes
-  incluidos, y el cuerpo se inclina con ella.
+  La escalada acepta **cualquier superficie de 45 a 110 grados**, desplomes
+  incluidos, y el cuerpo se inclina con ella. Por debajo de 45 se anda; por
+  encima, o trepas o resbalas.
 - **Combate:** `AttackData` como Resource (tiempos en frames a 60 Hz), hitbox por
   consulta de forma, hitstop, ventanas de cancelacion, cadena ligera con finisher,
   pesado con knockback terrestre + stagger, aereos que reponen el dash, picado,

@@ -799,3 +799,74 @@ Movilidad: carrera, aéreo, deslizante, side jump.
 ahora, valores finales, checklist de testing manual, y qué NO has podido
 comprobar. No inventes resultados de pruebas que no hayas ejecutado.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.04
+
+```
+Iteración #2.04 del Character Controller 3D. Antes de editar, revisa cómo están
+construidos el crouch, el slide, el surf, la detección de suelo/pendiente/pared,
+los ataques aéreos y el side jump. Modifica lo que existe; no crees sistemas
+paralelos.
+
+1) BUG "FLOATING FALL"
+Si el personaje aterriza, hace crouch sliding o surfea y se pasa de largo de una
+plataforma, el estado se mantiene: flota y cae muy lento. Al dejar de estar en el
+suelo durante slide o surf hay que cancelar el estado y pasar a caída libre con
+gravedad normal, inmediatamente.
+Pista de dónde mirar: si el grupo de estados tiene un guardia tipo
+`maneja_ataques()` que hace `return` a mitad de su update, todo lo que quede
+debajo —incluida la comprobación de haber perdido el suelo— deja de ejecutarse
+para las hojas que lo declaran. Un guardia de INPUT no puede cancelar una
+transición de TERRENO.
+
+2) SLOPE LIMIT
+El personaje camina sobre paredes casi perpendiculares y se siente antinatural.
+Implementa un slope limit (45°): calcula el ángulo con la normal real del suelo
+(get_floor_normal() o un raycast hacia abajo) contra el vector UP. Por debajo del
+límite se camina; por encima no se puede subir andando y hay que resbalar o pasar
+a escalar. Un solo número configurable, y que lo usen TODOS los sistemas: el
+sensor de suelo, el de pared, la escalada y el límite de suelo del motor.
+Ojo: el wall-run puede necesitar un requisito extra más estricto. Correr en
+horizontal por una ladera de 50° no es una mecánica, es un error.
+Ojo también a la geometría de los raycast de pared: contra una pendiente tumbada,
+un rayo a la altura del pecho nace DENTRO del collider y no reporta nada. Hace
+falta una sonda más baja.
+Para poder ver el umbral, construye un domo (media esfera) en la sala de pruebas:
+recorre todos los ángulos de 0 a 90 sin un solo escalón, así que subes andando
+hasta que dejas de poder y ese punto ES el límite. Marca la latitud del umbral con
+un anillo calculado desde el propio parámetro, no a mano.
+
+3) VELOCIDADES
+Correr un poco más rápido. Surfear claramente más rápido que correr: la movilidad
+sostenida más rápida del juego tiene que seguir siendo el surf.
+
+4) SIDE JUMP
+Frenazo y salto no pueden ocurrir a la vez. Primero una plantada breve, después el
+impulso. Corta y jugable, pero que se vea.
+
+5) ATAQUES (referencia: Super Mario Odyssey)
+- Slide attack terrestre: más distancia, pero con cooldown/recovery al terminar.
+  Ahora se puede spamear y la combinación acaba siendo más rápida que surfear.
+  Mira el ROZAMIENTO con el que termina, no solo el impulso con el que empieza.
+- Aerial light -> DIVE: al ejecutarlo en el aire el personaje se lanza claramente
+  hacia adelante Y HACIA ABAJO, con trayectoria diagonal pronunciada e impulso
+  fuerte. Tiene que percibirse física y visualmente como un clavado, no como un
+  desplazamiento aéreo corto. Si arranca con velocidad vertical cero, la
+  trayectoria empieza plana y no se lee como clavado: hay que salir ya bajando.
+  Y que sea el ataque ligero aéreo SIEMPRE, no solo cuando no hay enemigo cerca:
+  un botón que hace dos cosas según el contexto no se aprende, se sufre.
+- Aerial heavy -> HEAVY DIVE con rebote: variante con más desplazamiento que, al
+  impactar a un enemigo desde arriba, rebota sobre su cabeza y devuelve al estado
+  aéreo, permitiendo encadenar otro dive contra otro enemigo.
+  Si el pesado aéreo ya era otra cosa (un picado vertical), no la borres: múdala a
+  otro gesto, por ejemplo agachado + pesado.
+
+6) ARQUITECTURA: en el futuro habrá un vehículo/mascota montable. NO lo
+implementes. Solo ten en cuenta que el personaje podrá montar entidades externas y
+no cierres esa puerta. Nada de ganchos vacíos "por si acaso".
+
+7) Al terminar: informe de qué cambió, en qué archivo y por qué, valores finales,
+checklist de testing manual, y qué NO has podido comprobar.
+```
