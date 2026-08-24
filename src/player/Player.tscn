@@ -1,4 +1,4 @@
-[gd_scene load_steps=65 format=3]
+[gd_scene load_steps=66 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -48,6 +48,7 @@
 [ext_resource type="Script" path="res://src/player/states/StateSurf.gd" id="st_surf"]
 [ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
 [ext_resource type="Script" path="res://src/player/states/StateCrouchLanding.gd" id="st_clanding"]
+[ext_resource type="Script" path="res://src/player/states/StateSideJump.gd" id="st_sidejump"]
 [ext_resource type="Script" path="res://src/player/states/GroupWater.gd" id="g_water"]
 [ext_resource type="Script" path="res://src/player/states/StateDive.gd" id="st_dive"]
 [ext_resource type="Script" path="res://src/player/states/StateSlideKick.gd" id="st_kick"]
@@ -191,6 +192,9 @@ script = ExtResource("st_land")
 
 [node name="CrouchLanding" type="Node" parent="StateMachine/Grounded"]
 script = ExtResource("st_clanding")
+
+[node name="SideJump" type="Node" parent="StateMachine/Grounded"]
+script = ExtResource("st_sidejump")
 
 [node name="Airborne" type="Node" parent="StateMachine"]
 script = ExtResource("g_air")

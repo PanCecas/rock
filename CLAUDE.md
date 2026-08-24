@@ -51,13 +51,24 @@ plataformas en movimiento.
     aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
     DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
     especifica no llega a existir nunca.
-14. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
+14. **La postura la resuelve el controlador, no las transiciones.** Un estado
+    PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
+    altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
+    quepas de pie. **Detectar una pared, una pendiente o una superficie escalable
+    NO es motivo para agacharse** — ese acoplamiento fue el bug del cambio brusco
+    de altura junto a las rampas.
+15. **Un solo numero clasifica las superficies** (`PlayerTuning.clasificar`):
+    `<75° camina · 75–110° escala · >110° nada`. De ahi salen el sensor de suelo,
+    el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
+    distintos para la misma rampa es como se llega a que sea "demasiado empinada
+    para andar" y "demasiado tumbada para escalar" a la vez.
+16. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
     El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
     yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
     salir, o el personaje se queda torcido para siempre. Y se hace en la
     TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
     el dash, el agachado y el planeo.
-15. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+17. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
     sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
     o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
@@ -78,7 +89,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Dash / sprint / esquiva | Shift | B |
 | Agacharse / slide | C | D-pad abajo |
 | Salto fuerte | C (quieto) + Espacio | |
-| Side jump | Correr, girar en seco y saltar | |
+| Side jump | Correr, girar en seco y saltar (planta y luego sale) | |
 | Slide kick | C con velocidad + click izq. | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
@@ -87,7 +98,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
 | Ataque acuatico | Click izq. / der. en el agua (impulso) | |
 | Landing slide | Aterrizar con velocidad manteniendo C | |
-| Agarrar / escalar | F | Y |
+| Agarrar / escalar | F (tambien desde el suelo) | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
 | Ataque de dash (estocada) | Click izq. durante dash | RB |
 | Estocada de surf | **Shift** + click izq. | LB + RB |
@@ -134,7 +145,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, agachado, agua y escalada. 88 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 108 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
@@ -144,10 +155,10 @@ Tras crear o renombrar una clase con `class_name`, corre
 **Fases 0, 1 y 2 cerradas.**
 
 - **Traversal completo:** `SurfaceContext` + `LocomotionMotor`, FSM jerarquica de
-  5 grupos y 26 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
+  5 grupos y 27 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
   wall-run/wall-slide/wall-jump/cantos/shimmy/escalada. Stamina unica.
-  La escalada acepta **cualquier superficie de 60 a 95 grados** y el cuerpo se
-  inclina con ella.
+  La escalada acepta **cualquier superficie de 75 a 110 grados**, desplomes
+  incluidos, y el cuerpo se inclina con ella.
 - **Combate:** `AttackData` como Resource (tiempos en frames a 60 Hz), hitbox por
   consulta de forma, hitstop, ventanas de cancelacion, cadena ligera con finisher,
   pesado con knockback terrestre + stagger, aereos que reponen el dash, picado,

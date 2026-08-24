@@ -317,6 +317,45 @@ la comprobacion asumia suelo.
 - **Rampas de calibracion en el Gym** (45/55/60/70/80/90 grados) con el pie en la
   misma linea, y ocho comprobaciones nuevas en `TestFase2`.
 
+
+### Correccion 2.03 — postura centralizada, 75..110 y movilidad con recorrido
+- **La postura deja de ser un efecto de borde de las transiciones.** Cada estado
+  PIDE una altura por frame (`pedir_postura`) y el controlador resuelve
+  `quiere agachado + puede levantarse` en un solo sitio. Antes se escribia en
+  `enter()` y se restauraba en `exit()`, asi que saltar desde dentro de un tunel
+  dejaba al personaje a media altura para siempre: ningun estado aereo restauraba
+  nada. Ahora, si nadie pide agacharse y hay hueco, se levanta solo.
+- **`agachado_forzado`** separa el agachado que pide el jugador del que impone el
+  mundo. El segundo dura exactamente lo que dure la obstruccion.
+- **Arreglado el cambio brusco de altura junto a paredes inclinadas.** La sonda de
+  techo barria desde los PIES y con el alto completo, asi que su cabeza llegaba
+  0.68 m por encima de la del personaje: casi cualquier rampa o saliente contaba
+  como techo y forzaba agachado. Ahora sondea solo el hueco que falta, desde la
+  coronilla actual hasta la de pie.
+- **Una sola clasificacion de superficies** (`PlayerTuning.clasificar`):
+  `<75 CAMINABLE`, `75..110 ESCALABLE`, `>110 INVALIDA`, con medio grado de
+  holgura en los limites. De ahi salen el sensor de suelo, el de pared, la
+  escalada y el `floor_max_angle` del cuerpo. Antes habia dos numeros —50 para el
+  suelo y 60..95 para la pared— y podian contradecirse.
+  Esto REVIERTE la horquilla 60..95 de la 2.02: 60 y 70 vuelven a ser pendientes.
+- **Escalar gana a resbalar.** Lo que deja de ser caminable es exactamente lo que
+  empieza a ser escalable, asi que la primera superficie trepable es tambien la
+  primera por la que te resbalas. Con el slide delante en `GroupGrounded`, pedir
+  agarre en una rampa de 75 grados no servia de nada. Y desde el suelo ahora se
+  mira el BOTON de agarre, no solo la adherencia automatica: era el unico sitio
+  donde pulsar agarre no hacia nada.
+- **Sonda alta en el WallSensor** (hombros) en lugar de la sonda de rodillas de la
+  2.02: contra un desplome la pared se te viene encima, y a la altura del pecho
+  queda mas lejos que a la de la cabeza. Sin ella, nada por encima de 90 grados se
+  detectaba.
+- **Movilidad:** carrera 7.8 -> 8.7 m/s; el ataque aereo sale con empuje propio
+  (`aereo_impulso`) y avance sostenido; la patada deslizante tiene su rozamiento
+  (antes usaba el del agachado y moria en dos metros).
+- **Side jump en dos tiempos:** estado `SideJump` propio con una plantada de 0.06 s
+  antes del impulso. Frenar y saltar en el mismo frame no se leia como maniobra.
+- Rampas del Gym rehechas (60/70/74/75/80/90/100/110/120) y 20 comprobaciones
+  nuevas en `TestFase2`.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

@@ -17,7 +17,6 @@ var _reloj: float = 0.0
 
 
 func enter(msg: Dictionary = {}) -> void:
-	player.set_altura_colision(1.0)
 	player.set_alabeo(0.0)
 	_reloj = randf() * TAU  # fase aleatoria: dos entradas seguidas no se calcan
 

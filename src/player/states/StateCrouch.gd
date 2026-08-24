@@ -14,16 +14,15 @@ extends PlayerState
 
 
 func enter(_msg: Dictionary = {}) -> void:
-	player.set_altura_colision(tuning.agachado_altura)
+	player.pedir_postura(tuning.agachado_altura)
 	player.wallrun_disponible = true
 
 
-func exit(_siguiente: StringName = &"") -> void:
-	if not player.techo_bloquea():
-		player.set_altura_colision(1.0)
-
-
 func physics_update(delta: float) -> void:
+	# La postura se PIDE cada frame. No hay que restaurarla al salir: en cuanto
+	# este estado deja de pedirla, el controlador levanta al personaje solo si
+	# hay hueco. Eso es lo que impide quedarse encogido sin motivo.
+	player.pedir_postura(tuning.agachado_altura)
 	var entrada := buffer.move_vector()
 	var rapidez := motor.rapidez_plana()
 

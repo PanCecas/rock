@@ -20,15 +20,11 @@ func enter(msg: Dictionary = {}) -> void:
 		motor.impulso(_dir, motor.rapidez_plana())
 	elif not _forzado:
 		motor.impulso(_dir, motor.rapidez_plana() + tuning.slide_impulso)
-	player.set_altura_colision(tuning.agachado_altura)
-
-
-func exit(_siguiente: StringName = &"") -> void:
-	if not player.techo_bloquea():
-		player.set_altura_colision(1.0)
+	player.pedir_postura(tuning.agachado_altura)
 
 
 func physics_update(delta: float) -> void:
+	player.pedir_postura(tuning.agachado_altura)
 	var rapidez := motor.rapidez_plana()
 
 	# La pendiente acelera o frena. Leer el terreno es la habilidad del sistema.

@@ -23,7 +23,7 @@ var _duracion: float = 0.0
 func enter(msg: Dictionary = {}) -> void:
 	# La capsula ya baja interpolada (`agachado_transicion`), asi que el cambio de
 	# altura no se ve como un salto: es la misma rampa que usa el agachado normal.
-	player.set_altura_colision(tuning.agachado_altura)
+	player.pedir_postura(tuning.agachado_altura)
 	player.wallrun_disponible = true
 	player.recargar_aire()
 
@@ -37,14 +37,8 @@ func enter(msg: Dictionary = {}) -> void:
 	EventBus.camara_shake.emit(clampf(impacto / 40.0, 0.05, 0.4), 0.12)
 
 
-func exit(siguiente: StringName = &"") -> void:
-	# Solo se recupera la altura si NO se sigue agachado. Levantarse aqui para que
-	# `Crouch` volviera a agacharse en el mismo frame era el chasquido a evitar.
-	if siguiente != &"Crouch" and siguiente != &"Slide" and not player.techo_bloquea():
-		player.set_altura_colision(1.0)
-
-
 func physics_update(delta: float) -> void:
+	player.pedir_postura(tuning.agachado_altura)
 	# Frenar del todo: lo poco que quedaba de velocidad se va aqui.
 	motor.frenar(tuning.crouch_friccion * 1.5, delta)
 	motor.set_vertical(-2.0)

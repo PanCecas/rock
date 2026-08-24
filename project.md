@@ -54,6 +54,31 @@ después. Lo que se aprenda aquí se paga solo en la Fase 4.
 
 ---
 
+### 4. Vehículo / mascota montable — **idea, no implementar**
+
+Una montura que el jugador pueda invocar y usar para cruzar distancia. Anotado en
+la Corrección 2.03 como dirección futura; **no hay código, ni estado, ni escena**,
+y no debe haberlos hasta que la Fase 3 esté cerrada.
+
+Lo que sí conviene saber ya, porque condiciona decisiones del presente:
+
+- **La arquitectura lo aguanta sin tocarla.** Una montura es un `SurfaceContext`
+  con marco móvil —exactamente el mismo problema que el coloso y que el enemigo
+  mediano—, más un grupo de estados nuevo (`Mounted`) colgando de la FSM. No pide
+  ni herencia nueva ni un segundo controlador.
+- **El riesgo no es montar, es desmontar.** Saltar de una montura en movimiento
+  tiene que heredar su velocidad, y ese es el mismo camino de código que
+  `SurfaceContext.arrastrar()` ya recorre para el suelo móvil. Si ese camino está
+  bien hecho para el coloso, la montura sale casi gratis.
+- **Orden correcto:** después del enemigo mediano. Construir la montura antes
+  significaría estrenar el marco móvil en un sistema donde además hay que diseñar
+  controles nuevos, que es hacer dos cosas difíciles a la vez.
+
+No añadir `MountPoint`, `RiderComponent` ni ganchos "por si acaso": un hueco vacío
+en la arquitectura envejece peor que un hueco inexistente.
+
+---
+
 ## Agua — Fase 2
 
 El **combate acuático por dash ya está implementado** (corrección 2.01):

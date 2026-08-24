@@ -27,13 +27,11 @@ func enter(msg: Dictionary = {}) -> void:
 	player.orientar_a(_dir)
 	# Surfeando se va agachado: la capsula baja a la mitad. Ademas de venderlo
 	# visualmente, es lo que deja pasar por los tuneles sin soltar la velocidad.
-	player.set_altura_colision(tuning.agachado_altura)
+	player.pedir_postura(tuning.agachado_altura)
 
 
 func exit(siguiente: StringName = &"") -> void:
 	player.set_alabeo(0.0)
-	if not player.techo_bloquea():
-		player.set_altura_colision(1.0)
 	# Saltar NO cancela el surf: se marca pendiente y se recupera al aterrizar.
 	# Perder la linea rapida por haber saltado un bache es exactamente el tipo de
 	# castigo que rompe el ritmo de un juego de movilidad.
@@ -43,6 +41,7 @@ func exit(siguiente: StringName = &"") -> void:
 
 
 func physics_update(delta: float) -> void:
+	player.pedir_postura(tuning.agachado_altura)
 	# Soltar Shift corta el surf en el acto: es un estado que se sostiene a mano.
 	if not _shift_mantenido() or player.stamina.vacia():
 		_terminar()

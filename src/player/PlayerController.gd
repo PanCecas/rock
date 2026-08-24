@@ -72,6 +72,13 @@ var _coyote: float = 0.0
 var _alabeo: float = 0.0
 var _altura_base: float = 1.8
 var _altura_objetivo: float = 1.0
+## Postura que PIDE el estado actual, en fraccion de altura. Se reinicia a 1.0
+## cada frame: un estado que quiera ir agachado tiene que seguir pidiendolo.
+var _postura_pedida: float = 1.0
+## ¿Se esta agachado solo porque no se cabe de pie? Es la diferencia entre el
+## agachado que pide el jugador y el que impone el mundo, y hace falta tenerla
+## separada: el primero dura lo que dure el boton, el segundo se deshace solo.
+var agachado_forzado: bool = false
 var _altura_actual: float = 1.0
 var _giro_objetivo: float = 0.0
 var _tiene_giro: bool = false
@@ -133,7 +140,7 @@ func _physics_process(delta: float) -> void:
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	suelo.sondear()
 	pared.sondear(frente)
-	techo.sondear(_altura_base)
+	techo.sondear(_altura_base * _altura_actual, _altura_base)
 	agua.sondear()
 	if tiempo_sin_borde <= 0.0:
 		borde.sondear(frente)
@@ -153,6 +160,7 @@ func _physics_process(delta: float) -> void:
 		EventBus.player_landed.emit(impacto_ultimo, impacto_ultimo > tuning.aterrizaje_duro)
 
 	_antiatasco(delta)
+	_resolver_postura()
 	_actualizar_altura(delta)
 	_actualizar_visual(delta)
 	_reset_si_cae()
@@ -165,7 +173,7 @@ func _physics_process(delta: float) -> void:
 ## una pared y el suelo bloquea el deslizamiento y el personaje se queda clavado
 ## en cualquier esquina interior.
 func _configurar_cuerpo() -> void:
-	floor_max_angle = deg_to_rad(tuning.angulo_max_suelo)
+	floor_max_angle = deg_to_rad(tuning.angulo_max_suelo())
 	floor_snap_length = 0.4
 	floor_block_on_wall = false
 	floor_constant_speed = true
@@ -454,11 +462,40 @@ func orientar_si_se_mueve() -> bool:
 	return true
 
 
-## Pide una altura de cápsula (fracción de la normal). NO se aplica de golpe:
-## `_actualizar_altura()` interpola. Un cambio instantáneo hace que el personaje
-## dé un salto vertical al agacharse y se ve fatal.
-func set_altura_colision(fraccion: float) -> void:
-	_altura_objetivo = clampf(fraccion, 0.2, 1.0)
+## Pide una altura de cápsula para ESTE frame (fracción de la normal).
+##
+## Es una peticion, no una orden, y caduca: cada frame se vuelve a 1.0. Antes cada
+## estado escribia la altura en `enter()` y la restauraba en `exit()`, y eso hacia
+## que la postura fuese un efecto de borde de las transiciones: saltar desde
+## dentro de un tunel te dejaba a media altura para siempre, porque ningun estado
+## aereo restauraba nada. Ahora la postura es una CONSECUENCIA del estado actual,
+## y si nadie pide agacharse, el personaje se levanta solo.
+##
+## No se aplica de golpe: `_actualizar_altura()` interpola.
+func pedir_postura(fraccion: float) -> void:
+	_postura_pedida = minf(_postura_pedida, clampf(fraccion, 0.2, 1.0))
+
+
+## Resuelve la postura del frame: lo que se pide, y lo que el mundo permite.
+##
+##     quiere agachado  +  puede levantarse  ->  postura final
+##
+## Es el unico sitio donde se decide la altura de la capsula. La deteccion de
+## paredes, pendientes o superficies escalables NO entra aqui: una rampa no es
+## una razon para agacharse.
+func _resolver_postura() -> void:
+	var objetivo := _postura_pedida
+	# "Forzado" = no lo pides Y no puedes levantarte. Es el `wants + canStand` del
+	# modelo: sin separar las dos cosas, un agachado impuesto por un tunel y uno
+	# pedido con el boton son indistinguibles, y el primero no debe durar ni un
+	# frame mas que la obstruccion.
+	agachado_forzado = techo.bloqueado and not buffer.is_held(InputActions.CROUCH)
+	# Si no cabes de pie te quedas agachado aunque no lo pidas, y en cuanto el
+	# hueco aparece subes solo. Nadie tiene que acordarse de nada.
+	if objetivo >= 1.0 and techo.bloqueado:
+		objetivo = tuning.agachado_altura
+	_altura_objetivo = objetivo
+	_postura_pedida = 1.0
 
 
 ## Shift, en cualquiera de sus formas. Lo consultan la locomocion y el agua.
@@ -693,7 +730,7 @@ func _reset_si_cae() -> void:
 func _on_tuning_reloaded() -> void:
 	tuning = GameState.tuning
 	stamina.configurar(tuning)
-	floor_max_angle = deg_to_rad(tuning.angulo_max_suelo)
+	floor_max_angle = deg_to_rad(tuning.angulo_max_suelo())
 
 
 func _debug() -> void:

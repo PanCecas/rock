@@ -20,6 +20,10 @@ func enter(msg: Dictionary = {}) -> void:
 	_dir = _direccion_ataque()
 	player.orientar_a(_dir)
 	player.hitbox.nuevo_swing()
+	# EMPUJE. El ataque aereo es tambien un desplazamiento: se sale disparado hacia
+	# donde se golpea. Conserva la velocidad que ya llevabas si era mayor, para que
+	# atacar desde un dash no te frene.
+	motor.impulso(_dir, maxf(motor.rapidez_plana(), tuning.aereo_impulso))
 	# Frenar la caída al golpear: flotar un instante da tiempo a encadenar.
 	motor.set_vertical(minf(motor.get_vertical(), 1.5))
 
@@ -34,7 +38,7 @@ func physics_update(delta: float) -> void:
 	motor.aplicar_gravedad(delta, 0.35)
 
 	var progreso := float(_frame) / maxf(float(_datos.total_frames()), 1.0)
-	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso) * 0.7)
+	var objetivo := _dir * (_datos.avance * _datos.avance_en(progreso) * tuning.aereo_avance_mult)
 	var entrada := buffer.move_vector()
 	if _datos.movilidad > 0.0 and entrada.length() > 0.2:
 		objetivo += sc.direccion_movimiento(entrada, player.camara()) * tuning.velocidad_correr * _datos.movilidad

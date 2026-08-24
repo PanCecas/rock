@@ -697,44 +697,191 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() == &"Crouch" and _p.esta_agachado(),
 			"al terminar la recepcion debe conservarse la postura agachada"),
 
-		# LIMITE DE ANGULO DE ESCALADA. Las rampas del Gym comparten pie, asi que
-		# la unica variable entre un caso y el siguiente es la inclinacion.
-		_chequeo_("45 grados NO se escala", 0.7,
-			_ante_rampa(45.0),
+		# CLASIFICACION UNICA DE SUPERFICIES. Primero la tabla entera contra la
+		# funcion pura: es exacta y no depende de que el personaje se coloque bien.
+		_chequeo_("la tabla de angulos clasifica bien", 0.05,
+			func() -> void: pass,
+			func() -> bool:
+				var tu := _p.tuning
+				for g in [0.0, 30.0, 45.0, 60.0, 70.0, 74.0]:
+					if tu.clasificar(g) != PlayerTuning.Superficie.CAMINABLE:
+						return false
+				for g in [75.0, 80.0, 90.0, 100.0, 105.0, 110.0]:
+					if tu.clasificar(g) != PlayerTuning.Superficie.ESCALABLE:
+						return false
+				for g in [111.5, 120.0, 130.0]:
+					if tu.clasificar(g) != PlayerTuning.Superficie.INVALIDA:
+						return false
+				return true,
+			"0-74 camina, 75-110 escala, mas de 110 no es ninguna de las dos"),
+
+		# Y ahora contra geometria de verdad, rampa por rampa.
+		_chequeo_("60 grados se CAMINA", 0.7, _ante_rampa(60.0),
 			func() -> bool: return not _latch_climb,
-			"una rampa de 45 grados es suelo inclinado, no un muro"),
-		_chequeo_("55 grados NO se escala", 0.7,
-			_ante_rampa(55.0),
+			"60 grados esta por debajo del limite: es pendiente, no pared"),
+		_chequeo_("70 grados se CAMINA", 0.7, _ante_rampa(70.0),
 			func() -> bool: return not _latch_climb,
-			"55 grados sigue por debajo del limite: no debe engancharse"),
-		_chequeo_("60 grados SI se escala", 0.7,
-			_ante_rampa(60.0),
+			"70 grados sigue siendo suelo"),
+		_chequeo_("74 grados se CAMINA", 0.7, _ante_rampa(74.0),
+			func() -> bool: return not _latch_climb,
+			"74 es la ultima superficie caminable"),
+		_chequeo_("75 grados se ESCALA", 0.7, _ante_rampa(75.0),
 			func() -> bool: return _latch_climb,
-			"60 grados es el limite inferior y tiene que aceptarse"),
-		_chequeo_("70 grados SI se escala", 0.7,
-			_ante_rampa(70.0),
-			func() -> bool: return _latch_climb,
-			"70 grados debe escalarse"),
-		_chequeo_("80 grados SI se escala", 0.7,
-			_ante_rampa(80.0),
+			"75 es el primer angulo escalable y tiene que aceptarse"),
+		_chequeo_("80 grados se ESCALA", 0.7, _ante_rampa(80.0),
 			func() -> bool: return _latch_climb,
 			"80 grados debe escalarse"),
-		_chequeo_("90 grados SI se escala", 0.7,
-			_ante_rampa(90.0),
+		_chequeo_("90 grados se ESCALA", 0.7, _ante_rampa(90.0),
 			func() -> bool: return _latch_climb,
 			"un muro vertical debe seguir escalandose como siempre"),
+		_chequeo_("100 grados se ESCALA", 0.7, _ante_rampa(100.0),
+			func() -> bool: return _latch_climb,
+			"un desplome de 100 grados entra en la horquilla"),
+		_chequeo_("110 grados se ESCALA", 0.7, _ante_rampa(110.0),
+			func() -> bool: return _latch_climb,
+			"110 es el ultimo angulo escalable"),
+		_chequeo_("120 grados NO se escala", 0.7, _ante_rampa(120.0),
+			func() -> bool: return not _latch_climb,
+			"por encima de 110 la superficie queda fuera de la horquilla"),
 
 		# Y no basta con entrar: el cuerpo tiene que INCLINARSE con la pendiente.
-		# Sobre una rampa de 60 grados el "arriba" del personaje se separa 30
-		# grados de la vertical del mundo; sobre un muro de 90 coincide con ella.
+		# Sobre una rampa de 75 grados el "arriba" del personaje se separa 15 grados
+		# de la vertical del mundo; sobre un muro de 90 coincide con ella.
 		_chequeo_("el cuerpo se inclina con la rampa", 0.9,
-			_ante_rampa(60.0),
+			_ante_rampa(75.0),
 			func() -> bool: return (
 				_p.fsm.nombre_actual() == &"Climb"
 				and _p.pared.hay_pared
-				and _p.visual.global_basis.y.dot(Vector3.UP) < 0.95
-				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.6),
+				and _p.visual.global_basis.y.dot(Vector3.UP) < 0.995
+				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.85),
 			"escalando una pendiente el cuerpo debe adoptar SU inclinacion"),
+
+		# --- Correccion 2.03: la postura no la deciden las paredes -------------
+		# UNA PARED INCLINADA NO ES UN TECHO. Este era el bug: la sonda de techo
+		# barria desde los pies y con el alto completo, llegaba 0.68 m por encima de
+		# la cabeza, y cualquier rampa cercana forzaba agachado.
+		_chequeo_("acercarse a una rampa no encoge al personaje", 0.9,
+			_ante_rampa(75.0),
+			func() -> bool: return not _p.esta_agachado(),
+			"detectar una superficie inclinada no debe tocar la altura de la capsula"),
+		_chequeo_("caminar por una pendiente no agacha", 0.9,
+			_ante_rampa(60.0),
+			func() -> bool: return not _p.esta_agachado() and not _p.agachado_forzado,
+			"una pendiente caminable no es motivo para agacharse"),
+
+		# AUTO-STAND: soltar el boton en campo abierto levanta.
+		_paso_("agacharse en campo abierto", 0.5, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.3, 0.0)
+			_p.velocity = Vector3.ZERO
+			_p.fsm.cambiar(&"Idle")
+			_pulsar(&"crouch"), &"Crouch"),
+		_chequeo_("soltar el boton levanta", 0.6,
+			func() -> void: _soltar(&"crouch"),
+			func() -> bool: return not _p.esta_agachado() and _p.fsm.nombre_actual() != &"Crouch",
+			"sin techo encima, soltar crouch debe devolver la altura normal"),
+
+		# AUTO-STAND tras una obstruccion: el crouch forzado NUNCA es permanente.
+		_paso_("meterse en el tunel", 0.5, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(-14.0, 0.1, 8.0)
+			_p.velocity = Vector3.ZERO
+			_pulsar(&"crouch"), &"Crouch"),
+		_chequeo_("el techo lo mantiene agachado", 0.5,
+			func() -> void: _soltar(&"crouch"),
+			func() -> bool: return _p.agachado_forzado and _p.esta_agachado(),
+			"bajo un techo bajo, soltar el boton no debe levantar al personaje"),
+		_chequeo_("salir del tunel levanta solo", 0.8,
+			func() -> void:
+				# Fuera del tunel SIN volver a tocar ningun boton.
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3.ZERO,
+			func() -> bool: return not _p.esta_agachado() and not _p.agachado_forzado,
+			"al desaparecer la obstruccion debe recuperar la altura sin pedir nada"),
+
+		# Y el caso que dejaba encogido para siempre: saltar desde dentro del tunel.
+		_chequeo_("saltar desde el tunel no deja encogido", 1.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(-14.0, 0.1, 8.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Crouch")
+				_esperar_salto = 10,
+			func() -> bool: return not _p.esta_agachado(),
+			"ningun estado aereo restauraba la altura y el personaje se quedaba a medias"),
+
+		# --- Movilidad: mas recorrido -----------------------------------------
+		# Hacia +X: correr hacia -Z mete al personaje en el campo de rampas del Gym
+		# y acaba midiendo una pendiente en vez de la velocidad.
+		_paso_("carrerilla para medir", 1.6, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(0.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("correr llega a la velocidad nueva", 0.6,
+			func() -> void: pass,
+			func() -> bool: return _p.motor.rapidez_plana() >= _p.tuning.velocidad_correr - 0.6,
+			"la rampa de carrerilla debe alcanzar velocidad_correr"),
+
+		_chequeo_("el ataque aereo recorre distancia", 0.55,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 6.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(0, 0, -1))
+				_pos_antes = _p.global_position
+				# Se entra al estado a mano: que el aereo salga o no depende de que haya
+				# un enemigo cerca, y aqui lo que se mide es el DESPLAZAMIENTO.
+				_p.fsm.cambiar(&"AirAttack", {"datos": _p.ataque_aereo}),
+			func() -> bool: return _distancia_plana(_pos_antes) > 3.5,
+			"el aereo debe desplazar de verdad, no caer en el mismo sitio"),
+
+		_paso_("carrerilla para la patada", 1.2, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(-6.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("la patada deslizante llega lejos", 1.4,
+			func() -> void:
+				_pos_antes = _p.global_position
+				_pulsar(&"crouch")
+				_p.fsm.cambiar(&"Crouch")
+				_esperar_ataque = 2,
+			func() -> bool: return _visitados.has(&"SlideKick") and _distancia_plana(_pos_antes) > 9.0,
+			"la patada es movilidad ademas de ataque: tiene que recorrer camino"),
+
+		# SIDE JUMP EN DOS TIEMPOS: primero planta, despues salta.
+		_paso_("correr para el side jump", 1.0, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_visitados.erase(&"SideJump")
+			_p.global_position = Vector3(0.0, 0.05, 0.0)
+			_p.fsm.cambiar(&"Idle")
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward"), &"Move"),
+		_chequeo_("girar en seco y saltar planta primero", 0.45,
+			func() -> void:
+				_vy_sidejump = -99.0
+				_vy_max = -99.0
+				_soltar(&"move_forward")
+				_pulsar(&"move_back")
+				_esperar_salto = 6,
+			func() -> bool: return (
+				_visitados.has(&"SideJump")
+				and _vy_sidejump < 1.0),
+			"durante la plantada el personaje sigue en el suelo: aun no ha saltado"),
+		_chequeo_("y despues sale disparado", 0.25,
+			func() -> void: pass,
+			func() -> bool: return _vy_max > _p.tuning.velocidad_salto(),
+			"tras la plantada el side jump debe subir mas que un salto normal"),
 
 		# --- Upright Orientation Recovery --------------------------------------
 		_paso_("al estanque otra vez", 1.4, func() -> void:
@@ -805,6 +952,9 @@ var _dist_sin_input: float = 0.0
 ## puede durar un par de frames antes de resbalar. Mirar solo el frame final
 ## mediria cuanto aguanta, no si engancha.
 var _latch_climb: bool = false
+## Velocidad vertical MAXIMA vista durante la plantada del side jump. Si el
+## frenado y el salto ocurrieran a la vez, aqui apareceria el impulso.
+var _vy_sidejump: float = -99.0
 
 
 ## Coloca al jugador delante de la rampa de `angulo` del Gym, pidiendo agarre.
@@ -818,13 +968,14 @@ func _ante_rampa(angulo: float) -> Callable:
 		var i := 0
 		var gym := _main.get_node_or_null("Gym") as Gym
 		var angulos: PackedFloat32Array = (
-			gym.angulos_escalada if gym != null else PackedFloat32Array([45.0, 55.0, 60.0, 70.0, 80.0, 90.0])
+			gym.angulos_escalada if gym != null
+			else PackedFloat32Array([60.0, 70.0, 74.0, 75.0, 80.0, 90.0, 100.0, 110.0, 120.0])
 		)
 		for j in angulos.size():
 			if is_equal_approx(angulos[j], angulo):
 				i = j
 				break
-		var x := -32.0 + 5.0 * float(i)
+		var x := -33.0 + 3.4 * float(i)
 
 		# Postura de APOYO, deducida y no tanteada: la esfera inferior de la capsula
 		# tocando la cara. Colocar al personaje "cerca a ojo" no vale aqui —contra
@@ -835,15 +986,21 @@ func _ante_rampa(angulo: float) -> Callable:
 		var centro_y := 3.0             # altura de la esfera inferior de la capsula
 		var pies := centro_y - radio
 		var z_centro := -30.0 - radio * sin(a)
-		if angulo < 89.9:
+		# El termino de la pendiente vale igual para desplomes: con angulo > 90 la
+		# tangente es negativa y la cara se inclina HACIA el personaje, que es
+		# justo lo que se quiere probar. Solo hay que esquivar los 90 exactos.
+		if absf(angulo - 90.0) > 0.1:
 			z_centro += (centro_y - radio * cos(a)) / tan(a)
 
 		_soltar_todo()
 		_reponer()
 		_latch_climb = false
 		_p.global_position = Vector3(x, pies, z_centro)
-		# Empujando contra la cara: sin contacto sostenido no hay adherencia.
+		# Empujando contra la cara y SIN caida inicial: en las rampas mas tumbadas la
+		# gravedad los desliza fuera del alcance del sensor antes de que el agarre
+		# llegue a evaluarse, y el paso acabaria midiendo el resbalon.
 		_p.velocity = Vector3(0.0, 0.0, 1.5)
+		_p.saltos_aereos = 0
 		_p.fsm.cambiar(&"Fall")
 		_mirar_a(180.0)  # move_forward apunta a +Z, contra la cara
 		_pulsar(&"move_forward")
@@ -852,7 +1009,7 @@ func _ante_rampa(angulo: float) -> Callable:
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 70.0:
+	if _reloj > 130.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -902,6 +1059,8 @@ func _physics_process(delta: float) -> void:
 	# Latches, antes de nada.
 	if _p.fsm.nombre_actual() == &"Climb":
 		_latch_climb = true
+	if _p.fsm.nombre_actual() == &"SideJump":
+		_vy_sidejump = maxf(_vy_sidejump, _p.motor.get_vertical())
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())
@@ -918,10 +1077,12 @@ func _physics_process(delta: float) -> void:
 			_fallos.append("%-24s no se alcanzó %s" % [actual["nombre"], esperado])
 		if actual.has("chequeo") and not (actual["chequeo"] as Callable).call():
 			_fallos.append("%-24s %s
-      [estado=%s vel=%.1f stam=%.0f%% shift=%s | g=%s hp=%.0f est=%d]" % [
+      [estado=%s vel=%.1f stam=%.0f%% shift=%s agachado=%s techo=%s pared=%s/%.1f | g=%s hp=%.0f est=%d]" % [
 				actual["nombre"], actual["porque"], _p.fsm.nombre_actual(),
 				_p.motor.rapidez_plana(), _p.stamina.fraccion() * 100.0,
 				Input.is_action_pressed(&"dash"),
+				_p.esta_agachado(), _p.techo_bloquea(),
+				_p.pared.hay_pared, _p.pared.angulo,
 				is_instance_valid(_g), (_g.salud.actual if is_instance_valid(_g) else -1.0),
 				(_g.estado if is_instance_valid(_g) else -1)])
 			_fallos.append("        traza: %s   saltos=%d aereos=%d" % [
@@ -1018,6 +1179,14 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Distancia recorrida en el plano desde `origen`. La vertical no cuenta: lo que
+## se mide en un ataque de movilidad es cuanto AVANZA, no cuanto cae.
+func _distancia_plana(origen: Vector3) -> float:
+	var d := _p.global_position - origen
+	d.y = 0.0
+	return d.length()
 
 
 ## Fija el yaw de la camara para que `move_forward` apunte a una direccion

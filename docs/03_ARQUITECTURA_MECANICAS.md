@@ -292,7 +292,7 @@ solo permite aguantar. Cuando pasa, tienes una ventana de oro para avanzar.
 |---|---|---|
 | `Explore` | por defecto | Órbita suave, mira ligeramente hacia arriba, encuadra el horizonte |
 | `Combat` | enemigo cercano | Baja, se acerca, encuadra a los dos |
-| `Climb` | escalando | Se pega a la superficie con su NORMAL REAL (60–95°) e inclina el cuerpo con la pendiente |
+| `Climb` | escalando | Se pega a la superficie con su NORMAL REAL (75–110°) e inclina el cuerpo con la pendiente |
 | `Colossus` | boss activo | **FramingDirector**: mantiene coloso + jugador en cuadro, retrocede automáticamente para vender la escala |
 | `Aim` | apuntando | Sobre el hombro, FOV reducido |
 | `Cinematic` | scripted | Raíles |

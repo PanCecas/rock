@@ -85,7 +85,7 @@ func shared_update(delta: float) -> void:
 	#      el jugador pueda tener en la cabeza, y "si agarro, escalo" es la mas
 	#      simple que existe: la ambiguedad solo queda entre los dos que NO pides
 	#      explicitamente, y esa se resuelve por angulo.
-	var vale_pared := player.pared.escalable or tuning.escalada_universal
+	var vale_pared := player.pared.asidero or tuning.escalada_universal
 	var quiere_agarrar := buffer.is_held(InputActions.GRAB) or player.adherencia_lista()
 	if player.pared.hay_pared and quiere_agarrar:
 		if vale_pared and fsm.actual.name != &"Climb" and not player.stamina.vacia():

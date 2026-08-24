@@ -13,7 +13,6 @@ const CALADO := 1.05
 
 
 func enter(_msg: Dictionary = {}) -> void:
-	player.set_altura_colision(1.0)
 	player.set_alabeo(0.0)
 	# ENTRAR AL AGUA SIN CHASQUIDO. Nadar en superficie es un cuerpo derecho, y
 	# aqui se llega desde cualquier cosa: un clavado con el morro hacia abajo, una

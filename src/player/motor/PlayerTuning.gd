@@ -38,7 +38,7 @@ extends Resource
 ## sensacion de que el personaje coge carrerilla.
 @export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
 @export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
-@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 7.8
+@export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 8.7
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
 
@@ -64,7 +64,6 @@ extends Resource
 @export_range(0.5, 60.0, 0.5) var frenado_momentum: float = 6.0
 ## Grados por segundo a los que el modelo gira hacia la dirección de movimiento.
 @export_range(90.0, 2160.0, 10.0) var giro_grados_seg: float = 900.0
-@export_range(0.0, 89.0, 1.0) var angulo_max_suelo: float = 50.0
 ## CLAMP DURO de la velocidad horizontal. El momentum se conserva y se encadena,
 ## pero nunca se acumula sin techo: sin esto, encadenar dash y surf termina
 ## sacando al jugador del mapa.
@@ -167,7 +166,14 @@ extends Resource
 ## Ventana desde el giro brusco en la que saltar produce el side jump.
 @export_range(0.05, 1.0, 0.01) var sidejump_ventana: float = 0.28
 @export_range(1.0, 3.0, 0.05) var sidejump_mult: float = 1.45
-@export_range(0.0, 25.0, 0.1) var sidejump_lateral: float = 10.0
+@export_range(0.0, 25.0, 0.1) var sidejump_lateral: float = 12.5
+## LA PLANTADA. El side jump ocurre en dos tiempos —frenar, y despues saltar— y
+## esto es lo que dura el primero. Corto: cinco centesimas se ven, diez ya se
+## sienten como input perdido.
+@export_range(0.0, 0.4, 0.01) var sidejump_frenazo: float = 0.06
+## Deceleracion durante la plantada. Brutal a proposito: la inercia vieja tiene
+## que estar muerta antes de que llegue el impulso nuevo.
+@export_range(10.0, 300.0, 5.0) var sidejump_frenado: float = 120.0
 ## Deceleracion al agachado LLEVANDO velocidad. Agacharse frena, como en Mario 64.
 @export_range(1.0, 100.0, 1.0) var crouch_friccion: float = 14.0
 ## Por debajo de esta velocidad el salto agachado cuenta como estatico.
@@ -175,8 +181,13 @@ extends Resource
 
 @export_subgroup("Slide kick (salto de conejo)")
 ## Impulso hacia delante de la patada deslizante. Es el salto de conejo de Mario.
-@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 15.0
-@export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 5.5
+@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 22.0
+@export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 6.2
+## Rozamiento de la patada YA EN EL SUELO. Era la friccion del agachado (14) y por
+## eso la patada moria en dos metros: el impulso estaba bien, lo que fallaba es
+## que se lo comia el frenado al aterrizar. Baja: la patada es un DESPLAZAMIENTO
+## que ademas hace dano, y tiene que llegar lejos.
+@export_range(0.5, 60.0, 0.5) var slide_kick_friccion: float = 4.5
 
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
@@ -249,6 +260,14 @@ extends Resource
 ## Velocidad horizontal del clavado. CONSTANTE durante todo el vuelo: es la
 ## fisica de Mario 64 —un cuerpo con velocidad horizontal fija en caida libre—,
 ## y es lo que hace que la trayectoria se pueda leer y planificar.
+## ATAQUE AEREO: empuje inicial en la direccion del golpe. Sin el, el ataque en el
+## aire era una animacion mientras el personaje caia casi en el mismo sitio; con
+## el, es una herramienta de movilidad —ganar distancia atacando, como el salto
+## largo de Mario— ademas de un golpe.
+@export_range(0.0, 40.0, 0.5) var aereo_impulso: float = 12.0
+## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
+## mano dentro del estado (numero magico, regla dura #1).
+@export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
 @export_range(0.0, 40.0, 0.5) var dive_impulso: float = 15.0
 ## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
 @export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
@@ -322,6 +341,19 @@ extends Resource
 @export_range(0.0, 60.0, 0.5) var aterrizaje_duro: float = 20.0
 @export_range(0.0, 1.0, 0.01) var aterrizaje_duro_duracion: float = 0.22
 
+# --- Clasificacion de superficies -------------------------------------------
+# UN SOLO numero decide si una superficie se camina, se escala o no se toca. Antes
+# habia dos —el limite de suelo y el del sensor de pared— y podian contradecirse:
+# la misma rampa era "demasiado empinada para andar" y "demasiado tumbada para
+# escalar" a la vez, y el jugador se quedaba resbalando sin poder hacer nada.
+@export_group("Superficies")
+## Frontera entre CAMINAR y ESCALAR. Tambien es el `floor_max_angle` del cuerpo:
+## si el motor y la FSM usaran numeros distintos, uno de los dos mentiria.
+@export_range(0.0, 89.0, 1.0) var climb_angulo_min: float = 75.0
+## Techo de la escalada. Por encima de 90 son desplomes: la pared se te viene
+## encima. Mas de esto ya es un techo, y de un techo no se cuelga nadie.
+@export_range(90.0, 180.0, 1.0) var climb_angulo_max: float = 110.0
+
 # --- Bordes y escalada ------------------------------------------------------
 @export_group("Bordes y escalada")
 ## Perdón: si fallas el borde por menos de esto, se te concede el agarre.
@@ -348,9 +380,6 @@ extends Resource
 ## en cada saliente. Iba contra la normal aplanada, y sobre una rampa de 60 grados
 ## eso empujaba en horizontal: el personaje se separaba de la pendiente.
 @export_range(0.0, 4.0, 0.05) var escalada_adherencia: float = 0.6
-## NOTA: la horquilla de angulos escalables (60..95 grados) NO vive aqui, vive en
-## `WallSensor.angulo_min` / `angulo_max`, porque es geometria del sensor y no
-## ajuste de feel. Se apunta aqui para no tener que buscarla.
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
 
 # --- Combate ----------------------------------------------------------------
@@ -392,6 +421,40 @@ extends Resource
 ## Velocidad inicial de salto: siempre la de altura maxima. v = sqrt(2 * g * h)
 func velocidad_salto() -> float:
 	return sqrt(2.0 * absf(gravedad_subida) * altura_salto_max)
+
+
+## Como se lee una superficie a partir de su inclinacion. Es LA clasificacion:
+## el sensor de suelo, el de pared, la escalada y el `floor_max_angle` del cuerpo
+## salen todos de aqui, para que ninguno pueda contradecir a otro.
+enum Superficie {
+	CAMINABLE,   ## < climb_angulo_min. Suelo o pendiente, se anda.
+	ESCALABLE,   ## climb_angulo_min .. climb_angulo_max. Pared o desplome.
+	INVALIDA,    ## Por encima. Ni se anda ni se escala.
+}
+
+
+## Medio grado de margen para que la horquilla sea inclusiva DE VERDAD. La normal
+## que devuelve un raycast contra una cara construida a 75.0 grados exactos vuelve
+## como 74.997, y cortar en el numero redondo dejaria fuera justo el caso limite
+## que el sistema promete aceptar. Vive aqui y no en cada sensor: si cada uno
+## redondease a su manera, volveriamos a tener dos criterios.
+const HOLGURA_ANGULO := 0.5
+
+
+## `floor_max_angle` del cuerpo. Es el limite de escalada menos la holgura, no el
+## limite pelado: si coincidieran, una cara de 75 grados exactos seria a la vez
+## suelo para el motor y pared para la FSM, y el personaje se quedaba resbalando
+## sobre la primera superficie que se supone que puede trepar.
+func angulo_max_suelo() -> float:
+	return climb_angulo_min - HOLGURA_ANGULO
+
+
+func clasificar(grados: float) -> Superficie:
+	if grados < climb_angulo_min - HOLGURA_ANGULO:
+		return Superficie.CAMINABLE
+	if grados <= climb_angulo_max + HOLGURA_ANGULO:
+		return Superficie.ESCALABLE
+	return Superficie.INVALIDA
 
 
 ## Salto estatico desde agachado. Vive aqui y no en el estado porque lo piden dos

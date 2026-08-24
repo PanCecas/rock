@@ -16,15 +16,12 @@ func shared_update(delta: float) -> void:
 		if player.consumir_salto():
 			# SIDE JUMP: si venias corriendo y acabas de pedir la direccion
 			# contraria, el salto sale mas alto y hacia el nuevo rumbo.
+			# El side jump NO se resuelve aqui: pasa por su propio estado porque
+			# ocurre en dos tiempos —plantar y saltar— y un grupo no puede
+			# sostener una maniobra que dura varios frames.
 			if player.ventana_sidejump > 0.0:
 				var dir := sc.direccion_movimiento(buffer.move_vector(), player.camara())
-				if not dir.is_zero_approx():
-					motor.impulso(dir, tuning.sidejump_lateral)
-					player.orientar_a(dir)
-				motor.set_vertical(tuning.velocidad_salto() * tuning.sidejump_mult)
-				player.ventana_sidejump = 0.0
-				EventBus.camara_shake.emit(0.3, 0.12)
-				fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+				fsm.cambiar(&"SideJump", {"direccion": dir})
 				return
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
@@ -58,14 +55,23 @@ func shared_update(delta: float) -> void:
 		fsm.cambiar(&"Fall", {"coyote": true})
 		return
 
+	# ESCALAR GANA A RESBALAR, y el orden importa. Lo que deja de ser caminable es
+	# exactamente lo que empieza a ser escalable, asi que la primera superficie que
+	# puedes trepar es tambien la primera por la que te resbalas. Con el slide
+	# delante, pedir agarre en una rampa de 75 grados no servia de nada: te tiraba
+	# antes de mirar si querias subir.
+	#
+	# Y aqui SI se mira el boton de agarre, no solo la adherencia automatica: desde
+	# el suelo era el unico sitio donde pulsar agarre no hacia absolutamente nada.
+	if player.pared.hay_pared and fsm.actual.name != &"Climb":
+		var quiere_agarrar := buffer.is_held(InputActions.GRAB) or player.adherencia_lista()
+		if quiere_agarrar and not player.stamina.vacia():
+			fsm.cambiar(&"Climb")
+			return
+
 	# Una pendiente imposible te tira: no puedes quedarte quieto en un tejado.
 	if player.suelo.demasiado_empinado() and fsm.actual.name != &"Slide":
 		fsm.cambiar(&"Slide", {"forzado": true})
-		return
-
-	# ADHERENCIA: insistir contra un muro perpendicular acaba enganchandote.
-	if player.adherencia_lista() and fsm.actual.name != &"Climb":
-		fsm.cambiar(&"Climb")
 		return
 
 	# TECHO BAJO: si no cabes de pie, te agachas quieras o no. Es lo que hace que

@@ -4,37 +4,12 @@ extends Node
 ## superficies escalables a mano.
 
 @export_range(0.1, 3.0, 0.05) var altura: float = 1.05
-## SONDA BAJA, a la altura de las rodillas. Existe por pura geometria: apoyado
-## contra una pendiente de 60 grados, el pecho del personaje YA ESTA POR ENCIMA
-## de la superficie —la pared se aleja 0.6 m por cada metro que subes—, asi que un
-## solo rayo a la altura del pecho no puede ver una rampa por mucho que se amplie
-## la horquilla de angulos. Abajo si la ve.
-@export_range(0.1, 3.0, 0.05) var altura_baja: float = 0.45
+## SONDA ALTA, a la altura de los hombros. Existe por la misma razon geometrica
+## que la de pecho, pero al reves: contra un DESPLOME la pared se te viene encima,
+## asi que a la altura del pecho puede quedar mas lejos que a la de la cabeza. Sin
+## esta sonda, los angulos por encima de 90 no se detectan nunca.
+@export_range(0.1, 3.0, 0.05) var altura_alta: float = 1.55
 @export_range(0.1, 3.0, 0.05) var alcance: float = 0.6
-
-## LÍMITE DE ÁNGULO DE ESCALADA. Una superficie cuenta como pared —y por tanto es
-## escalable, corrible y rebotable— cuando el ángulo entre su normal y el "arriba"
-## del marco cae en esta horquilla. 0° sería suelo plano; 90°, un muro vertical.
-##
-## El mínimo estaba de hecho en 65° (la tolerancia era ±25° alrededor de la
-## vertical) y por eso una rampa de 60° se rechazaba: el sistema la leía como
-## "suelo inclinado" en vez de como "muro". Bajarlo a 60 es lo que abre las
-## rampas empinadas a la escalada.
-@export_range(0.0, 90.0, 1.0) var angulo_min: float = 60.0
-## El techo no es 90 exacto a propósito: la normal que devuelve un raycast contra
-## un muro "vertical" ronda los 90.0 ± unas décimas, y cortar justo ahí hace que
-## la pared parpadee. Los grados de más también dejan pasar desplomes suaves.
-@export_range(0.0, 180.0, 1.0) var angulo_max: float = 95.0
-## Techo SOLO para la sonda baja, y mucho mas estricto. Un muro vertical ya lo ve
-## el rayo de pecho; aceptarlo tambien abajo convertiria cada escalon de medio
-## metro en una pared que se puede escalar. La sonda baja es para pendientes.
-@export_range(0.0, 180.0, 1.0) var angulo_max_bajo: float = 75.0
-
-## Medio grado de margen para que la horquilla sea inclusiva DE VERDAD. La normal
-## que devuelve un raycast contra una cara construida a 60.0 grados exactos vuelve
-## como 59.997, y cortar en el numero redondo dejaria fuera justo el caso limite
-## que el sistema promete aceptar.
-const HOLGURA := 0.5
 
 var hay_pared: bool = false
 ## -1 izquierda, 1 derecha, 0 al frente.
@@ -42,9 +17,11 @@ var lado: int = 0
 var normal: Vector3 = Vector3.ZERO
 var punto: Vector3 = Vector3.ZERO
 var colisionador: Node3D = null
-var escalable: bool = false
+## ¿Es un asidero marcado a mano (capa CLIMBABLE)? Es un coste de stamina, no
+## un permiso: la horquilla de angulos ya decide si se puede escalar o no.
+var asidero: bool = false
 ## Ángulo real de la superficie tocada, en grados. Lo usa la escalada para
-## inclinar el cuerpo: una rampa de 60° no se trepa como un muro de 90°.
+## inclinar el cuerpo: una rampa de 75° no se trepa como un muro de 90°.
 var angulo: float = 0.0
 
 ## Memoria de la última pared tocada, para el coyote del wall-jump.
@@ -84,7 +61,7 @@ func normal_de_salto() -> Vector3:
 
 func sondear(direccion_avance: Vector3) -> void:
 	hay_pared = false
-	escalable = false
+	asidero = false
 	lado = 0
 	angulo = 0.0
 	if _p == null:
@@ -103,18 +80,16 @@ func sondear(direccion_avance: Vector3) -> void:
 		{"dir": -derecha, "lado": -1},
 	]
 
-	# Pecho primero y rodillas despues, para cada direccion: en un muro vertical
-	# los dos ven lo mismo y gana el de arriba, asi que el wall-run y el wall-jump
-	# de siempre se comportan exactamente igual que antes.
-	var sondas := [
-		{"y": altura, "techo": angulo_max},
-		{"y": altura_baja, "techo": angulo_max_bajo},
-	]
+	# Pecho primero y hombros despues, para cada direccion. En un muro vertical las
+	# dos ven lo mismo y gana la de abajo, asi que el wall-run y el wall-jump de
+	# siempre se comportan exactamente igual que antes; la alta solo aporta en los
+	# desplomes, donde el pecho se queda corto.
+	var sondas := [altura, altura_alta]
 
 	for c in candidatos:
 		var dir: Vector3 = c["dir"]
 		for sonda in sondas:
-			var origen: Vector3 = _p.global_position + sc.up * float(sonda["y"])
+			var origen: Vector3 = _p.global_position + sc.up * float(sonda)
 			var q := PhysicsRayQueryParameters3D.create(origen, origen + dir * alcance, Layers.SUELO_JUGADOR | Layers.CLIMBABLE)
 			q.exclude = [_p.get_rid()]
 			var r := espacio.intersect_ray(q)
@@ -129,7 +104,10 @@ func sondear(direccion_avance: Vector3) -> void:
 			# solo que contra `sc.up` y no contra el eje Y del mundo, porque sobre un
 			# coloso "arriba" no es (0,1,0).
 			var grados := rad_to_deg(sc.up.angle_to(n))
-			if grados < angulo_min - HOLGURA or grados > float(sonda["techo"]) + HOLGURA:
+			# LA clasificacion, la misma que usa el suelo y la misma que alimenta el
+			# `floor_max_angle` del cuerpo. Un sensor con su propio criterio es como
+			# se llega a que una rampa sea "pared" para uno y "suelo" para otro.
+			if _p.tuning.clasificar(grados) != PlayerTuning.Superficie.ESCALABLE:
 				continue
 			hay_pared = true
 			angulo = grados
@@ -138,7 +116,7 @@ func sondear(direccion_avance: Vector3) -> void:
 			ultima_normal = n
 			punto = r.position
 			colisionador = col
-			escalable = _es_escalable(col)
+			asidero = _es_asidero(col)
 			_t_sin_pared = 0.0
 			return
 
@@ -158,7 +136,7 @@ func direccion_carrera(avance: Vector3) -> Vector3:
 	return a_lo_largo
 
 
-func _es_escalable(col: Node3D) -> bool:
+func _es_asidero(col: Node3D) -> bool:
 	if col is CollisionObject3D:
 		return (col as CollisionObject3D).get_collision_layer_value(4)  # CLIMBABLE
 	return false
@@ -168,4 +146,4 @@ func debug_line() -> String:
 	if not hay_pared:
 		return "—"
 	var donde := "frente" if lado == 0 else ("dcha" if lado > 0 else "izda")
-	return "%s %.0f°%s" % [donde, angulo, "  escalable" if escalable else ""]
+	return "%s %.0f°%s" % [donde, angulo, "  asidero" if asidero else ""]

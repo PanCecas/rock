@@ -74,8 +74,13 @@ func sondear() -> void:
 
 
 ## ¿La pendiente es demasiado empinada para quedarse de pie?
+##
+## Misma clasificacion que el sensor de pared: lo que deja de ser caminable es
+## exactamente lo que empieza a ser escalable, sin banda muerta entre medias.
 func demasiado_empinado() -> bool:
-	return hay_suelo and pendiente > _p.tuning.angulo_max_suelo
+	if not hay_suelo:
+		return false
+	return _p.tuning.clasificar(pendiente) != PlayerTuning.Superficie.CAMINABLE
 
 
 ## Dirección de máxima pendiente hacia abajo, para deslizarse.

@@ -733,3 +733,69 @@ Parámetros configurables como exports, nada hardcodeado, y reutiliza las
 utilidades de rotación, estados y detección de superficies que ya existan.
 Al terminar resume qué archivos y funciones tocaste y por qué.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.03
+
+```
+Corrección #2.03. Antes de tocar código localiza: el crouch, dónde se cambia la
+altura de la cápsula, dónde se comprueba el hueco sobre la cabeza, el detector de
+suelo/pendiente, el de pared/escalada, dónde se calcula el ángulo de superficie y
+dónde se decide Ground vs Climb. Modifica lo que existe; no dupliques sistemas.
+
+1) CROUCH INTELIGENTE Y TEMPORAL
+Mientras se mantenga el botón, agachado. Al soltarlo, levantarse si hay espacio;
+si no lo hay, seguir agachado TEMPORALMENTE y recuperar la altura en cuanto la
+obstrucción desaparezca, sin que el jugador tenga que volver a pulsar nada.
+El crouch pedido por el jugador y el impuesto por el techo son cosas distintas:
+   quiere agachado + puede levantarse -> postura final
+El segundo no puede volverse permanente nunca.
+
+2) LA ALTURA NO LA DECIDEN LAS PAREDES
+Investiga por qué acercarse a una superficie inclinada cambia la altura de golpe
+antes de arreglarlo. Sospecha de cualquier relación accidental entre detección de
+suelo/pendiente/pared/escalada y la altura o el centro de la cápsula. Detectar una
+rampa no es agacharse. La altura solo cambia si alguien pide postura, si no cabes
+de pie, o en una transición que de verdad lo requiera.
+
+3) UNA SOLA CLASIFICACIÓN DE SUPERFICIE
+   < 75°      -> CAMINAR
+   75° - 110° -> ESCALAR
+   > 110°     -> ni una cosa ni la otra
+Calcúlalo con la normal real del impacto y expón minClimbAngle / maxClimbAngle
+como variables configurables. El MISMO ángulo tiene que alimentar el sensor de
+suelo, el de pared, la escalada y el límite de suelo del motor: no puede haber un
+detector que diga "walkable" mientras otro dice "climbable" sobre la misma cara.
+Ojo al orden de prioridades que eso deja: lo que deja de ser caminable es
+exactamente lo que empieza a ser escalable, así que la primera superficie que se
+puede trepar es también la primera por la que te resbalas. Si el deslizamiento va
+antes que el agarre, pedir escalar en el ángulo límite no hará nada.
+
+4) ORIENTACIÓN DE ESCALADA POR LA NORMAL
+75°, 90° y 105° tienen que sentirse distintos: orientación, offset y alineación
+salen de hit.normal, no de asumir una pared vertical.
+
+5) MOVILIDAD
+Carrera un poco más rápida, sin tocar aceleración, frenado ni control.
+Ataque aéreo y ataque deslizante con MUCHO más recorrido: la referencia es el
+salto largo de Mario. Que se sientan herramientas de movilidad, no animaciones.
+Mira también el rozamiento con el que terminan, no solo el impulso con el que
+empiezan: un buen impulso comido por un buen freno no va a ninguna parte.
+
+6) SIDE JUMP EN DOS TIEMPOS
+Frenazo y salto no pueden ocurrir en el mismo frame. Primero se planta, y solo
+después sale el impulso. La preparación tiene que ser corta y jugable.
+
+7) NO IMPLEMENTAR: vehículo/mascota montable. Solo anotarlo como idea futura.
+
+8) VALIDACIÓN
+Crouch: mantener, soltar en abierto, soltar bajo un techo, salir del techo,
+acercarse a una rampa (la altura no cambia), caminar por pendientes.
+Ángulos: 60/70/74 caminan; 75/80/90/100/110 escalan; 111/120 no.
+Movilidad: carrera, aéreo, deslizante, side jump.
+
+9) INFORME FINAL, no un "hecho": cambios y en qué archivo, qué debería funcionar
+ahora, valores finales, checklist de testing manual, y qué NO has podido
+comprobar. No inventes resultados de pruebas que no hayas ejecutado.
+```
