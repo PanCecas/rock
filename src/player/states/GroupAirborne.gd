@@ -21,6 +21,32 @@ func shared_update(delta: float) -> void:
 	# 1) Aterrizar.
 	if player.is_on_floor() and motor.get_vertical() <= 0.0:
 		var impacto := player.impacto_ultimo
+
+		# ATERRIZAJES AGACHADO. Los dos ganan al aterrizaje duro a proposito: son
+		# la recompensa por haber planificado la caida, y sin esa prioridad una
+		# caida buena se sentiria igual que una mala.
+		#
+		# Quien elige entre ellos es la VELOCIDAD HORIZONTAL REAL, no el input: el
+		# boton solo dice "quiero llegar agachado", no dice como llegas.
+		#
+		#   rapido  -> LANDING SLIDE: la caida se convierte en linea.
+		#   parado  -> RECEPCION en cuclillas, y te quedas agachado.
+		#   en medio-> el aterrizaje de siempre, que ya funcionaba.
+		# La condicion es el BOTON, no la altura de la capsula: `esta_agachado()`
+		# sigue siendo cierto durante los 0.12 s que tarda la capsula en volver a
+		# subir, y eso convertia cualquier aterrizaje justo despues de un slide en
+		# un aterrizaje agachado que nadie habia pedido. El techo si cuenta: bajo un
+		# tunel no te vas a levantar, asi que la recepcion en cuclillas es la unica
+		# lectura posible.
+		if buffer.is_held(InputActions.CROUCH) or player.techo_bloquea():
+			var rapidez := motor.rapidez_plana()
+			if rapidez >= tuning.landing_slide_min:
+				fsm.cambiar(&"Slide", {"aterrizaje": true})
+				return
+			if rapidez < tuning.landing_crouch_max:
+				fsm.cambiar(&"CrouchLanding", {"impacto": impacto})
+				return
+
 		if impacto > tuning.aterrizaje_duro:
 			fsm.cambiar(&"Landing", {"impacto": impacto})
 			return

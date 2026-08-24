@@ -51,7 +51,13 @@ plataformas en movimiento.
     aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
     DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
     especifica no llega a existir nunca.
-14. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+14. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
+    El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
+    yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
+    salir, o el personaje se queda torcido para siempre. Y se hace en la
+    TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
+    el dash, el agachado y el planeo.
+15. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
     sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
     o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
@@ -78,7 +84,9 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Patada baja (derriba) | C + click | |
 | Clavado (Dive) | Click izq. en el aire sin enemigo cerca | RB |
 | Escalar | Insistir contra el muro · Shift impulsa | |
-| Nadar / bucear | C bucea · mantener Espacio sube | |
+| Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
+| Ataque acuatico | Click izq. / der. en el agua (impulso) | |
+| Landing slide | Aterrizar con velocidad manteniendo C | |
 | Agarrar / escalar | F | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
 | Ataque de dash (estocada) | Click izq. durante dash | RB |
@@ -120,13 +128,13 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 ## Herramientas
 | Script | Para qué |
 |---|---|
-| `tools/Gym.gd` | Genera la sala de pruebas por código. Editar parámetros, no cubos. |
+| `tools/Gym.gd` | Sala de pruebas por código. Editar parámetros, no cubos. Incluye las rampas de calibración de escalada (45–90°, con el pie en la misma línea). |
 | `tools/smoke_test.gd` | Comprobación de humo. `godot --headless --path . --script tools/smoke_test.gd` |
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional del combate. 12 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, agachado, agua y escalada. 88 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
@@ -136,8 +144,10 @@ Tras crear o renombrar una clase con `class_name`, corre
 **Fases 0, 1 y 2 cerradas.**
 
 - **Traversal completo:** `SurfaceContext` + `LocomotionMotor`, FSM jerarquica de
-  4 grupos y 18 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
+  5 grupos y 26 estados, correr/esprintar/saltar/doble salto/dash/planeo/slide/
   wall-run/wall-slide/wall-jump/cantos/shimmy/escalada. Stamina unica.
+  La escalada acepta **cualquier superficie de 60 a 95 grados** y el cuerpo se
+  inclina con ella.
 - **Combate:** `AttackData` como Resource (tiempos en frames a 60 Hz), hitbox por
   consulta de forma, hitstop, ventanas de cancelacion, cadena ligera con finisher,
   pesado con knockback terrestre + stagger, aereos que reponen el dash, picado,
@@ -145,10 +155,10 @@ Tras crear o renombrar una clase con `class_name`, corre
   **El jugador se mueve mientras ataca** (`AttackData.movilidad`) y al morir los
   enemigos salen despedidos como cadaver fisico (`Ragdoll`).
 
-Ademas: agachado con backflip y side hop, escalada BotW con wall lunge, Dive y
-DiveAttack, y el sistema de agua Fase 1 (nado en superficie, buceo, clavado).
-La Fase 2 del agua —combate por dash e IA acuatica— esta documentada en
-`project.md`, sin implementar.
+Ademas: agachado con side hop, escalada BotW con wall lunge, Dive y DiveAttack,
+aterrizajes agachado (slide con velocidad, recepcion en cuclillas sin ella) y el
+agua completa: nado en superficie, buceo, clavado y combate acuatico. Falta solo
+la **IA acuatica**, documentada en `project.md`.
 
 Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

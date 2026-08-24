@@ -618,6 +618,153 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
 			"insistir contra un muro perpendicular debe enganchar solo"),
 
+		# --- Correccion 2.01 ---------------------------------------------------
+		# LANDING SLIDE: aterrizar con velocidad manteniendo agachado no frena.
+		_chequeo_("aterrizar agachado desliza", 0.8,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 3.0, 0.0)
+				_p.velocity = Vector3(0.0, -2.0, -11.0)
+				_p.fsm.cambiar(&"Fall")
+				_pulsar(&"crouch"),
+			func() -> bool: return _visitados.has(&"Slide"),
+			"llegar con velocidad manteniendo agachado debe entrar en slide"),
+
+		# AGUA: los ataques desplazan.
+		_paso_("entrar al estanque", 1.4, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(28.0, 12.0, -28.0)
+			_p.fsm.cambiar(&"Fall"), &"Swim"),
+		_paso_("bucear", 0.5, func() -> void: _pulsar(&"crouch"), &"Underwater"),
+		_chequeo_("el ataque acuatico desplaza", 0.2,
+			func() -> void:
+				_soltar_todo()
+				_p.velocity = Vector3.ZERO
+				_pos_antes = _p.global_position
+				_esperar_ataque = 2,
+			func() -> bool: return (_visitados.has(&"WaterAttack")
+				and _p.global_position.distance_to(_pos_antes) > 0.5),
+			"atacar bajo el agua debe impulsar en la direccion del ataque"),
+
+		# STAMINA: flotar quieto NO debe costar.
+		_paso_("volver a bucear", 0.5, func() -> void:
+			_soltar_todo()
+			_p.stamina.llenar()
+			_p.fsm.cambiar(&"Underwater"), &"Underwater"),
+		_chequeo_("flotar quieto no cansa", 1.2,
+			func() -> void: _aux = _p.stamina.actual,
+			func() -> bool: return _p.stamina.actual >= _aux - 0.5,
+			"quieto bajo el agua la stamina no debe bajar"),
+		_chequeo_("nadar si cansa", 0.8,
+			func() -> void:
+				_aux = _p.stamina.actual
+				_pulsar(&"move_forward"),
+			func() -> bool: return _p.stamina.actual < _aux,
+			"nadar activamente si debe gastar stamina"),
+
+		# LEDGE SNAP desde escalada.
+		_chequeo_("escalar engancha el canto", 1.6,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				# Repisa de 2 m del Gym, a media altura de la pared.
+				_p.global_position = Vector3(20.0, 0.6, -13.1)
+				_p.orientar_a(Vector3(0, 0, 1))
+				_p.fsm.cambiar(&"Fall")
+				_pulsar(&"grab")
+				_pulsar(&"move_forward"),
+			func() -> bool: return _visitados.has(&"LedgeHang"),
+			"al llegar arriba escalando debe anclarse al canto"),
+
+		# --- Correccion 2.02 ---------------------------------------------------
+
+		# STATIONARY CROUCH LANDING: caer agachado y QUIETO no es un slide.
+		_chequeo_("aterrizar agachado quieto = recepcion", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_visitados.erase(&"CrouchLanding")
+				_p.global_position = Vector3(0.0, 2.5, 0.0)
+				_p.velocity = Vector3(0.0, -2.0, 0.0)
+				_p.fsm.cambiar(&"Fall")
+				_pulsar(&"crouch"),
+			func() -> bool: return _visitados.has(&"CrouchLanding"),
+			"caer agachado y sin velocidad horizontal debe entrar en la recepcion"),
+		_chequeo_("la recepcion no levanta", 0.5,
+			func() -> void: pass,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Crouch" and _p.esta_agachado(),
+			"al terminar la recepcion debe conservarse la postura agachada"),
+
+		# LIMITE DE ANGULO DE ESCALADA. Las rampas del Gym comparten pie, asi que
+		# la unica variable entre un caso y el siguiente es la inclinacion.
+		_chequeo_("45 grados NO se escala", 0.7,
+			_ante_rampa(45.0),
+			func() -> bool: return not _latch_climb,
+			"una rampa de 45 grados es suelo inclinado, no un muro"),
+		_chequeo_("55 grados NO se escala", 0.7,
+			_ante_rampa(55.0),
+			func() -> bool: return not _latch_climb,
+			"55 grados sigue por debajo del limite: no debe engancharse"),
+		_chequeo_("60 grados SI se escala", 0.7,
+			_ante_rampa(60.0),
+			func() -> bool: return _latch_climb,
+			"60 grados es el limite inferior y tiene que aceptarse"),
+		_chequeo_("70 grados SI se escala", 0.7,
+			_ante_rampa(70.0),
+			func() -> bool: return _latch_climb,
+			"70 grados debe escalarse"),
+		_chequeo_("80 grados SI se escala", 0.7,
+			_ante_rampa(80.0),
+			func() -> bool: return _latch_climb,
+			"80 grados debe escalarse"),
+		_chequeo_("90 grados SI se escala", 0.7,
+			_ante_rampa(90.0),
+			func() -> bool: return _latch_climb,
+			"un muro vertical debe seguir escalandose como siempre"),
+
+		# Y no basta con entrar: el cuerpo tiene que INCLINARSE con la pendiente.
+		# Sobre una rampa de 60 grados el "arriba" del personaje se separa 30
+		# grados de la vertical del mundo; sobre un muro de 90 coincide con ella.
+		_chequeo_("el cuerpo se inclina con la rampa", 0.9,
+			_ante_rampa(60.0),
+			func() -> bool: return (
+				_p.fsm.nombre_actual() == &"Climb"
+				and _p.pared.hay_pared
+				and _p.visual.global_basis.y.dot(Vector3.UP) < 0.95
+				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.6),
+			"escalando una pendiente el cuerpo debe adoptar SU inclinacion"),
+
+		# --- Upright Orientation Recovery --------------------------------------
+		_paso_("al estanque otra vez", 1.4, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_p.global_position = Vector3(28.0, 12.0, -28.0)
+			_p.fsm.cambiar(&"Fall"), &"Swim"),
+		_chequeo_("bucear inclina el cuerpo", 1.1,
+			func() -> void:
+				_mirar_a(0.0)
+				_pulsar(&"crouch")
+				_pulsar(&"move_forward"),
+			func() -> bool: return _p.visual.global_basis.y.dot(Vector3.UP) < 0.9,
+			"nadar hacia el fondo debe picar el cuerpo, no dejarlo horizontal"),
+		_chequeo_("salir del agua no es instantaneo", 0.03,
+			func() -> void:
+				_soltar_todo()
+				_aux = _p.visual.rotation.y
+				_p.global_position = Vector3(0.0, 6.0, 0.0)
+				_p.fsm.cambiar(&"Fall"),
+			func() -> bool: return _p.enderezando(),
+			"la vuelta a la vertical debe interpolarse, no imponerse de golpe"),
+		_chequeo_("y termina perfectamente vertical", 0.8,
+			func() -> void: pass,
+			func() -> bool: return (
+				not _p.enderezando()
+				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.999
+				and absf(angle_difference(_p.visual.rotation.y, _aux)) < deg_to_rad(20.0)),
+			"al salir del agua debe quedar upright conservando el yaw"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
@@ -654,11 +801,58 @@ var _vy_max: float = 0.0
 var _aux: float = 0.0
 var _pos_antes: Vector3 = Vector3.ZERO
 var _dist_sin_input: float = 0.0
+## Latch de escalada: los pasos de angulo duran menos de un segundo y el enganche
+## puede durar un par de frames antes de resbalar. Mirar solo el frame final
+## mediria cuanto aguanta, no si engancha.
+var _latch_climb: bool = false
+
+
+## Coloca al jugador delante de la rampa de `angulo` del Gym, pidiendo agarre.
+##
+## La posicion se DEDUCE de la geometria en vez de escribirse a mano: las rampas
+## comparten pie en z = -30 y estan separadas 5 m desde x = -32, asi que el punto
+## de la cara a la altura del sensor sale de la propia inclinacion. Un cambio en
+## el Gym no deja seis numeros magicos desincronizados aqui.
+func _ante_rampa(angulo: float) -> Callable:
+	return func() -> void:
+		var i := 0
+		var gym := _main.get_node_or_null("Gym") as Gym
+		var angulos: PackedFloat32Array = (
+			gym.angulos_escalada if gym != null else PackedFloat32Array([45.0, 55.0, 60.0, 70.0, 80.0, 90.0])
+		)
+		for j in angulos.size():
+			if is_equal_approx(angulos[j], angulo):
+				i = j
+				break
+		var x := -32.0 + 5.0 * float(i)
+
+		# Postura de APOYO, deducida y no tanteada: la esfera inferior de la capsula
+		# tocando la cara. Colocar al personaje "cerca a ojo" no vale aqui —contra
+		# una pendiente, los pies quedan por delante del pecho, y medio metro de
+		# diferencia decide si el sensor ve la rampa o el aire—.
+		var a := deg_to_rad(angulo)
+		var radio := 0.35
+		var centro_y := 3.0             # altura de la esfera inferior de la capsula
+		var pies := centro_y - radio
+		var z_centro := -30.0 - radio * sin(a)
+		if angulo < 89.9:
+			z_centro += (centro_y - radio * cos(a)) / tan(a)
+
+		_soltar_todo()
+		_reponer()
+		_latch_climb = false
+		_p.global_position = Vector3(x, pies, z_centro)
+		# Empujando contra la cara: sin contacto sostenido no hay adherencia.
+		_p.velocity = Vector3(0.0, 0.0, 1.5)
+		_p.fsm.cambiar(&"Fall")
+		_mirar_a(180.0)  # move_forward apunta a +Z, contra la cara
+		_pulsar(&"move_forward")
+		_pulsar(&"grab")
 
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 45.0:
+	if _reloj > 70.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -706,6 +900,8 @@ func _physics_process(delta: float) -> void:
 			_pulsar(&"attack_light")
 
 	# Latches, antes de nada.
+	if _p.fsm.nombre_actual() == &"Climb":
+		_latch_climb = true
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())

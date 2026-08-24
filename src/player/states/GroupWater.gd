@@ -8,13 +8,13 @@ extends PlayerStateGroup
 ## Lo único que el grupo resuelve es salir: si ya no hay agua, se cae.
 
 
-func shared_update(delta: float) -> void:
+func shared_update(_delta: float) -> void:
 	if not player.agua.en_agua:
 		fsm.cambiar(&"Fall")
 		return
 
-	# Nadar cansa, pero despacio: el agua es una vía, no un castigo. Ahogarse por
-	# stamina convertiría cada travesía en un examen y no es lo que se busca.
-	player.stamina.drenar(tuning.agua_stamina, delta)
+	# La stamina la decide cada estado, NO el grupo: flotar quieto no puede costar
+	# lo mismo que nadar a fondo. Drenar aqui hacia que el agua cansara incluso
+	# estando parado, y convertia cualquier travesia en una cuenta atras.
 	player.recargar_aire()
 	player.wallrun_disponible = true

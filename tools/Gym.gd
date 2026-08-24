@@ -18,6 +18,10 @@ extends Node3D
 
 @export_group("Parámetros")
 @export var angulos_rampa: PackedFloat32Array = [15.0, 25.0, 35.0, 45.0, 60.0]
+## Rampas EMPINADAS, para calibrar el limite de angulo de escalada. El sensor
+## acepta 60..95 grados, asi que 45 y 55 tienen que rechazarse y el resto no. Es
+## la unica forma de comprobar el limite sin fiarse de la vista.
+@export var angulos_escalada: PackedFloat32Array = [45.0, 55.0, 60.0, 70.0, 80.0, 90.0]
 ## Anchuras de hueco en metros. Con altura_salto_max 2.6 el jugador llega a ~6.
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
@@ -54,6 +58,7 @@ func construir() -> void:
 	_torre()
 	_pilares_gancho()
 	_pared_escalable()
+	_rampas_escalada()
 	_tunel()
 	_piscina()
 
@@ -178,6 +183,36 @@ func _pared_escalable() -> void:
 	pared.set_collision_layer_value(1, true)
 	pared.set_collision_layer_value(4, true)  # CLIMBABLE
 	_etiqueta("ESCALABLE", Vector3(24.0, 0.05, 21.5))
+
+
+## Rampas empinadas, todas con el BORDE INFERIOR en la misma linea (z = borde_z).
+##
+## Que el pie de todas coincida no es cosmetica: es lo que permite acercarse a
+## cualquiera de ellas desde la misma linea de salida y comparar. Si cada una
+## empezara donde le tocase, medir "a partir de que angulo se escala" seria medir
+## tambien lo bien que uno se coloca.
+func _rampas_escalada() -> void:
+	var borde_z := -30.0
+	var largo := 10.0
+	var grosor := 0.6
+	var x := -32.0
+	for angulo in angulos_escalada:
+		var a := deg_to_rad(angulo)
+		# Ejes de la cara inclinada: `u` sube por ella, `n` sale de ella.
+		var u := Vector3(0.0, sin(a), cos(a))
+		var n := Vector3(0.0, cos(a), -sin(a))
+		# El centro del bloque se deduce del borde que se quiere fijar, no al reves.
+		var centro := Vector3(x, 0.0, borde_z) + u * (largo * 0.5) - n * (grosor * 0.5)
+		var rampa := _bloque(
+			"RampaEscalada_%d" % int(angulo),
+			Vector3(4.0, grosor, largo),
+			centro,
+			_mat_piedra_osc
+		)
+		rampa.rotation_degrees = Vector3(-angulo, 0.0, 0.0)
+		_etiqueta("%d°" % int(angulo), Vector3(x, 0.05, borde_z - 1.6))
+		x += 5.0
+	_etiqueta("ESCALADA: 60° o mas", Vector3(-19.5, 0.05, borde_z - 3.4))
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza

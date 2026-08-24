@@ -607,3 +607,129 @@ tools/TestFase1.tscn. Consejo para esos tests: comprueba con LATCHES —si algo
 ocurrió en algún momento del paso— en vez de mirar solo el frame final, o
 acabarás midiendo timing en lugar de mecánicas.
 ```
+
+---
+
+## PROMPT CORRECCIÓN 2.01 — landing slide, agua viva y ledge snap
+
+```
+Paquete de correcciones al Character Controller de ROCK. Lee CLAUDE.md antes de
+tocar nada. Todo número nuevo va en PlayerTuning.tres o en un AttackData .tres.
+
+1. LANDING SLIDE (aterrizaje con crouch bufferizado)
+Traer velocidad en el aire y aterrizar manteniendo agacharse NO debe frenar en
+seco: transiciona a deslizamiento en la dirección de la inercia. Y que gane
+incluso al aterrizaje duro — es la recompensa por haber planificado el
+aterrizaje, y sin esa prioridad una caída buena se siente igual que una mala.
+Ojo: el slide de aterrizaje CONSERVA el momentum, no le suma el impulso de un
+slide normal, o cada caída se convierte en una catapulta.
+
+2. LOS ATAQUES ACUÁTICOS SE QUEDAN ESTÁTICOS
+Bajo el agua un golpe ES un desplazamiento: no hay suelo del que empujar, así que
+atacar sin moverse no se lee como un golpe, se lee como que el botón no hace
+nada. Ligero y pesado deben ser el mismo verbo con distinto peso: un impulso en
+la dirección a la que apuntas, con hitbox viva durante el trayecto. Ligero rápido
+y largo; pesado más corto y lento pero mucho más fuerte. Iguales en superficie y
+buceando: no hay dos movesets, hay uno que respeta el medio.
+
+3. UNDERWATER IDLE DRIFT
+Al soltar los controles buceando el personaje no puede quedarse congelado: un
+cuerpo quieto en mitad del agua se lee como un error del juego, no como una
+pausa. Aplica una oscilación suave (seno) que afecte ligeramente a la posición y
+a la rotación. Mueve la VELOCIDAD, no la posición directamente, para que siga
+respetando colisiones. Dale fase aleatoria al entrar, o dos inmersiones seguidas
+se calcan.
+
+4. NADO DIRIGIDO POR EL VECTOR DE VELOCIDAD
+El cuerpo debe alinearse con la dirección en la que NADA, con pitch y yaw reales:
+si apuntas al fondo y avanzas, el personaje pica físicamente hacia el fondo.
+No lo hagas rotando por ángulos de Euler: al apuntar recto arriba o abajo cruzas
+el gimbal, que es justo la situación que se pide bajo el agua. Interpola bases
+(`looking_at` + slerp) y ojo con qué eje mira tu modelo.
+
+5. LA STAMINA ACUÁTICA DRENA SIEMPRE Y DEMASIADO
+Justo lo contrario de lo que debe ser: flotar quieto o derivar NO puede costar
+nada —debería incluso recuperar—, y solo nadar activamente o atacar consume, a un
+ritmo mucho más lento. Mueve el gasto del grupo a cada estado: un grupo que drena
+por existir hace que el medio entero se sienta un castigo.
+
+6. LEDGE GRAB / SNAPPING
+Durante la escalada, o en el aire cerca de un muro, detecta el borde superior:
+un raycast frontal para la pared y otro descendente desde encima y algo por
+delante de la cabeza para encontrar la esquina. Cuando la altura del personaje
+llegue a la del borde, corta la física de escalada libre y haz SNAP: posiciona
+las manos exactamente en la esquina y pasa al sub-estado de agarre, esperando el
+input para izarse. Sin esto queda el momento tonto de estar trepando por encima
+del borde sin poder subir.
+Ancla el rayo descendente al PUNTO DE IMPACTO de la pared, no a una fracción fija
+del alcance: si no, cae por delante del muro cuando el jugador está pegado a él.
+
+Al terminar añade las comprobaciones a tools/TestFase2.tscn y pasa la regresión de
+tools/TestFase1.tscn. Comprueba con latches (si algo ocurrió en algún momento del
+paso), no solo en el frame final, o medirás timing en vez de mecánicas.
+```
+
+---
+
+## PROMPT CORRECCIÓN 2.02
+
+```
+Corrección #2.02 al controlador de movimiento. Antes de tocar código, localiza la
+FSM, la locomoción, el crouch, el aterrizaje, el detector de superficies de
+escalada y el sistema de nado dirigido por cámara. Integra, no dupliques.
+
+1) STATIONARY CROUCH LANDING
+No existe. Aterrizar agachado y prácticamente sin velocidad horizontal debe entrar
+en una recepción en cuclillas propia, no obligar a levantarse, y CONSERVAR la
+postura agachada al terminar. Con velocidad suficiente se mantiene el aterrizaje
+de siempre. Decide con la velocidad horizontal REAL, no solo con el input, y evita
+la cadena brusca aire -> landing -> crouch.
+
+2) LÍMITE DE ÁNGULO DE ESCALADA (Climbable Surface Angle Limit)
+Hoy solo se trepan muros casi verticales. Calcula el ángulo con la normal del
+impacto —`Vector3.Angle(Vector3.up, hit.normal)`, o su equivalente contra el "up"
+del marco de referencia si el mundo puede rotar— y acepta de 60° a 90°.
+No basta con mover el número: la normal real tiene que usarse ADEMÁS para orientar
+al personaje, calcular el offset contra la pared, mantenerlo pegado y alinear su
+"arriba" con la inclinación. Una superficie de 60° no puede escalarse con la pose
+de un muro de 90°.
+Ojo con la geometría: apoyado contra una pendiente de 60°, el pecho del personaje
+YA ESTÁ POR ENCIMA de la superficie —la pared se aleja 0.58 m por cada metro que
+subes—, así que un único raycast a la altura del pecho no puede ver una rampa por
+muchos grados que se le permitan. Hace falta una sonda más baja, con un techo de
+ángulo propio para que un escalón vertical no cuente como pared.
+Mantén funcionando inicio de escalada, movimiento vertical y lateral, salida,
+detección de bordes, offset y animaciones.
+
+3) UPRIGHT ORIENTATION RECOVERY
+Al entrar o salir del agua el personaje queda torcido. Es el nado dirigido por
+cámara: bajo el agua se escriben los ejes X (pitch) y Z (roll), y el controlador
+terrestre solo actualiza Y (yaw), así que esos dos ejes se quedan con la última
+inclinación.
+En las transiciones Water -> InAir y Water -> Grounded, devuelve el cuerpo a la
+vertical: X = 0, Z = 0, Y = yaw actual. Nada de asignación brusca: interpola con
+Slerp/RotateTowards durante los primeros fotogramas.
+Y en InAir -> Water, la alineación con la cámara también debe interpolarse: sin
+snap de pitch ni de roll en el primer frame.
+
+4) RESPETA LOS ESTADOS
+No fuerces la rotación cada frame. Aplica la recuperación en las transiciones que
+la necesitan y que no interfiera con escalada, nado, dash, movimiento aéreo,
+agachado ni animaciones con rotación propia.
+
+5) VALIDACIÓN
+Crouch landing: saltar y aterrizar quieto manteniendo agachado; confirmar que
+existe la recepción, que no se levanta, y que con movimiento horizontal sigue el
+aterrizaje normal.
+Escalada: 55° NO, y 60/70/80/90 SÍ. Confirmar que sigue pegado, que la orientación
+sigue la normal y que ni flota ni se mete en la pared. Construye rampas de esos
+ángulos con el PIE EN LA MISMA LÍNEA: si cada una empieza donde le toca, medirás
+lo bien que te colocas en vez del ángulo.
+Agua: entrar upright, entrar tras una caída, nadar arriba/abajo, girar con la
+cámara sumergido, salir con pitch alto, salir con roll alto, salir en movimiento.
+Terminar perfectamente vertical conservando el yaw.
+
+Parámetros configurables como exports, nada hardcodeado, y reutiliza las
+utilidades de rotación, estados y detección de superficies que ya existan.
+Al terminar resume qué archivos y funciones tocaste y por qué.
+```

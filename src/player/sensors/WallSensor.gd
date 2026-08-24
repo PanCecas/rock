@@ -4,9 +4,37 @@ extends Node
 ## superficies escalables a mano.
 
 @export_range(0.1, 3.0, 0.05) var altura: float = 1.05
+## SONDA BAJA, a la altura de las rodillas. Existe por pura geometria: apoyado
+## contra una pendiente de 60 grados, el pecho del personaje YA ESTA POR ENCIMA
+## de la superficie —la pared se aleja 0.6 m por cada metro que subes—, asi que un
+## solo rayo a la altura del pecho no puede ver una rampa por mucho que se amplie
+## la horquilla de angulos. Abajo si la ve.
+@export_range(0.1, 3.0, 0.05) var altura_baja: float = 0.45
 @export_range(0.1, 3.0, 0.05) var alcance: float = 0.6
-## Inclinación máxima para que cuente como pared vertical.
-@export_range(0.0, 45.0, 1.0) var tolerancia_grados: float = 25.0
+
+## LÍMITE DE ÁNGULO DE ESCALADA. Una superficie cuenta como pared —y por tanto es
+## escalable, corrible y rebotable— cuando el ángulo entre su normal y el "arriba"
+## del marco cae en esta horquilla. 0° sería suelo plano; 90°, un muro vertical.
+##
+## El mínimo estaba de hecho en 65° (la tolerancia era ±25° alrededor de la
+## vertical) y por eso una rampa de 60° se rechazaba: el sistema la leía como
+## "suelo inclinado" en vez de como "muro". Bajarlo a 60 es lo que abre las
+## rampas empinadas a la escalada.
+@export_range(0.0, 90.0, 1.0) var angulo_min: float = 60.0
+## El techo no es 90 exacto a propósito: la normal que devuelve un raycast contra
+## un muro "vertical" ronda los 90.0 ± unas décimas, y cortar justo ahí hace que
+## la pared parpadee. Los grados de más también dejan pasar desplomes suaves.
+@export_range(0.0, 180.0, 1.0) var angulo_max: float = 95.0
+## Techo SOLO para la sonda baja, y mucho mas estricto. Un muro vertical ya lo ve
+## el rayo de pecho; aceptarlo tambien abajo convertiria cada escalon de medio
+## metro en una pared que se puede escalar. La sonda baja es para pendientes.
+@export_range(0.0, 180.0, 1.0) var angulo_max_bajo: float = 75.0
+
+## Medio grado de margen para que la horquilla sea inclusiva DE VERDAD. La normal
+## que devuelve un raycast contra una cara construida a 60.0 grados exactos vuelve
+## como 59.997, y cortar en el numero redondo dejaria fuera justo el caso limite
+## que el sistema promete aceptar.
+const HOLGURA := 0.5
 
 var hay_pared: bool = false
 ## -1 izquierda, 1 derecha, 0 al frente.
@@ -15,6 +43,9 @@ var normal: Vector3 = Vector3.ZERO
 var punto: Vector3 = Vector3.ZERO
 var colisionador: Node3D = null
 var escalable: bool = false
+## Ángulo real de la superficie tocada, en grados. Lo usa la escalada para
+## inclinar el cuerpo: una rampa de 60° no se trepa como un muro de 90°.
+var angulo: float = 0.0
 
 ## Memoria de la última pared tocada, para el coyote del wall-jump.
 var _t_sin_pared: float = INF
@@ -55,12 +86,12 @@ func sondear(direccion_avance: Vector3) -> void:
 	hay_pared = false
 	escalable = false
 	lado = 0
+	angulo = 0.0
 	if _p == null:
 		return
 
 	var sc := _p.superficie
 	var espacio := _p.get_world_3d().direct_space_state
-	var origen := _p.global_position + sc.up * altura
 	var b := _p.global_basis
 	var frente := sc.plano(direccion_avance)
 	frente = frente.normalized() if not frente.is_zero_approx() else sc.plano(-b.z).normalized()
@@ -72,29 +103,44 @@ func sondear(direccion_avance: Vector3) -> void:
 		{"dir": -derecha, "lado": -1},
 	]
 
+	# Pecho primero y rodillas despues, para cada direccion: en un muro vertical
+	# los dos ven lo mismo y gana el de arriba, asi que el wall-run y el wall-jump
+	# de siempre se comportan exactamente igual que antes.
+	var sondas := [
+		{"y": altura, "techo": angulo_max},
+		{"y": altura_baja, "techo": angulo_max_bajo},
+	]
+
 	for c in candidatos:
 		var dir: Vector3 = c["dir"]
-		var q := PhysicsRayQueryParameters3D.create(origen, origen + dir * alcance, Layers.SUELO_JUGADOR | Layers.CLIMBABLE)
-		q.exclude = [_p.get_rid()]
-		var r := espacio.intersect_ray(q)
-		if r.is_empty():
-			continue
-		var col := r.collider as Node3D
-		if col == _pared_bloqueada:
-			continue
-		var n := r.normal as Vector3
-		# Solo cuenta si es una pared razonablemente vertical.
-		if absf(rad_to_deg(asin(clampf(n.dot(sc.up), -1.0, 1.0)))) > tolerancia_grados:
-			continue
-		hay_pared = true
-		lado = int(c["lado"])
-		normal = n
-		ultima_normal = n
-		punto = r.position
-		colisionador = col
-		escalable = _es_escalable(col)
-		_t_sin_pared = 0.0
-		return
+		for sonda in sondas:
+			var origen: Vector3 = _p.global_position + sc.up * float(sonda["y"])
+			var q := PhysicsRayQueryParameters3D.create(origen, origen + dir * alcance, Layers.SUELO_JUGADOR | Layers.CLIMBABLE)
+			q.exclude = [_p.get_rid()]
+			var r := espacio.intersect_ray(q)
+			if r.is_empty():
+				continue
+			var col := r.collider as Node3D
+			if col == _pared_bloqueada:
+				continue
+			var n := r.normal as Vector3
+			# Ángulo REAL de la superficie: el que separa su normal del "arriba" del
+			# marco. Es el mismo cálculo que `Vector3.Angle(Vector3.up, hit.normal)`,
+			# solo que contra `sc.up` y no contra el eje Y del mundo, porque sobre un
+			# coloso "arriba" no es (0,1,0).
+			var grados := rad_to_deg(sc.up.angle_to(n))
+			if grados < angulo_min - HOLGURA or grados > float(sonda["techo"]) + HOLGURA:
+				continue
+			hay_pared = true
+			angulo = grados
+			lado = int(c["lado"])
+			normal = n
+			ultima_normal = n
+			punto = r.position
+			colisionador = col
+			escalable = _es_escalable(col)
+			_t_sin_pared = 0.0
+			return
 
 
 ## Marca la pared actual como recién saltada para poder alternar entre dos muros.
@@ -122,4 +168,4 @@ func debug_line() -> String:
 	if not hay_pared:
 		return "—"
 	var donde := "frente" if lado == 0 else ("dcha" if lado > 0 else "izda")
-	return "%s%s" % [donde, "  escalable" if escalable else ""]
+	return "%s %.0f°%s" % [donde, angulo, "  escalable" if escalable else ""]

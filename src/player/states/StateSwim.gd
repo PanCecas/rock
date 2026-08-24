@@ -15,6 +15,11 @@ const CALADO := 1.05
 func enter(_msg: Dictionary = {}) -> void:
 	player.set_altura_colision(1.0)
 	player.set_alabeo(0.0)
+	# ENTRAR AL AGUA SIN CHASQUIDO. Nadar en superficie es un cuerpo derecho, y
+	# aqui se llega desde cualquier cosa: un clavado con el morro hacia abajo, una
+	# caida, o emerger buceando. Se interpola a la vertical en vez de imponerla,
+	# que es lo que daba el volteo raro al tocar el agua.
+	player.enderezar()
 	# Cortar la caída al entrar: llegar a 40 m/s y seguir bajando hunde al
 	# personaje hasta el fondo antes de que el muelle pueda hacer nada.
 	motor.set_vertical(maxf(motor.get_vertical(), -3.0))
@@ -27,6 +32,12 @@ func physics_update(delta: float) -> void:
 	var mult := tuning.nado_sprint_mult if player.quiere_sprint() else 1.0
 	motor.acelerar(dir * tuning.nado_velocidad * mult, tuning.agua_rozamiento * 2.0, delta)
 
+	# Solo cansa nadar de verdad. Flotar es gratis y ademas recupera.
+	if entrada.length() > 0.2:
+		player.stamina.drenar(tuning.agua_stamina * mult, delta)
+	else:
+		player.stamina.regenerar(tuning.stamina_regen_colgado, delta)
+
 	# Muelle hacia la línea de flotación.
 	var objetivo := player.agua.nivel - CALADO
 	var error := objetivo - player.global_position.y
@@ -35,6 +46,23 @@ func physics_update(delta: float) -> void:
 
 	if player.orientar_si_se_mueve():
 		pass
+
+	# Los ataques tambien existen en superficie, y son los mismos: un impulso con
+	# hitbox. No hay dos movesets, hay uno que respeta el medio.
+	if player.ataque_agua_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
+		fsm.cambiar(&"WaterAttack", {
+			"datos": player.ataque_agua_pesado,
+			"impulso": tuning.agua_ataque_pesado_impulso,
+			"direccion": player.direccion_nado(),
+		})
+		return
+	if player.ataque_agua_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"WaterAttack", {
+			"datos": player.ataque_agua_ligero,
+			"impulso": tuning.agua_ataque_ligero_impulso,
+			"direccion": player.direccion_nado(),
+		})
+		return
 
 	# Bucear.
 	if buffer.consume(InputActions.CROUCH):
@@ -47,6 +75,10 @@ func physics_update(delta: float) -> void:
 		motor.set_vertical(tuning.velocidad_salto() * 0.75)
 		player.recargar_aire()
 		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+
+
+func maneja_ataques() -> bool:
+	return true
 
 
 func debug_line() -> String:

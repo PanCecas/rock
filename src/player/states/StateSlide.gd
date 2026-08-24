@@ -14,7 +14,11 @@ func enter(msg: Dictionary = {}) -> void:
 	if _dir.is_zero_approx():
 		_dir = sc.plano(-player.global_basis.z).normalized()
 
-	if not _forzado:
+	# Un slide de aterrizaje no anade impulso: CONSERVA el que traias. Sumarle el
+	# empujon de un slide normal convertiria cada caida en una catapulta.
+	if bool(msg.get("aterrizaje", false)):
+		motor.impulso(_dir, motor.rapidez_plana())
+	elif not _forzado:
 		motor.impulso(_dir, motor.rapidez_plana() + tuning.slide_impulso)
 	player.set_altura_colision(tuning.agachado_altura)
 

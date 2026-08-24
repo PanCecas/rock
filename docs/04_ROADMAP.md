@@ -270,6 +270,53 @@ mecanicas. Ahora se usan LATCHES. Y `_reponer()` no ponia la velocidad a cero, a
 que un paso heredaba el impulso del anterior y el jugador estaba en el aire cuando
 la comprobacion asumia suelo.
 
+### Correccion 2.01 — landing slide, agua viva y ledge snap
+- **Landing slide**: aterrizar con velocidad manteniendo agachado conserva el
+  momentum y entra en slide. Gana al aterrizaje duro a proposito.
+- **Combate acuatico implementado** (era la Fase 2 documentada): `agua_ligero` y
+  `agua_pesado` como impulsos con hitbox, iguales en superficie y buceando.
+- **Deriva al bucear**: oscilacion senoidal sobre la velocidad —no sobre la
+  posicion, para respetar colisiones— con fase aleatoria al entrar.
+- **Orientacion por vector de velocidad** con pitch y yaw reales, via `looking_at`
+  + slerp de bases: rotar por Euler cruza el gimbal al apuntar recto arriba/abajo,
+  que es exactamente lo que se pide bajo el agua.
+- **Stamina acuatica corregida**: el gasto pasa del grupo a cada estado. Flotar no
+  cuesta y ademas regenera; solo nadar activamente o atacar consume, y mucho mas
+  despacio (4.0 -> 1.2).
+- **Ledge snap desde escalada**: al aparecer un canto agarrable durante el Climb,
+  el personaje se ancla solo. Elimina el momento tonto de trepar por encima del
+  borde sin poder subir.
+
+
+### Correccion 2.02 — recepcion agachado, rampas escalables y vuelta a la vertical
+- **Stationary crouch landing**: caer agachado y CASI PARADO entra en
+  `CrouchLanding` y termina en `Crouch`, sin levantarse. Quien elige entre slide y
+  recepcion es la velocidad horizontal real, no el boton.
+- **Limite de angulo de escalada 60..95 grados** en `WallSensor`, calculado como
+  `sc.up.angle_to(hit.normal)` con medio grado de holgura para que 60 exactos
+  entren de verdad.
+- **Sonda baja del sensor de pared**. Ampliar la horquilla no bastaba: apoyado
+  contra una pendiente de 60 grados el PECHO del personaje ya esta por encima de
+  la superficie, asi que un solo rayo alto no puede ver una rampa por muchos
+  grados que se le permitan. Se anade un rayo a la altura de las rodillas, con
+  techo propio (75 grados) para que un escalon vertical no cuente como pared.
+- **La escalada usa la NORMAL REAL**, no su version aplanada: ejes de la
+  superficie, adherencia a lo largo de la normal y cuerpo inclinado con la
+  pendiente. Con la normal aplanada el "arriba de la pared" degeneraba en el
+  arriba del mundo y el personaje se despegaba de la rampa.
+- **Upright Orientation Recovery** (`PlayerController.enderezar()`): al salir del
+  agua o soltarse de una pendiente, el cuerpo vuelve a la vertical por slerp
+  conservando el yaw. El nado y la escalada escriben pitch y roll; la logica de
+  tierra solo escribe yaw, y por eso esos dos ejes se quedaban con la ultima
+  inclinacion. Es una transicion, no un guardia por frame: no puede pelearse con
+  el dash, el agachado ni el movimiento aereo porque ellos nunca la encienden.
+- **Entrada al agua sin chasquido**: `Swim` arranca la misma recuperacion y el
+  buceo interpola desde la orientacion que traia. Ademas la referencia de "arriba"
+  del nado se transporta de forma continua en vez de saltar entre UP y FORWARD con
+  un umbral duro, que era un salto de roll justo al picar al fondo.
+- **Rampas de calibracion en el Gym** (45/55/60/70/80/90 grados) con el pie en la
+  misma linea, y ocho comprobaciones nuevas en `TestFase2`.
+
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física
 real estilo Loader. Diseño en `03_ARQUITECTURA_MECANICAS.md §11`. No se toca hasta

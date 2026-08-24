@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Embestida pesada"
+anim = &"combat/atk_water_heavy"
+frames_windup = 0
+frames_activo = 22
+frames_recuperacion = 0
+dano = 18.0
+dano_poise = 26.0
+empuje = Vector3(0, 0, 10)
+stagger = 0.7
+rompe_guardia = true
+fuerza_muerte = 20.0
+torque_muerte = 10.0
+alcance = 1.7
+radio = 1.3
+arco_grados = 110.0
+max_objetivos = 3
+avance = 0.0
+movilidad = 0.0
+hitstop = 0.09
+shake = 0.7
+frame_cadena = 999
+color_vfx = &"blanco_tiza"

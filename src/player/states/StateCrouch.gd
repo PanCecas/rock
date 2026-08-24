@@ -63,8 +63,7 @@ func physics_update(delta: float) -> void:
 ## premiar agacharse como forma de ir rápido —de eso ya se encarga el surf—.
 func _saltar() -> void:
 	if motor.rapidez_plana() < tuning.crouch_quieto:
-		var v := sqrt(2.0 * absf(tuning.gravedad_subida) * tuning.altura_salto_agachado)
-		motor.set_vertical(v)
+		motor.set_vertical(tuning.velocidad_salto_agachado())
 		EventBus.camara_shake.emit(0.35, 0.14)
 		CombatFX.onda(
 			player.get_parent(), player.global_position + Vector3.UP * 0.1,

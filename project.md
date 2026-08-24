@@ -54,25 +54,15 @@ después. Lo que se aprenda aquí se paga solo en la Fase 4.
 
 ---
 
-## Agua — Fase 2 (NO implementada)
+## Agua — Fase 2
 
-La Fase 1 (nado en superficie, buceo, transiciones y clavado) **ya está**. Lo que
-sigue queda aparcado hasta validarla jugando, tal y como se acordó.
+El **combate acuático por dash ya está implementado** (corrección 2.01):
+`agua_ligero.tres` y `agua_pesado.tres`, idénticos en superficie y buceando,
+como impulsos con hitbox. Bajo el agua no hay suelo del que empujar, así que un
+golpe *es* un desplazamiento — no era una limitación técnica, era la lectura
+correcta del medio.
 
-### Combate acuático por dash
-Dentro del agua el combate **prescinde de animaciones**: son desplazamientos con
-hitbox. Es la decisión correcta para el agua y no una limitación técnica — bajo el
-agua no hay suelo del que empujar, así que un golpe *es* un desplazamiento.
-
-- **Ataque ligero:** dash corto y rápido hacia delante con hitbox activa.
-- **Ataque pesado:** el mismo dash, más lento y con más peso, con hitbox y daño
-  distintos.
-- **Idéntico en superficie y buceando.** No hay dos movesets: hay uno que respeta
-  el medio.
-
-Encaja con lo que ya existe: `AttackData` ya modela una estocada
-(`estocada` + `estocada_velocidad` + `overshoot`), que es exactamente esto. Un
-ataque acuático debería ser un `.tres` más, no un sistema nuevo.
+Lo que sigue **pendiente**:
 
 ### Enemigos acuáticos
 Reutilizan el árbol de comportamiento de los Guardianes terrestres —los mismos

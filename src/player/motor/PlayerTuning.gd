@@ -271,10 +271,53 @@ extends Resource
 ## Profundidad extra que gana una entrada en DIVE frente a una caida normal. Es
 ## la curva de clavado del esquema.
 @export_range(0.0, 40.0, 0.5) var dive_penetracion: float = 16.0
-@export_range(0.0, 60.0, 0.5) var agua_stamina: float = 4.0
+## Gasto NADANDO ACTIVAMENTE. Bajado de 4.0: el agua drenaba incluso flotando
+## quieto y a un ritmo que convertia cualquier travesia en una cuenta atras. El
+## agua es una via, no un castigo.
+@export_range(0.0, 60.0, 0.5) var agua_stamina: float = 1.2
+## Gasto puntual por ataque acuatico.
+@export_range(0.0, 60.0, 0.5) var agua_stamina_ataque: float = 5.0
+
+@export_subgroup("Deriva y orientacion")
+## DERIVA: oscilacion suave al soltar los controles buceando. Sin esto el cuerpo
+## se queda congelado en mitad del agua y parece un error, no una pausa.
+@export_range(0.0, 2.0, 0.01) var deriva_amplitud: float = 0.22
+@export_range(0.0, 5.0, 0.05) var deriva_frecuencia: float = 0.9
+@export_range(0.0, 20.0, 0.5) var deriva_balanceo: float = 7.0
+## Velocidad a la que el cuerpo se alinea con una orientacion 3D COMPLETA, en
+## grados/seg. La usan el nado —alinearse con el vector de velocidad— y la
+## escalada —inclinarse con la pendiente—: son el mismo gesto, el cuerpo dejando
+## de estar vertical, y compartir el ritmo es lo que hace que se lean igual.
+@export_range(30.0, 1080.0, 10.0) var giro_3d_grados_seg: float = 420.0
+
+## UPRIGHT ORIENTATION RECOVERY. Nadar y escalar inclinan el cuerpo en pitch y
+## roll; la logica de tierra solo escribe el yaw, asi que al volver a tierra esos
+## dos ejes se quedaban con la ultima inclinacion y el personaje salia torcido.
+## Esto es la vuelta a la vertical: ni instantanea ni eterna.
+@export_range(30.0, 1440.0, 10.0) var enderezar_grados_seg: float = 540.0
+## Techo de la recuperacion. Pasado este tiempo se asienta a la vertical exacta.
+@export_range(0.05, 2.0, 0.01) var enderezar_duracion: float = 0.35
+
+@export_subgroup("Combate acuatico")
+## Los ataques bajo el agua SON desplazamientos: no hay suelo del que empujar, asi
+## que un golpe es un impulso con hitbox. Ver project.md.
+@export_range(0.0, 40.0, 0.5) var agua_ataque_ligero_impulso: float = 12.0
+@export_range(0.0, 40.0, 0.5) var agua_ataque_pesado_impulso: float = 9.0
 
 # --- Aterrizaje -------------------------------------------------------------
 @export_group("Aterrizaje")
+## LANDING SLIDE: aterrizar con velocidad manteniendo agachado NO frena, entra en
+## deslizamiento conservando la inercia. Es la maniobra que premia planificar el
+## aterrizaje en vez de sufrirlo, y por eso gana incluso al aterrizaje duro.
+@export_range(0.0, 20.0, 0.1) var landing_slide_min: float = 4.5
+## STATIONARY CROUCH LANDING: caer agachado y CASI PARADO no es un deslizamiento,
+## es una recepcion. Por debajo de esta velocidad horizontal real —el input no
+## decide esto, lo decide la velocidad— el aterrizaje se amortigua en cuclillas.
+## Entre este valor y `landing_slide_min` queda a proposito una banda muerta que
+## cae en el aterrizaje normal de siempre.
+@export_range(0.0, 20.0, 0.1) var landing_crouch_max: float = 2.0
+## Lo que dura la recepcion. Es corta: absorber, no castigar.
+@export_range(0.0, 1.0, 0.01) var landing_crouch_duracion: float = 0.18
 ## Velocidad de impacto a partir de la que el aterrizaje es "duro" y cuesta control.
 @export_range(0.0, 60.0, 0.5) var aterrizaje_duro: float = 20.0
 @export_range(0.0, 1.0, 0.01) var aterrizaje_duro_duracion: float = 0.22
@@ -300,6 +343,14 @@ extends Resource
 @export_range(0.0, 30.0, 0.5) var escalada_impulso: float = 9.0
 @export_range(0.0, 100.0, 1.0) var escalada_impulso_stamina: float = 14.0
 @export_range(0.1, 6.0, 0.1) var escalada_velocidad: float = 2.4
+## Cuanto se empuja el cuerpo CONTRA la superficie cada segundo, a lo largo de su
+## normal real. Es lo que hace que la escalada siga el relieve en vez de despegarse
+## en cada saliente. Iba contra la normal aplanada, y sobre una rampa de 60 grados
+## eso empujaba en horizontal: el personaje se separaba de la pendiente.
+@export_range(0.0, 4.0, 0.05) var escalada_adherencia: float = 0.6
+## NOTA: la horquilla de angulos escalables (60..95 grados) NO vive aqui, vive en
+## `WallSensor.angulo_min` / `angulo_max`, porque es geometria del sensor y no
+## ajuste de feel. Se apunta aqui para no tener que buscarla.
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
 
 # --- Combate ----------------------------------------------------------------
@@ -341,6 +392,13 @@ extends Resource
 ## Velocidad inicial de salto: siempre la de altura maxima. v = sqrt(2 * g * h)
 func velocidad_salto() -> float:
 	return sqrt(2.0 * absf(gravedad_subida) * altura_salto_max)
+
+
+## Salto estatico desde agachado. Vive aqui y no en el estado porque lo piden dos
+## sitios —el agachado y la recepcion en cuclillas— y duplicar la formula seria la
+## puerta de entrada a que uno de los dos se quede desincronizado.
+func velocidad_salto_agachado() -> float:
+	return sqrt(2.0 * absf(gravedad_subida) * altura_salto_agachado)
 
 
 ## Velocidad a la que se recorta el salto al soltar el boton pronto.

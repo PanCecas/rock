@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Embestida"
+anim = &"combat/atk_water_light"
+frames_windup = 0
+frames_activo = 14
+frames_recuperacion = 0
+dano = 10.0
+dano_poise = 12.0
+empuje = Vector3(0, 0, 6)
+stagger = 0.3
+fuerza_muerte = 12.0
+torque_muerte = 8.0
+alcance = 1.5
+radio = 1.0
+arco_grados = 90.0
+avance = 0.0
+movilidad = 0.0
+hitstop = 0.05
+shake = 0.35
+frame_cadena = 999
+color_vfx = &"cian_cielo"

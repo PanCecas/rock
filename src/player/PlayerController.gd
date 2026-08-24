@@ -16,6 +16,9 @@ extends CharacterBody3D
 @export var ataque_pesado: AttackData
 @export var ataque_aereo: AttackData
 @export var ataque_plunge: AttackData
+## Ataques acuaticos: bajo el agua un golpe es un desplazamiento con hitbox.
+@export var ataque_agua_ligero: AttackData
+@export var ataque_agua_pesado: AttackData
 ## Patada deslizante: el salto de conejo. Su hitbox vive todo el trayecto.
 @export var ataque_slide_kick: AttackData
 ## Clavado. Su hitbox vive todo el trayecto y lanza por los aires.
@@ -77,6 +80,10 @@ var _cooldown_salto: float = 0.0
 var _pos_anterior: Vector3 = Vector3.ZERO
 var _atascado: float = 0.0
 var _giro_visual: float = 0.0
+## Mientras dura, `_actualizar_visual` no toca la orientacion: manda el nado.
+var _orientacion_3d: bool = false
+## Segundos que le quedan a la recuperacion de verticalidad. > 0 = enderezandose.
+var _recuperacion: float = 0.0
 ## Ventana del side jump: se abre al pedir la direccion contraria corriendo.
 var ventana_sidejump: float = 0.0
 ## Tiempo empujando contra una pared. Al pasar del umbral, se escala solo.
@@ -350,6 +357,87 @@ func set_alabeo(grados: float) -> void:
 	_alabeo = grados
 
 
+## Orienta el cuerpo en 3D hacia `dir`, con pitch y yaw reales. Es lo que hace
+## que nadar hacia el fondo INCLINE al personaje en vez de dejarlo horizontal, y
+## lo que inclina el cuerpo contra una rampa de 60 grados al escalarla.
+##
+## Interpola la BASE, no los angulos de Euler: rotar por Euler cruza el gimbal al
+## apuntar recto arriba o abajo, que es justo lo que se pide bajo el agua.
+##
+## `arriba_ref` permite imponer el "arriba" del cuerpo —la escalada le pasa la
+## pendiente de la pared—. Sin el, la referencia se transporta desde el arriba
+## actual segun cuanto se acerque `dir` a la vertical: elegir entre UP y FORWARD
+## con un umbral duro hacia saltar el roll de golpe justo al picar al fondo.
+func orientar_a_3d(dir: Vector3, delta: float, arriba_ref: Vector3 = Vector3.ZERO) -> void:
+	if visual == null or dir.length_squared() < 0.04:
+		return
+	_orientacion_3d = true
+	_recuperacion = 0.0
+	var d := dir.normalized()
+	var arriba := arriba_ref
+	if arriba.is_zero_approx():
+		# Cuanto mas vertical es `d`, mas se confia en el arriba que ya tenia el
+		# cuerpo. Es continuo, asi que no hay chasquido de balanceo en el cenit.
+		var verticalidad: float = smoothstep(0.7, 0.98, absf(d.dot(superficie.up)))
+		arriba = superficie.up.lerp(visual.global_basis.y, verticalidad)
+	arriba -= d * arriba.dot(d)
+	if arriba.length_squared() < 0.0001:
+		arriba = visual.global_basis.x
+	# `looking_at` mira por -Z, y el visual apunta con +Z, de ahi el signo.
+	var objetivo := Basis.looking_at(-d, arriba.normalized())
+	var peso: float = clampf(deg_to_rad(tuning.giro_3d_grados_seg) * delta, 0.0, 1.0)
+	# Por `quaternion` y no por `basis`: asignar la base pisaria el `scale.y` con
+	# el que el agachado encoge al personaje.
+	visual.quaternion = visual.quaternion.slerp(objetivo.get_rotation_quaternion(), peso)
+
+
+## UPRIGHT ORIENTATION RECOVERY. Arranca la vuelta a la vertical: se conserva el
+## yaw —hacia donde mira— y se van a cero el pitch y el roll.
+##
+## Existe porque el nado y la escalada escriben los tres ejes, mientras que la
+## logica de tierra solo escribe el yaw: sin esto, salir del agua o soltarse de
+## una rampa dejaba al personaje torcido para siempre.
+##
+## Es una TRANSICION, no un guardia por frame: lo llaman los estados al salir del
+## medio que inclinaba, y se apaga solo. Por eso no puede pelearse con el dash, el
+## agachado ni el movimiento aereo, que nunca lo encienden.
+func enderezar(duracion: float = -1.0) -> void:
+	if visual == null:
+		return
+	_orientacion_3d = false
+	# El yaw actual se preserva leyendolo del cuerpo, no del ultimo `_giro_objetivo`:
+	# bajo el agua el cuerpo ha estado girando por su cuenta.
+	var frente := superficie.plano(visual.global_basis.z)
+	if frente.is_zero_approx():
+		# Mirando recto arriba o abajo no hay rumbo horizontal en el frente; el
+		# vientre del personaje sí lo tiene.
+		frente = superficie.plano(-visual.global_basis.y)
+	if not frente.is_zero_approx():
+		_giro_objetivo = atan2(frente.x, frente.z)
+		_tiene_giro = true
+	_recuperacion = duracion if duracion > 0.0 else tuning.enderezar_duracion
+
+
+## Balanceo lento al derivar: el cuerpo cabecea suavemente sin ir a ningun sitio.
+func derivar_visual(onda: float, grados: float, delta: float) -> void:
+	if visual == null:
+		return
+	_orientacion_3d = true
+	_recuperacion = 0.0
+	visual.rotate_object_local(Vector3.RIGHT, deg_to_rad(onda * grados * delta))
+
+
+## Hacia donde apunta el nado: la velocidad si se mueve, la camara si no. Es la
+## direccion que usan los ataques acuaticos.
+func direccion_nado() -> Vector3:
+	if velocity.length_squared() > 1.0:
+		return velocity.normalized()
+	var cam := camara()
+	if cam != null:
+		return -cam.global_basis.z
+	return -global_basis.z
+
+
 ## Giro de cortesía sobre el eje lateral: el backflip. No afecta a la física, solo
 ## cuenta lo que ha pasado. Se consume solo.
 func girar_visual(grados_seg: float) -> void:
@@ -531,10 +619,16 @@ func _revivir() -> void:
 func _actualizar_visual(delta: float) -> void:
 	if visual == null:
 		return
-	var plano := superficie.plano(velocity)
-	if plano.length_squared() > 0.25:
-		_giro_objetivo = atan2(plano.x, plano.z)
-		_tiene_giro = true
+	_seguir_velocidad()
+
+	# La recuperacion de verticalidad manda mientras dure: es el unico momento en
+	# que el cuerpo tiene que ignorar su propia rotacion anterior y volver a cero.
+	if _recuperacion > 0.0:
+		_enderezar_paso(delta)
+		return
+	if _orientacion_3d:
+		return
+
 	if _tiene_giro:
 		visual.rotation.y = rotate_toward(
 			visual.rotation.y, _giro_objetivo, deg_to_rad(tuning.giro_grados_seg) * delta
@@ -548,6 +642,39 @@ func _actualizar_visual(delta: float) -> void:
 		_giro_visual_restante -= paso
 		if _giro_visual_restante <= 0.0:
 			visual.rotation.x = 0.0
+
+
+## El rumbo lo sigue marcando la velocidad, tambien mientras el cuerpo se endereza:
+## salir del agua nadando no deberia congelar el giro durante la recuperacion.
+func _seguir_velocidad() -> void:
+	var plano := superficie.plano(velocity)
+	if plano.length_squared() > 0.25:
+		_giro_objetivo = atan2(plano.x, plano.z)
+		_tiene_giro = true
+
+
+## Un paso de la vuelta a la vertical. El destino es exactamente la postura que
+## produce la logica de tierra —yaw + alabeo, pitch a cero—, asi que cuando acaba
+## el relevo es invisible.
+func _enderezar_paso(delta: float) -> void:
+	_recuperacion = maxf(_recuperacion - delta, 0.0)
+	var objetivo := Quaternion.from_euler(
+		Vector3(0.0, _giro_objetivo, deg_to_rad(_alabeo))
+	)
+	var peso: float = clampf(deg_to_rad(tuning.enderezar_grados_seg) * delta, 0.0, 1.0)
+	visual.quaternion = visual.quaternion.slerp(objetivo, peso)
+
+	# Se cierra por tiempo o por cercania, lo que llegue antes. Sin el corte por
+	# cercania una recuperacion corta acabaria a medias; sin el corte por tiempo,
+	# un slerp asintotico no terminaria nunca.
+	if _recuperacion <= 0.0 or visual.quaternion.angle_to(objetivo) < deg_to_rad(1.0):
+		visual.rotation = Vector3(0.0, _giro_objetivo, deg_to_rad(_alabeo))
+		_recuperacion = 0.0
+
+
+## ¿Sigue el cuerpo volviendo a la vertical? Lo consulta el DebugOverlay.
+func enderezando() -> bool:
+	return _recuperacion > 0.0
 
 
 ## En el Gym caerse no mata: te devuelve al spawn. En el juego real la caída larga
