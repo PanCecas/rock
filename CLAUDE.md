@@ -37,49 +37,49 @@ plataformas en movimiento.
    `Palette.validar()`.
 9. Colores solo desde `Palette.tres`. Nunca un hex escrito a mano en un shader o material.
 10. **Exports a nodos siempre como `NodePath` + `get_node_or_null()`**, nunca
-    `@export var x: Node3D`. Los exports tipados a Node no se resuelven al
-    instanciar la escena y dejan la referencia en null sin avisar.
+	`@export var x: Node3D`. Los exports tipados a Node no se resuelven al
+	instanciar la escena y dejan la referencia en null sin avisar.
 11. **Todos los saltos pasan por `PlayerController.consumir_salto()`** y piden
-    `fsm.cambiar(..., true)`: casi siempre se salta estando ya en `Jump`, y sin
-    reentrada la FSM se traga la pulsacion en silencio.
+	`fsm.cambiar(..., true)`: casi siempre se salta estando ya en `Jump`, y sin
+	reentrada la FSM se traga la pulsacion en silencio.
 12. **La velocidad horizontal se limita en un solo sitio** (`_limitar_velocidad()`,
-    justo antes de `move_and_slide`). Nunca en un estado.
+	justo antes de `move_and_slide`). Nunca en un estado.
 13. **Los grupos corren ANTES que las hojas y les roban el input.** Si una hoja
-    tiene su version propia de una accion compartida, tiene que reclamarla con
-    `maneja_ataques()` o `maneja_salto()`, **y el guardia tiene que existir en
-    TODOS los grupos**, no solo en el de suelo. Es el fallo que mas veces ha
-    aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
-    DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
-    especifica no llega a existir nunca.
-    **Corolario:** ese guardia hace `return` en mitad de `shared_update`, asi que
-    todo lo que quede DEBAJO deja de existir para las hojas que lo declaran. Por
-    eso las preguntas de TERRENO —perder el suelo, pendiente, techo, agarre— van
-    siempre ANTES que las de accion. Ahi vivio el "floating fall": salirse de una
-    plataforma surfeando no cambiaba de estado nunca. Un guardia de INPUT no puede
-    cancelar una transicion de TERRENO.
+	tiene su version propia de una accion compartida, tiene que reclamarla con
+	`maneja_ataques()` o `maneja_salto()`, **y el guardia tiene que existir en
+	TODOS los grupos**, no solo en el de suelo. Es el fallo que mas veces ha
+	aparecido en este proyecto —cadena de combos, ataques de surf, salto alto,
+	DiveAttack— y siempre es silencioso: se ejecuta la accion generica y la
+	especifica no llega a existir nunca.
+	**Corolario:** ese guardia hace `return` en mitad de `shared_update`, asi que
+	todo lo que quede DEBAJO deja de existir para las hojas que lo declaran. Por
+	eso las preguntas de TERRENO —perder el suelo, pendiente, techo, agarre— van
+	siempre ANTES que las de accion. Ahi vivio el "floating fall": salirse de una
+	plataforma surfeando no cambiaba de estado nunca. Un guardia de INPUT no puede
+	cancelar una transicion de TERRENO.
 14. **La postura la resuelve el controlador, no las transiciones.** Un estado
-    PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
-    altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
-    quepas de pie. **Detectar una pared, una pendiente o una superficie escalable
-    NO es motivo para agacharse** — ese acoplamiento fue el bug del cambio brusco
-    de altura junto a las rampas.
+	PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
+	altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
+	quepas de pie. **Detectar una pared, una pendiente o una superficie escalable
+	NO es motivo para agacharse** — ese acoplamiento fue el bug del cambio brusco
+	de altura junto a las rampas.
 15. **Un solo numero clasifica las superficies** (`PlayerTuning.clasificar`):
-    `<45° camina · 45–110° escala · >110° nada`.
-    El wall-run pide ADEMAS `wallrun_angulo_min` (70°), pero eso no es una
-    segunda clasificacion: es un requisito extra del verbo. Correr en horizontal
-    por una ladera de 50° no es una mecanica, es un error. De ahi salen el sensor de suelo,
-    el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
-    distintos para la misma rampa es como se llega a que sea "demasiado empinada
-    para andar" y "demasiado tumbada para escalar" a la vez.
+	`<45° camina · 45–110° escala · >110° nada`.
+	El wall-run pide ADEMAS `wallrun_angulo_min` (70°), pero eso no es una
+	segunda clasificacion: es un requisito extra del verbo. Correr en horizontal
+	por una ladera de 50° no es una mecanica, es un error. De ahi salen el sensor de suelo,
+	el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
+	distintos para la misma rampa es como se llega a que sea "demasiado empinada
+	para andar" y "demasiado tumbada para escalar" a la vez.
 16. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
-    El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
-    yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
-    salir, o el personaje se queda torcido para siempre. Y se hace en la
-    TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
-    el dash, el agachado y el planeo.
+	El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
+	yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
+	salir, o el personaje se queda torcido para siempre. Y se hace en la
+	TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
+	el dash, el agachado y el planeo.
 17. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
-    sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
-    o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
+	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
+	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
 ## Autoloads
 `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.
@@ -156,6 +156,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
+| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 7 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 122 comprobaciones. |
@@ -163,6 +164,16 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
+
+**Los tres tests son complementarios y ninguno sustituye a otro:** el funcional
+comprueba que la FSM llega a un estado, el de medicion cronometra como se siente,
+y el visual comprueba que el personaje se VE bien estando ahi. Media docena de
+bugs de este proyecto —el cuerpo torcido al salir del agua, la capsula partida por
+la mitad junto a una rampa— pasaron los 122 funcionales sin despeinarse.
+
+**Corre el visual SIEMPRE que toques postura, orientacion, camara, paleta o
+geometria del Gym.** Y mira el diff antes de regenerar una referencia: una
+baseline actualizada a ciegas convierte el test en un sello de goma.
 
 ## Estado actual
 **Fases 0, 1 y 2 cerradas.**

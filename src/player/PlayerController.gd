@@ -101,6 +101,9 @@ var tiempo_contra_pared: float = 0.0
 ## sobrevivir a la patada: un cooldown que muere con el estado que lo pone no es
 ## un cooldown, es un adorno.
 var cd_slide_kick: float = 0.0
+## Espera entre clavados. Mismo motivo y mismo patron que la patada deslizante:
+## un ataque de movilidad que se puede repetir sin pausa deja de ser una decision.
+var cd_dive: float = 0.0
 var _giro_visual_restante: float = 0.0
 
 
@@ -220,6 +223,7 @@ func _avanzar_relojes(delta: float) -> void:
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
 	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
+	cd_dive = maxf(0.0, cd_dive - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)

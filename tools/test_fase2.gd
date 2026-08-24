@@ -706,17 +706,17 @@ func _construir_guion() -> void:
 			func() -> void: pass,
 			func() -> bool:
 				var tu := _p.tuning
-				for g in [0.0, 15.0, 30.0, 40.0, 44.0]:
+				for g in [0.0, 15.0, 30.0, 40.0, 44.0, 45.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.CAMINABLE:
 						return false
-				for g in [45.0, 50.0, 60.0, 75.0, 90.0, 100.0, 110.0]:
+				for g in [50.0, 60.0, 75.0, 90.0, 100.0, 110.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.ESCALABLE:
 						return false
 				for g in [111.5, 120.0, 130.0]:
 					if tu.clasificar(g) != PlayerTuning.Superficie.INVALIDA:
 						return false
 				return true,
-			"0-44 camina, 45-110 escala, mas de 110 no es ninguna de las dos"),
+			"hasta 45 se camina —el limite es inclusivo—, de ahi a 110 se escala"),
 
 		# Y ahora contra geometria de verdad, rampa por rampa.
 		_chequeo_("30 grados se CAMINA", 0.7, _ante_rampa(30.0),
@@ -728,9 +728,12 @@ func _construir_guion() -> void:
 		_chequeo_("44 grados se CAMINA", 0.7, _ante_rampa(44.0),
 			func() -> bool: return not _latch_climb,
 			"44 es la ultima superficie caminable"),
-		_chequeo_("45 grados se ESCALA", 0.9, _ante_rampa(45.0),
-			func() -> bool: return _latch_climb,
-			"45 es el slope limit: a partir de aqui se trepa, no se anda"),
+		# 45 es el LIMITE, y el limite se camina. Un "slope limit de 45" que rechaza
+		# una rampa de 45 es una trampa, y ademas dejaba esa rampa sin ninguna forma
+		# comoda de subirla: ni suelo para el motor ni pared estable para la FSM.
+		_chequeo_("45 grados se CAMINA", 0.7, _ante_rampa(45.0),
+			func() -> bool: return not _latch_climb,
+			"el angulo limite tiene que ser caminable, no tierra de nadie"),
 		_chequeo_("50 grados se ESCALA", 0.9, _ante_rampa(50.0),
 			func() -> bool: return _latch_climb,
 			"50 grados debe escalarse"),

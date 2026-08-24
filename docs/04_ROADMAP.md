@@ -45,9 +45,14 @@ encuadre, el horizonte se disuelve en crema y el sol proyecta sombras tintadas.
 - [x] `tools/Circuito.gd`: la carrera de obstaculos con cronometro y 6 checkpoints
 - [x] `tools/TestFase1.tscn`: test funcional que recorre los 12 estados
 
-**HITO 1 — pendiente de tu veredicto.** El circuito esta montado y el test automatico
-alcanza los 12 estados. Lo que falta es lo unico que no se puede automatizar:
-**correrlo y ver si apetece repetirlo**. Ese sigue siendo el filtro del proyecto.
+**HITO 1 — CUMPLIDO.** Confirmado por el autor tras jugarlo: el circuito se corre
+y apetece repetirlo, que era el unico filtro que importaba y el unico que no se
+puede automatizar.
+
+Se cerro despues de siete rondas de correccion de feel (2.2 a 2.05) que salieron
+justamente de jugarlo: el dash que desemboca en surf, el salto que se quedaba
+pegado, el patinaje de seis metros al soltar el stick y el peso del salto son
+todos hallazgos de este hito, no del diseno sobre papel.
 
 **Lo que se aprendio y cambio el plan:**
 1. El rayo del `LedgeSensor` que busca el canto se lanzaba a una fraccion fija del
@@ -108,6 +113,117 @@ se sostiene sin arte**. Si se sostiene, el arte solo puede mejorarlo.
 3. Hay ~2 frames de latencia entre `Input.action_press()` desde codigo y que el
    InputBuffer lo vea. Cualquier test de combate tiene que contar con ellos o mide
    ventanas que no existen.
+
+## PLAN DE TRABAJO — orden de ataque tras el Hito 1
+
+Con el Hito 1 cerrado, esto es lo que hay sobre la mesa y en qué orden se hace.
+El criterio de orden no es el entusiasmo: es **qué bloquea a qué**, y después
+**qué relación coste/percepción tiene**. Una tarde de audio cambia más la
+experiencia percibida que dos semanas de sistema nuevo.
+
+---
+
+### P0 — Deuda que bloquea · ~1 semana
+
+Nada de esto es contenido. Todo esto es lo que impide que el contenido salga bien.
+
+**P0.1 · Extraer la FSM de `Guardian.gd`** — *el cuello de botella real*
+
+`Guardian.gd` mezcla hoy tres cosas en un archivo: la IA (dormido, acercarse,
+telegrafiar, atacar, recuperar), la física (`is_on_floor()`, gravedad manual) y la
+presentación (material, color, ondas). Eso bloquea **tres** cosas a la vez: el
+director de grupo, el coloso mediano y los enemigos acuáticos.
+
+Cómo se hace: la misma estructura que ya usa el jugador —`StateMachine` +
+`EnemyState`— porque duplicar un patrón que ya funciona cuesta menos que inventar
+uno nuevo y se lee igual. El cuerpo queda como orquestador, igual que
+`PlayerController`. Lo que hoy es `Estado.ACERCARSE` pasa a ser un nodo con
+`enter/exit/physics_update`.
+
+Criterio de terminado: escribir un enemigo que nade **sin tocar** el script del
+Guardián terrestre.
+
+**P0.2 · Escala unificada de screen shake**
+
+Hoy el shake sale desde ~15 sitios con valores escritos a mano en cada estado
+(`0.3`, `0.45`, `1.1`…). No hay forma de saber si un picado sacude más que un
+parry sin leer quince archivos, y ajustar la intensidad global es imposible.
+
+Cómo se hace: exactamente como el hitstop, que ya tiene su escala documentada en
+`docs/03 §3.2`. Cuatro niveles nombrados —ligero, pesado, parry, coloso— en
+`PlayerTuning`, y `EventBus.camara_shake` recibe el nivel, no el número.
+
+Criterio de terminado: un solo parámetro sube o baja **todo** el shake del juego.
+
+**P0.3 · Audio mínimo** — *el multiplicador de juice más barato que existe*
+
+`content/audio/` está vacío. Un golpe sin sonido se siente flojo por muy buena que
+sea la física, y ningún ajuste de números compensa eso.
+
+Lo mínimo que cambia la percepción de todo lo demás, por orden de impacto:
+1. **Impacto de golpe** (ligero / pesado / parry), enganchado a `EventBus.hit_landed`
+   y a `hitstop_requested`. El sonido tiene que salir en el frame del hitstop, no
+   después: es el mismo instante o no se lee como el mismo evento.
+2. **Pasos** por velocidad, y **aterrizaje** por `player_landed` con el flag `dura`
+   que ya viaja en la señal.
+3. **Viento por velocidad** en surf y planeo. Es lo que vende la velocidad cuando
+   el escenario es gris.
+4. **Respiración** en la escalada, ligada a la stamina. La visión ya la señala como
+   clave para la tensión de los colosos.
+
+Todas las señales necesarias **ya existen** en `EventBus`. Es cablear, no diseñar.
+
+**P0.4 · Sincronizar el roadmap** — las fases cerradas dicen "3 grupos y 13
+estados", "11 ataques" y "12 comprobaciones". Hoy son 5 y 27, 20 y 122.
+
+---
+
+### P1 — Fase 3: lanza y lazo · 2–3 semanas
+
+La fase que toca. Su detalle está justo debajo, sin cambios.
+
+Una sola nota nueva, aprendida de las siete rondas de corrección: **la lanza y el
+lazo se prueban en el Gym antes de existir en el mundo**, y con los tres tests
+—funcional, de medición y visual— desde el primer día. El coste de añadir una toma
+al `TestVisual` es una línea; el coste de descubrir en la Fase 5 que la lanza
+clavada se ve torcida es una semana.
+
+---
+
+### P2 — Bestiario · 3–4 semanas · **necesita P0.1**
+
+**P2.1 · Grupos de enemigos** (`SquadDirector`). La dificultad sale de agrupar, no
+de engordar. Detalle completo en `project.md §3.1`.
+
+**P2.2 · Coloso mediano de torso escalable.** El puente pedagógico hacia la Fase 4,
+y el primer consumidor real del `SurfaceContext` con marco móvil. Detalle en
+`project.md §3.2`.
+
+Este orden importa: el coloso mediano **antes** del coloso #1, no después.
+
+---
+
+### P3 — Fase 4: el coloso · sin cambios
+
+---
+
+### P4 — El lobo · después de la Fase 3
+
+Montura viva. Detalle en `project.md §4`. La mitad del trabajo no es montar: es
+cómo se comporta cuando **no** lo montas.
+
+---
+
+### Fuera del plan, a propósito
+
+- **Animaciones y modelos 3D.** Regla dura #7: el feel se prueba con cápsulas
+  grises. Sigue siendo cierto, pero con una fecha de caducidad: cuando el
+  personaje tenga peso visual, algunos números habrá que revisarlos. No es motivo
+  para adelantarlo; sí para no seguir puliendo decimales indefinidamente.
+- **Active Ragdoll y grappler verlet** (`docs/03 §11`). Sin tocar hasta que la
+  Fase 4 esté cerrada.
+
+---
 
 ## FASE 3 — Lanza y lazo · 2–3 semanas
 - [ ] `SpearSystem` completo: equipar, moveset, apuntar, lanzar, clavar, recuperar, atrapar
@@ -421,6 +537,33 @@ la comprobacion asumia suelo.
   valores previos sin tocar codigo ni git.
 - Los constantes magicos del picado (`SUSPENSION`, `VELOCIDAD_CAIDA`) pasan a
   tuning (regla dura #1).
+
+
+### Correccion 3.0 — la rampa que no se podia subir y el clavado espameable
+- **NINGUNA rampa del campo del Gym se podia subir andando**, y llevaba asi desde la
+  Fase 0. Se reporto sobre la de 45 grados, pero fallaban las cinco. Causa: las
+  rampas estaban centradas a `largo/2 * sin(a)`, y con eso su cara util arrancaba a
+  `grosor/2 * cos(a)` de altura —un labio de 13 a 25 cm en el pie—. `CharacterBody3D`
+  no sube escalones por su cuenta. Ahora van hundidas para que la cara arranque bajo
+  el suelo. Medido: 15 grados sube 1.94 m, 25 sube 3.25, 35 sube 4.45, 45 sube 5.52.
+- **El limite de pendiente pasa a ser INCLUSIVO.** La holgura estaba aplicada al reves:
+  con `floor_max_angle = climb_angulo_min - 0.5`, una rampa de 45 grados exactos caia
+  en tierra de nadie —ni suelo para el motor ni pared estable para la FSM— y el
+  jugador entraba en bucle Move -> Climb -> Fall sin subir un metro. Un "slope limit
+  de 45" que rechaza una rampa de 45 es una trampa.
+- **Coyote de pared** (`escalada_coyote`, 0.18 s). Perder el contacto un frame ya no
+  es soltarse. Sobre relieve irregular el sensor parpadea, y ese parpadeo era la otra
+  mitad del bucle.
+- **Espera entre clavados** (`dive_cooldown`, 0.5 s). Machacar salto + ataque
+  encadenaba QUINCE clavados por segundo: saltar, clavarse, aterrizar y volver a
+  saltar cabe en cuatro frames. Medido: 15 -> 1.8 clavados/s, y la velocidad
+  sostenida baja de 10.3 a 2.7 m/s. El pico sigue en 21 m/s, que es correcto: un
+  clavado suelto debe ser rapido; lo que no puede es repetirse sin pausa.
+  El picado (agachado + pesado) queda FUERA de esa espera: es otro verbo.
+- **Screenshot tests** (`tools/TestVisual.tscn`), 7 tomas contra `tools/baseline/`.
+  Estrenados en esta misma correccion: cazaron el cambio de geometria de las rampas y
+  el mapa de diff confirmo que solo cambiaban sus bordes.
+- Pipeline de Blender a Godot documentado al detalle en `02_PIPELINE_PERSONAJES_ANIM.md §7`.
 
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física

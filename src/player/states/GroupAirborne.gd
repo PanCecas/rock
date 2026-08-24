@@ -152,16 +152,27 @@ func shared_update(delta: float) -> void:
 	#   ligero -> DIVE: se proyecta adelante y abajo. Es movilidad ademas de golpe.
 	#   pesado -> DIVE PESADO: mas lejos y mas plomo, y REBOTA en la cabeza del
 	#             enemigo para encadenar el siguiente.
+	# EL PICADO VA PRIMERO, y fuera de la espera del clavado. Es otro verbo, con
+	# otro gesto y otro coste; meterlo detras del cooldown hacia que agachado +
+	# pesado dejara de responder durante medio segundo despues de cada clavado.
+	if buffer.is_held(InputActions.CROUCH) and player.ataque_plunge != null:
+		if buffer.consume(InputActions.ATTACK_HEAVY):
+			fsm.cambiar(&"Plunge")
+			return
+
+	# La espera vale para los DOS clavados: son el mismo verbo con distinto peso, y
+	# un cooldown que solo mire a uno se esquiva alternandolos. Las pulsaciones se
+	# consumen igualmente para que no se queden en el buffer y disparen solas al
+	# cumplirse la espera.
+	if player.cd_dive > 0.0:
+		buffer.consume(InputActions.ATTACK_LIGHT)
+		buffer.consume(InputActions.ATTACK_HEAVY)
+		return
 	if buffer.consume(InputActions.ATTACK_LIGHT):
 		fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
 		return
 	if buffer.consume(InputActions.ATTACK_HEAVY):
-		# El picado vertical no desaparece: se muda a agachado + pesado, que es el
-		# gesto de ground pound de toda la vida y libera el pesado a secas.
-		if buffer.is_held(InputActions.CROUCH) and player.ataque_plunge != null:
-			fsm.cambiar(&"Plunge")
-		else:
-			fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana(), "pesado": true})
+		fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana(), "pesado": true})
 		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

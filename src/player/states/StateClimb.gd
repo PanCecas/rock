@@ -17,6 +17,10 @@ var _normal: Vector3 = Vector3.ZERO
 ## Ejes de la superficie: derecha y "cuesta arriba", los dos DENTRO de su plano.
 var _lateral: Vector3 = Vector3.ZERO
 var _arriba: Vector3 = Vector3.ZERO
+## Tiempo sin contacto. La pared se suelta cuando pasa de `escalada_coyote`, no en
+## el primer frame: sobre relieve irregular el sensor parpadea, y sin esta ventana
+## la escalada entraba en bucle Climb -> Fall -> Climb sin avanzar un metro.
+var _sin_pared: float = 0.0
 
 
 func enter(_msg: Dictionary = {}) -> void:
@@ -28,6 +32,7 @@ func enter(_msg: Dictionary = {}) -> void:
 		return
 
 	_normal = player.pared.normal
+	_sin_pared = 0.0
 	_recalcular_ejes()
 	player.velocity = Vector3.ZERO
 	player.orientar_a(-sc.plano(_normal))
@@ -51,13 +56,22 @@ func physics_update(delta: float) -> void:
 		player.tiempo_sin_borde = 0.2
 		fsm.cambiar(&"Fall")
 		return
-	if not player.pared.hay_pared or not (player.pared.asidero or tuning.escalada_universal):
-		# Llegar arriba del todo: si hay canto, se sube; si no, se cae.
-		if player.borde.hay_borde:
-			fsm.cambiar(&"LedgeClimb")
-		else:
-			fsm.cambiar(&"Fall")
-		return
+	# COYOTE DE PARED. Perder el contacto un frame no es soltarse. Sin esta ventana,
+	# cualquier parpadeo del sensor —y en una pendiente cerca del limite parpadea
+	# constantemente— tiraba al jugador al aire y lo volvia a enganchar medio
+	# segundo despues, en bucle y sin subir nada.
+	var vale := player.pared.hay_pared and (player.pared.asidero or tuning.escalada_universal)
+	if vale:
+		_sin_pared = 0.0
+	else:
+		_sin_pared += delta
+		if _sin_pared > tuning.escalada_coyote:
+			# Llegar arriba del todo: si hay canto, se sube; si no, se cae.
+			if player.borde.hay_borde:
+				fsm.cambiar(&"LedgeClimb")
+			else:
+				fsm.cambiar(&"Fall")
+			return
 
 	# LEDGE SNAP: si al subir aparece un canto agarrable, el personaje se ancla a
 	# el automaticamente en vez de seguir trepando contra el aire. Es lo que evita
@@ -66,7 +80,8 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"LedgeHang")
 		return
 
-	_normal = player.pared.normal
+	if vale:
+		_normal = player.pared.normal
 	_recalcular_ejes()
 	player.velocity = Vector3.ZERO
 

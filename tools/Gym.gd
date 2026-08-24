@@ -99,12 +99,22 @@ func _suelo() -> void:
 
 func _rampas() -> void:
 	var x := -26.0
+	var grosor := 0.5
 	for angulo in angulos_rampa:
 		var largo := 8.0
+		var a := deg_to_rad(angulo)
+		# HUNDIDAS lo justo para que la cara superior ARRANQUE BAJO EL SUELO.
+		#
+		# Estaban centradas a `largo/2 * sin(a)`, y con eso su cara util empezaba a
+		# `grosor/2 * cos(a)` de altura: un labio de 13 a 25 cm en el pie de cada
+		# rampa. `CharacterBody3D` no sube escalones por su cuenta, asi que el
+		# jugador chocaba contra ese labio y NINGUNA rampa del campo se podia subir
+		# andando —ni la de 15 grados—. Se notaba sobre todo en la de 45 porque es
+		# la que mas obviamente deberia subirse.
 		var rampa := _bloque(
 			"Rampa_%d" % int(angulo),
-			Vector3(4.0, 0.5, largo),
-			Vector3(x, largo * 0.5 * sin(deg_to_rad(angulo)), -14.0),
+			Vector3(4.0, grosor, largo),
+			Vector3(x, largo * 0.5 * sin(a) - grosor * 0.5 * cos(a) - 0.05, -14.0),
 			_mat_piedra
 		)
 		rampa.rotation_degrees = Vector3(-angulo, 0, 0)

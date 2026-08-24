@@ -293,6 +293,12 @@ extends Resource
 ## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
 ## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
 @export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -7.0
+## ESPERA ENTRE CLAVADOS. Sin ella, machacar salto + ataque encadenaba QUINCE
+## clavados por segundo: saltar, clavarse, aterrizar y volver a saltar cabe en
+## cuatro frames, y el resultado era un tembleque que ademas viajaba mas rapido de
+## lo que deberia. El clavado es un compromiso, y un compromiso que se puede
+## repetir sin pausa no compromete a nada.
+@export_range(0.0, 3.0, 0.05) var dive_cooldown: float = 0.5
 
 @export_subgroup("Clavado pesado")
 ## El pesado va mas lejos y mas plomo. Es el que se encadena de cabeza en cabeza.
@@ -420,6 +426,11 @@ extends Resource
 ## en cada saliente. Iba contra la normal aplanada, y sobre una rampa de 60 grados
 ## eso empujaba en horizontal: el personaje se separaba de la pendiente.
 @export_range(0.0, 4.0, 0.05) var escalada_adherencia: float = 0.6
+## COYOTE DE LA ESCALADA. Perder el contacto un frame no es soltarse: sobre relieve
+## irregular el sensor parpadea, y sin esta ventana la escalada entraba en bucle
+## Climb -> Fall -> Climb. Es el mismo perdon que el coyote del salto, aplicado a
+## la pared.
+@export_range(0.0, 1.0, 0.01) var escalada_coyote: float = 0.18
 @export_range(0.1, 8.0, 0.1) var shimmy_velocidad: float = 1.6
 
 # --- Picado (plunging attack) -----------------------------------------------
@@ -509,16 +520,19 @@ enum Superficie {
 const HOLGURA_ANGULO := 0.5
 
 
-## `floor_max_angle` del cuerpo. Es el limite de escalada menos la holgura, no el
-## limite pelado: si coincidieran, una cara de 75 grados exactos seria a la vez
-## suelo para el motor y pared para la FSM, y el personaje se quedaba resbalando
-## sobre la primera superficie que se supone que puede trepar.
+## `floor_max_angle` del cuerpo, y tiene que dar EXACTAMENTE el mismo veredicto
+## que `clasificar()`: si el motor y la FSM discrepan aunque sea medio grado, la
+## superficie de la frontera no es ni suelo ni pared y el personaje entra en bucle.
+## Eso fue el bug de la rampa de 45.
 func angulo_max_suelo() -> float:
-	return climb_angulo_min - HOLGURA_ANGULO
+	return climb_angulo_min + HOLGURA_ANGULO
 
 
 func clasificar(grados: float) -> Superficie:
-	if grados < climb_angulo_min - HOLGURA_ANGULO:
+	# INCLUSIVO por arriba: el angulo limite se CAMINA. Un "limite de pendiente de
+	# 45" que rechaza una rampa de 45 es una trampa, y ademas deja esa rampa sin
+	# ninguna forma comoda de subirla.
+	if grados <= climb_angulo_min + HOLGURA_ANGULO:
 		return Superficie.CAMINABLE
 	if grados <= climb_angulo_max + HOLGURA_ANGULO:
 		return Superficie.ESCALABLE

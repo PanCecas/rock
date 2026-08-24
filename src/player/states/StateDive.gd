@@ -43,6 +43,7 @@ func enter(msg: Dictionary = {}) -> void:
 	var vertical: float = tuning.dive_pesado_vertical if _pesado else tuning.dive_vertical_inicial
 	motor.set_vertical(minf(motor.get_vertical(), vertical))
 
+	player.cd_dive = tuning.dive_cooldown
 	player.hitbox.nuevo_swing()
 	player.orientar_a(_dir)
 	player.set_alabeo(0.0)
