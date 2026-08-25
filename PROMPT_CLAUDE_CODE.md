@@ -962,3 +962,121 @@ Al terminar: informe de qué cambió y en qué archivo, valores finales, checkli
 testing manual y qué NO has podido comprobar. No inventes resultados de pruebas que
 no hayas ejecutado.
 ```
+
+---
+
+## REGLA PERMANENTE — el screenshot test
+
+```
+Corre SIEMPRE el screenshot test antes de dar por terminado cualquier trabajo:
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+No es opcional. No se salta "porque este cambio no toca lo visual" —los bugs
+visuales de este proyecto (el cuerpo torcido al salir del agua, la cápsula partida
+por la mitad junto a una rampa, el cuerpo sin inclinar al escalar) pasaron TODOS
+los tests funcionales sin despeinarse—. Necesita GPU: no corre en --headless.
+
+Y no hagas trampa. Regenerar una baseline con `-- actualizar` para que el test pase
+es convertirlo en un sello de goma. Una referencia solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has mirado el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, eso no es una baseline vieja: es un bug.
+
+Los tres tests van juntos en cada entrega y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn    -> llega la FSM al estado
+  godot --headless --path . tools/TestFase2.tscn    -> hace lo que dice que hace
+  godot --path . --resolution 960x540 tools/TestVisual.tscn  -> se VE bien haciéndolo
+```
+
+---
+
+## PROMPT — verificación de errores y screenshot test
+
+```
+Proyecto Godot 4.7, GDScript. Lee CLAUDE.md: 18 reglas duras. La #17 es la que más
+se incumple sin querer.
+
+TAREA: verificar el proyecto, corregir los errores que aparezcan, y NO dar nada por
+bueno sin correr el screenshot test.
+
+--- 1) DIAGNOSTICAR ANTES DE TOCAR ---
+
+No inventes soluciones. Interpreta primero, decide después.
+
+Captura TODOS los errores, sin filtrar por lo que te resulte cómodo:
+
+  godot --headless --path . --import 2>&1 | grep -iE "ERROR|WARNING|Parse|Compile"
+
+Separa el ruido de los errores reales:
+  · "RIDs leaked", "resources still in use", "Pages in use in PagedAllocator" al
+    salir son NORMALES en un editor headless. No son bugs.
+  · Un "Parse Error" o un "Compile Error" sí lo es, siempre.
+
+Y comprueba dónde aparece cada error, porque no todos importan igual:
+
+  A) En el JUEGO:     godot --path . --quit-after 600
+  B) En el EDITOR:    godot --path . -e --quit-after 900
+  C) En el import:    godot --headless --path . --import
+
+Un error que solo sale en (C) puede ser artefacto del arranque reducido. Uno que
+sale en (A) es un bug de verdad.
+
+--- 2) ¿ES NUESTRO O DEL ADDON? ---
+
+Si el error viene de algo en addons/, la prueba decisiva es reproducirlo en un
+PROYECTO VACÍO con solo ese addon. Crea uno en un temporal, copia el addon, un
+project.godot mínimo, y arranca el editor. Si reproduce, el bug es de upstream y
+no se parchea: se documenta y se decide si el addon compensa.
+
+NUNCA edites nada dentro de addons/. Se pierde al actualizar y te conviertes en
+mantenedor de un fork que no querías.
+
+--- 3) LA DECISIÓN SENSATA ANTE UN ADDON QUE FALLA ---
+
+Un plugin que no usa ni una línea del proyecto y que ensucia la consola no se
+parchea ni se aguanta: se DESACTIVA en [editor_plugins] hasta que se integre.
+Desactivar no es desinstalar —sigue en addons/— y se revierte con una línea.
+Al desactivarlo, quita también sus autoloads de project.godot: un autoload sin su
+plugin es exactamente lo que produce "unregister de un singleton que nadie
+registró".
+
+--- 4) EL SCREENSHOT TEST, SIEMPRE ---
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+Necesita GPU: no corre en --headless. Corre los cuatro, y ninguno sustituye a otro:
+
+  TestFase1  -> ¿llega la FSM al estado?
+  TestFase2  -> ¿hace lo que dice que hace?
+  smoke      -> ¿arranca y la paleta cumple?
+  TestVisual -> ¿se VE bien haciéndolo?     <-- este es el que se olvida
+
+Y NO HAGAS TRAMPA. Regenerar una baseline con `-- actualizar` para que pase
+convierte el test en un sello de goma. Solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has abierto el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, no es una baseline vieja: es un bug.
+
+--- 5) CUIDADO: EL EDITOR MODIFICA ESCENAS ---
+
+Abrir el editor con ciertos plugins activos MUTA las escenas abiertas. Cyclops
+Level Builder inyecta nodos CyclopsBlock en la escena y sube su formato de 3 a 4.
+Si luego desactivas el plugin, la escena queda con referencias colgando y deja de
+cargar el entorno —los tests funcionales siguen verdes y solo lo caza el visual—.
+
+Después de cualquier sesión de editor, comprueba SIEMPRE:
+
+  git status --short
+  git diff --stat content/levels/Main.tscn
+
+Si el editor tocó una escena y tú no lo pediste, revierte:  git checkout -- <ruta>
+
+--- 6) INFORME ---
+
+Al terminar: qué error era, dónde aparecía, si era nuestro o de upstream, qué
+decidiste y por qué. Y los cuatro resultados de test. No inventes resultados de
+pruebas que no hayas ejecutado.
+```

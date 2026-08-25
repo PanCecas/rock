@@ -7,8 +7,10 @@
 [ext_resource type="PackedScene" path="res://src/camera/CameraRig.tscn" id="5_camera"]
 [ext_resource type="Script" uid="uid://cigtgmwkixwb6" path="res://tools/Circuito.gd" id="6_circuito"]
 [ext_resource type="Script" uid="uid://cbmjc1r4m0nge" path="res://tools/Arena.gd" id="7_arena"]
+[ext_resource type="Script" uid="uid://csjccrhj5wnx7" path="res://addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd" id="8_kk0tq"]
+[ext_resource type="Script" uid="uid://8umksf8e80fw" path="res://addons/phantom_camera/scripts/resources/tween_resource.gd" id="9_w43ei"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o8nxp"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_c1i3f"]
 sky_top_color = Color(0.81058824, 0.7780392, 0.7529412, 1)
 sky_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
 sky_curve = 0.18
@@ -18,12 +20,12 @@ ground_curve = 0.04
 sun_angle_max = 25.0
 sun_curve = 0.12
 
-[sub_resource type="Sky" id="Sky_oma3v"]
-sky_material = SubResource("ProceduralSkyMaterial_o8nxp")
+[sub_resource type="Sky" id="Sky_jo2k7"]
+sky_material = SubResource("ProceduralSkyMaterial_c1i3f")
 
-[sub_resource type="Environment" id="Environment_kk0tq"]
+[sub_resource type="Environment" id="Environment_iho8k"]
 background_mode = 2
-sky = SubResource("Sky_oma3v")
+sky = SubResource("Sky_jo2k7")
 ambient_light_source = 3
 ambient_light_color = Color(0.7207843, 0.7356863, 0.76235294, 1)
 ambient_light_sky_contribution = 0.75
@@ -55,6 +57,9 @@ adjustment_enabled = true
 adjustment_contrast = 1.02
 adjustment_saturation = 0.92
 
+[sub_resource type="Resource" id="Resource_s6xgd"]
+script = ExtResource("9_w43ei")
+
 [node name="Main" type="Node3D" unique_id=490195209]
 
 [node name="Sol" type="DirectionalLight3D" parent="." unique_id=1130198979]
@@ -70,7 +75,7 @@ directional_shadow_blend_splits = true
 directional_shadow_max_distance = 220.0
 
 [node name="WorldMood" type="WorldEnvironment" parent="." unique_id=939690339]
-environment = SubResource("Environment_kk0tq")
+environment = SubResource("Environment_iho8k")
 script = ExtResource("1_mood")
 palette = ExtResource("2_palette")
 
@@ -94,3 +99,9 @@ palette = ExtResource("2_palette")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
 
 [node name="CameraRig" parent="." unique_id=436052055 instance=ExtResource("5_camera")]
+
+[node name="PhantomCamera3D" type="Node3D" parent="." unique_id=73720898]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0613194, 0)
+script = ExtResource("8_kk0tq")
+tween_resource = SubResource("Resource_s6xgd")
+metadata/_custom_type_script = "uid://csjccrhj5wnx7"
