@@ -31,6 +31,10 @@ func frenar(tasa: float, delta: float) -> void:
 func aplicar_gravedad(delta: float, mult: float = 1.0) -> void:
 	if is_zero_approx(mult):
 		return
+	# HANG TIME: gravedad cero mientras dure. Vive aqui y no en cada estado para
+	# que valga en Fall, Jump y Glide sin que ninguno tenga que saber que existe.
+	if _p.hangtime > 0.0:
+		return
 	var sc := _p.superficie
 	var vy := sc.vertical(_p.velocity)
 	var g: float = _p.tuning.gravedad_subida if vy > 0.0 else _p.tuning.gravedad_caida
