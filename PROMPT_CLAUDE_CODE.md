@@ -870,3 +870,95 @@ no cierres esa puerta. Nada de ganchos vacíos "por si acaso".
 7) Al terminar: informe de qué cambió, en qué archivo y por qué, valores finales,
 checklist de testing manual, y qué NO has podido comprobar.
 ```
+
+---
+
+## PROMPT PARCHE 3.02 — lo que quedó fuera de la 3.01
+
+```
+Godot 4.7, GDScript. Lee CLAUDE.md antes de nada: 17 reglas duras, y la #13 y la
+#14 son las que más veces se han incumplido sin querer.
+
+Este parche continúa el 3.01, que dejó fuera tres bloques a propósito. Van en este
+orden porque el primero desbloquea al tercero.
+
+--- 1) EXTRAER LA FSM DE Guardian.gd (P0 del roadmap) ---
+
+`src/enemies/Guardian.gd` son 372 líneas que mezclan tres cosas: la IA (un `match`
+sobre un enum dentro de `_physics_process`), la física (`is_on_floor()`, gravedad
+manual) y la presentación (material, color, ondas). Eso bloquea al director de
+grupo, a los enemigos nuevos, al coloso mediano y a los acuáticos.
+
+Extrae la FSM con la MISMA estructura que ya usa el jugador —`StateMachine` +
+estados como nodos con `enter/exit/physics_update`— porque duplicar un patrón que
+funciona cuesta menos que inventar otro y se lee igual. El cuerpo queda como
+orquestador, igual que `PlayerController`.
+
+Criterio de terminado, y es literal: escribir un enemigo que NADE sin tocar el
+script del Guardián terrestre.
+
+--- 2) INVENTARIO ESTILO BREATH OF THE WILD ---
+
+`src/ui/` está vacío: no hay HUD, ni navegación de menús, ni gestión de foco. Esto
+no es una funcionalidad, es la primera capa de UI del proyecto, así que constrúyela
+como capa antes que como inventario.
+
+- Rejilla paginada con pestañas por categoría (Armas, Consumibles, Materiales).
+- Los ítems son Resources (`ItemData`), como `AttackData`: nada de datos en el .gd.
+- Navegación por rejilla con mando Y teclado, no solo ratón. El foco tiene que ser
+  visible siempre.
+- Arrastrar y soltar, y reordenar dentro de la página.
+- El juego se pausa al abrirlo, y el `InputBuffer` se invalida al cerrarlo o la
+  primera pulsación se cuela en el gameplay.
+
+Aviso de diseño, para que lo decidas tú antes de que yo lo construya: el personaje
+lleva espada, lanza, lazo y arco. Cuatro objetos fijos, sin loot ni crafteo. Eso
+hoy es un `enum`, no un inventario. Si la idea es que en la Fase 6 haya recursos y
+materiales, el inventario tiene sentido; si no, es una pantalla que se abre para
+mirar cuatro iconos.
+
+--- 3) DOS ENEMIGOS NUEVOS (después del punto 1) ---
+
+VOLADOR ÁGIL. Ciclo estricto atacar / recargar.
+  · Atacar: ráfaga de 3 proyectiles con separación fija entre ellos.
+  · Recargar: calcula un vector ALEJÁNDOSE del jugador y ejecuta tres dashes en
+    zig-zag encadenados hasta una posición más lejana, mientras corre el
+    temporizador de recarga. Waypoints lerpeados o curva bezier: lo que importa es
+    que el zig-zag sea legible desde lejos, porque es el aviso de que está
+    recargando y de que es su momento de vulnerabilidad.
+  · No hereda gravedad ni suelo. Ese es el motivo del punto 1.
+
+EMBESTIDOR. Cono de visión + carga.
+  · Detección por producto escalar contra el frente, más un raycast que confirme
+    que no hay pared en medio. El dot solo no basta: te detecta a través del suelo.
+  · Al detectar, estado de ANTICIPACIÓN visible —se planta, se orienta— y ahí
+    BLOQUEA la dirección. Que la carga se pueda esquivar es la mecánica entera; si
+    persigue mientras carga, no hay esquiva posible.
+  · Impulso físico fuerte hacia delante hasta chocar con pared o con el jugador.
+  · Contra la pared: aturdido y abierto un buen rato. Es la recompensa por esquivar.
+
+--- REGLAS DE ESTE PROYECTO QUE TE VAN A MORDER ---
+
+- Ningún número mágico en `.gd`: todo valor de feel va a un `.tres` (regla #1).
+- Los grupos de la FSM corren ANTES que las hojas y les roban el input; y su
+  guardia hace `return` a media función, así que las preguntas de TERRENO van antes
+  que las de ACCIÓN (regla #13). Aquí han vivido seis bugs.
+- La postura la resuelve el controlador, nunca las transiciones (regla #14).
+- Hitstop congela el AnimationTree, JAMÁS `Engine.time_scale` (regla #5).
+- La hitbox es una consulta de forma, no un Area3D: un Area llega un frame tarde y
+  en ventanas de 4 frames eso es un 25% de error.
+
+--- ANTES DE DAR NADA POR BUENO ---
+
+Los tres tests, y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn      (12 estados)
+  godot --headless --path . tools/TestFase2.tscn      (131 comprobaciones)
+  godot --path . --resolution 960x540 tools/TestVisual.tscn   (7 tomas, necesita GPU)
+
+Comprueba con LATCHES —si algo ocurrió en algún momento del paso— y no solo en el
+frame final, o medirás timing en vez de mecánicas.
+
+Al terminar: informe de qué cambió y en qué archivo, valores finales, checklist de
+testing manual y qué NO has podido comprobar. No inventes resultados de pruebas que
+no hayas ejecutado.
+```

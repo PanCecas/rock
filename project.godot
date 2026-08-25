@@ -22,6 +22,15 @@ EventBus="*res://src/core/EventBus.gd"
 GameState="*res://src/core/GameState.gd"
 HitstopManager="*res://src/core/HitstopManager.gd"
 DebugOverlay="*res://src/core/DebugOverlay.gd"
+PhantomCameraManager="*res://addons/phantom_camera/scripts/managers/phantom_camera_manager.gd"
+Dialogic="*uid://ds2q0uclmolvu"
+CyclopsAutoload="*res://addons/cyclops_level_builder/cyclops_autoload.tscn"
+
+[dialogic]
+
+directories/dch_directory={}
+directories/dtl_directory={}
+layout/style_directory={}
 
 [display]
 
@@ -29,6 +38,10 @@ window/size/viewport_width=1600
 window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/cyclops_level_builder/plugin.cfg", "res://addons/dialogic/plugin.cfg", "res://addons/phantom_camera/plugin.cfg")
 
 [input]
 
