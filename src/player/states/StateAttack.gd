@@ -12,12 +12,19 @@ var _dir: Vector3 = Vector3.ZERO
 var _indice: int = 1
 var _overshoot_hecho: bool = false
 var _desde_surf: bool = false
+## EMBESTIDA EN PRIMERA PERSONA. El pesado lanzado en carrera mete la camara en la
+## cabeza del personaje y bloquea el rumbo al frente de camara. No es un cambio de
+## camara con un ataque encima: el bloqueo de rotacion es LA mecanica —te
+## comprometes a una direccion y ya no la corriges— y la primera persona es lo que
+## lo hace legible.
+var _primera_persona: bool = false
 
 
 func enter(msg: Dictionary = {}) -> void:
 	_datos = msg.get("datos", player.ataque_ligero)
 	_indice = int(msg.get("indice", 1))
 	_desde_surf = bool(msg.get("desde_surf", false))
+	_primera_persona = bool(msg.get("primera_persona", false))
 	_frame = 0
 	_conectado = false
 	_overshoot_hecho = false
@@ -26,6 +33,16 @@ func enter(msg: Dictionary = {}) -> void:
 	# enemigo mas cercano: la linea que llevas es la decision que ya has tomado.
 	var heredada: Vector3 = msg.get("direccion", Vector3.ZERO)
 	_dir = heredada.normalized() if not heredada.is_zero_approx() else _direccion_ataque()
+	if _primera_persona:
+		# En primera persona el rumbo lo pone la CAMARA, no el autoencarado ni la
+		# velocidad: estas mirando por los ojos del personaje y el golpe tiene que
+		# ir donde miras, o el modo miente.
+		var cam := player.camara()
+		if cam != null:
+			var frente := sc.plano(-cam.global_basis.z)
+			if not frente.is_zero_approx():
+				_dir = frente.normalized()
+		player.primera_persona = true
 	player.orientar_a(_dir)
 	player.hitbox.nuevo_swing()
 	# Una estocada NO frena: hereda toda la velocidad con la que llegas. El resto
@@ -40,12 +57,29 @@ func enter(msg: Dictionary = {}) -> void:
 	player.velocity = sc.plano(player.velocity) * retencion + sc.up * sc.vertical(player.velocity)
 
 
+## La primera persona se apaga SIEMPRE al salir, pase lo que pase: si el ataque se
+## cancela con un dash a mitad, la camara tiene que volver igual. Un modo de camara
+## que depende de terminar bien es un modo del que te quedas atrapado.
+func exit(_siguiente: StringName = &"") -> void:
+	if _primera_persona:
+		player.primera_persona = false
+
+
 func physics_update(delta: float) -> void:
 	if _datos == null:
 		fsm.cambiar(&"Idle")
 		return
 
 	_frame += 1
+	# ROTACION BLOQUEADA AL FRENTE DE CAMARA mientras dura la embestida. Es lo que
+	# la convierte en una carga y no en un ataque normal visto desde cerca.
+	if _primera_persona and t < tuning.fps_duracion:
+		var cam := player.camara()
+		if cam != null:
+			var frente := sc.plano(-cam.global_basis.z)
+			if not frente.is_zero_approx():
+				_dir = frente.normalized()
+				player.orientar_a(_dir)
 	_avanzar(delta)
 	motor.set_vertical(-2.0)
 

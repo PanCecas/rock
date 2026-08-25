@@ -78,7 +78,7 @@ palette = ExtResource("2_palette")
 script = ExtResource("3_gym")
 palette = ExtResource("2_palette")
 angulos_rampa = PackedFloat32Array(15, 25, 35, 45, 60)
-angulos_escalada = null
+angulos_escalada = PackedFloat32Array(30, 40, 44, 45, 50, 60, 75, 90, 110)
 huecos = PackedFloat32Array(2, 4, 6, 8, 10, 12)
 alturas_repisa = PackedFloat32Array(1, 2, 3, 4.2)
 
