@@ -77,12 +77,62 @@ plataformas en movimiento.
 	salir, o el personaje se queda torcido para siempre. Y se hace en la
 	TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
 	el dash, el agachado y el planeo.
-17. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+17. **EL SCREENSHOT TEST SE CORRE SIEMPRE.** No es opcional, no se salta "porque
+	este cambio no toca lo visual", y no se da por bueno sin ejecutarlo. Los tres
+	tests van juntos en cada entrega: funcional, de estados y **visual**.
+	**Y no se hace trampa:** regenerar una baseline con `-- actualizar` para que
+	pase es convertir el test en un sello de goma. Una referencia solo se
+	regenera cuando el cambio visual era EL QUE SE BUSCABA, y solo despues de
+	mirar el mapa de diff en `user://visual/` y comprobar que lo que ha cambiado
+	es lo que tenia que cambiar. Si el diff muestra algo que no esperabas, eso no
+	es una baseline vieja: es un bug.
+18. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
 	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
 	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
 ## Autoloads
-`EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.
+Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`.
+De plugins: `PhantomCameraManager`, `Dialogic`, `CyclopsAutoload`.
+
+Los tres de plugin los registra el editor al activarlos. Estan escritos a mano en
+`project.godot` porque los plugins se instalaron por linea de comandos y
+`_enable_plugin()` no llego a ejecutarse: si algun dia se desactiva un plugin desde
+el editor, hay que quitar su autoload tambien a mano.
+
+## Plugins (`addons/`)
+
+**Solo se activa lo que se USA.** Los cinco estan instalados, pero en
+`[editor_plugins]` solo queda `proton_scatter`. Los demas se activan cuando se
+integren y no antes, por dos razones medidas:
+
+1. **Ensucian la consola con bugs suyos.** Cyclops y Phantom Camera tienen
+   teardown incondicional —`_exit_tree()` libera cosas que su `_enter_tree()` no
+   llego a crear— y sueltan tres errores en cada arranque del editor. Reproducido
+   en un proyecto VACIO con solo esos dos: no es culpa de este proyecto.
+2. **Cyclops MODIFICA las escenas abiertas.** Con el plugin activo, abrir
+   `Main.tscn` en el editor le inyecta nodos `CyclopsBlock` y sube el formato de
+   escena de 3 a 4. Si despues se desactiva el plugin, la escena queda con
+   referencias colgando y **deja de cargar el entorno**. Paso de verdad, y solo lo
+   cazo el screenshot test: los 131 funcionales seguian en verde.
+
+| Plugin | Version | Para que |
+|---|---|---|
+| `phantom_camera` | v0.11.0.3 | Camaras estilo Cinemachine. **Sin integrar todavia**: el `CameraRig` propio sigue mandando. |
+| `proton_scatter` | 4.2.0 (`main`) | Dispersion procedural de props. **Desde `main`, NO desde la Asset Library**: la version publicada alli es de 2023 y no compila en 4.7. |
+| `cyclops_level_builder` | v1.5.0_dev_2 | Blockout en el viewport. Para el MUNDO real; las salas de prueba se siguen generando por codigo. |
+| `dialogic` | 2.0-alpha-20 | Dialogos. Sin usar todavia. |
+| `inventory-system` | addon-2.13.0 | GDExtension en C++. Registra `Inventory`, `ItemDefinition`… |
+
+**Los binarios del inventario estan RECORTADOS A WINDOWS.** El release trae 125 MB
+de `.dll`/`.so` para seis plataformas; en el repo solo quedan los 19 MB de Windows,
+que es donde se desarrolla. Para exportar a Linux, Android, web, macOS o iOS hay
+que recuperar `addons/inventory-system/bin/<plataforma>/` del release
+`addon-2.13.0`.
+
+**Regla:** un addon es codigo que no controlas metido en tu repo, y las reglas
+duras de este documento NO le aplican. No modifiques nada dentro de `addons/`:
+cualquier cambio se pierde al actualizar. Si hace falta adaptar algo, se envuelve
+desde `src/`.
 
 ## Estructura
 Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistema),
@@ -104,6 +154,8 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Patada baja (derriba) | C + click | |
 | **Clavado (Dive)** | **Click izq. en el aire** (siempre) | RB |
 | **Clavado pesado (rebota en cabezas)** | **Click der. en el aire** | RT |
+| | *Rebotar da gravedad cero un instante, pero NO devuelve el doble salto* | |
+| **Embestida en primera persona** | **Click der. corriendo** | RT |
 | Picado vertical (ground pound) | C + click der. en el aire | |
 | | *Su area y su dano crecen con la altura desde la que caes* | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
@@ -159,7 +211,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 7 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 122 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 131 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre

@@ -96,17 +96,30 @@ func _al_conectar(datos: AttackData) -> void:
 		player.color_de(datos.color_vfx), 1.6 if _pesado else 1.3
 	)
 
-	# LA regla del sistema: conectar en el aire devuelve el dash y el salto aereo.
-	# Si aciertas, sigues arriba; si fallas, caes.
-	player.recargar_aire()
-
 	if not _pesado:
+		# LIGERO: LA regla del sistema. Conectar en el aire devuelve el dash y el
+		# salto aereo. Si aciertas, sigues arriba; si fallas, caes.
+		player.recargar_aire()
 		return
 
-	# REBOTE. Se pisa la cabeza del enemigo y se sale despedido hacia arriba, de
-	# vuelta al aire con el clavado disponible otra vez. Es lo que convierte el
-	# pesado en una cadena: enemigo, rebote, enemigo, rebote.
+	# REBOTE DEL PESADO. Se pisa la cabeza del enemigo y se sale despedido, de
+	# vuelta al aire y con el clavado disponible otra vez: enemigo, rebote,
+	# enemigo, rebote.
 	motor.set_vertical(tuning.dive_rebote)
+
+	# HANG TIME: gravedad cero un instante. Sin esto el rebote es un empujon y ya;
+	# con esto hay una pausa en la que se elige la siguiente cabeza.
+	player.iniciar_hangtime(tuning.dive_hangtime)
+
+	# Se devuelve el DASH pero NO el salto aereo, a proposito. Reponer el doble
+	# salto convertiria la cadena en vuelo infinito: siempre habria una forma de
+	# corregir el error de calculo. Sin el, cada rebote es un compromiso y quedarse
+	# arriba depende de acertar el siguiente, que es justo lo que hace que la
+	# cadena valga algo.
+	player.dash_cargas = maxi(player.dash_cargas, tuning.dash_cargas_aire)
+	# La espera si se levanta: encadenar es EL punto de esta mecanica.
+	player.cd_dive = 0.0
+
 	EventBus.camara_shake.emit(0.45, 0.14)
 	CombatFX.onda(
 		player.get_parent(), player.global_position,

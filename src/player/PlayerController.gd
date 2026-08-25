@@ -104,6 +104,12 @@ var cd_slide_kick: float = 0.0
 ## Espera entre clavados. Mismo motivo y mismo patron que la patada deslizante:
 ## un ataque de movilidad que se puede repetir sin pausa deja de ser una decision.
 var cd_dive: float = 0.0
+## HANG TIME: segundos con gravedad CERO. Lo arma el rebote del clavado pesado y lo
+## consulta `LocomotionMotor.aplicar_gravedad`, asi que vale para Fall, Jump y
+## Glide sin que ninguno tenga que saber que existe.
+var hangtime: float = 0.0
+## ¿La camara debe ir en primera persona? Lo pide el ataque pesado en carrera.
+var primera_persona: bool = false
 var _giro_visual_restante: float = 0.0
 
 
@@ -224,6 +230,7 @@ func _avanzar_relojes(delta: float) -> void:
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
 	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
 	cd_dive = maxf(0.0, cd_dive - delta)
+	hangtime = maxf(0.0, hangtime - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
@@ -267,6 +274,11 @@ func consumir_salto() -> bool:
 
 
 ## Recarga lo que se recupera al tocar suelo o al hacer wall-jump.
+## Suspende la gravedad unos instantes. La usa el rebote del clavado pesado.
+func iniciar_hangtime(segundos: float) -> void:
+	hangtime = maxf(hangtime, segundos)
+
+
 func recargar_aire() -> void:
 	dash_cargas = tuning.dash_cargas_aire
 	saltos_aereos = tuning.saltos_aereos
