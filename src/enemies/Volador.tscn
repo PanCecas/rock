@@ -1,24 +1,23 @@
 [gd_scene load_steps=18 format=3]
 
-[ext_resource type="Script" path="res://src/enemies/Guardian.gd" id="g"]
+[ext_resource type="Script" path="res://src/enemies/Volador.gd" id="g"]
 [ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="hp"]
 [ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="po"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
-[ext_resource type="Script" path="res://src/enemies/states/EnemyStateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyDormido.gd" id="e_dormido"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAcercarse.gd" id="e_acercarse"]
-[ext_resource type="Script" path="res://src/enemies/states/EnemyTelegrafia.gd" id="e_telegrafia"]
-[ext_resource type="Script" path="res://src/enemies/states/EnemyAtacar.gd" id="e_atacar"]
-[ext_resource type="Script" path="res://src/enemies/states/EnemyRecuperar.gd" id="e_recuperar"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyRafaga.gd" id="e_rafaga"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyRecargar.gd" id="e_recargar"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAturdido.gd" id="e_aturdido"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyDerribado.gd" id="e_derribado"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyQuebrado.gd" id="e_quebrado"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyMuerto.gd" id="e_muerto"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyStateMachine.gd" id="fsm"]
 
 [sub_resource type="CapsuleShape3D" id="cap"]
 radius = 0.45
-height = 2.0
+height = 1.40
 
 [sub_resource type="CapsuleMesh" id="malla"]
 radius = 0.45
@@ -27,10 +26,15 @@ height = 2.0
 [sub_resource type="BoxMesh" id="marca"]
 size = Vector3(0.3, 0.3, 0.12)
 
-[node name="Guardian" type="CharacterBody3D"]
+[node name="Volador" type="CharacterBody3D"]
 collision_layer = 4
 collision_mask = 1
 script = ExtResource("g")
+vuela = true
+vista = 22.0
+alcance_ataque = 11.0
+cadencia = 0.6
+velocidad = 6.0
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -75,14 +79,11 @@ script = ExtResource("e_dormido")
 [node name="Acercarse" type="Node" parent="FSM"]
 script = ExtResource("e_acercarse")
 
-[node name="Telegrafia" type="Node" parent="FSM"]
-script = ExtResource("e_telegrafia")
+[node name="Rafaga" type="Node" parent="FSM"]
+script = ExtResource("e_rafaga")
 
-[node name="Atacar" type="Node" parent="FSM"]
-script = ExtResource("e_atacar")
-
-[node name="Recuperar" type="Node" parent="FSM"]
-script = ExtResource("e_recuperar")
+[node name="Recargar" type="Node" parent="FSM"]
+script = ExtResource("e_recargar")
 
 [node name="Aturdido" type="Node" parent="FSM"]
 script = ExtResource("e_aturdido")

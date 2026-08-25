@@ -152,10 +152,10 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Slide kick | C con velocidad + click izq. (con espera) | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
-| **Clavado (Dive)** | **Click izq. en el aire** (siempre) | RB |
-| **Clavado pesado (rebota en cabezas)** | **Click der. en el aire** | RT |
+| **Clavado ligero (rebota en cabezas)** | **Click izq. en el aire** (siempre) | RB |
 | | *Rebotar da gravedad cero un instante, pero NO devuelve el doble salto* | |
-| **Embestida en primera persona** | **Click der. corriendo** | RT |
+| **Clavado pesado (LEVANTA al enemigo)** | **Click der. en el aire** | RT |
+| | *No rebota: se planta. Manda al enemigo por los aires unos segundos* | |
 | Picado vertical (ground pound) | C + click der. en el aire | |
 | | *Su area y su dano crecen con la altura desde la que caes* | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
@@ -210,8 +210,9 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 7 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
-| `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 131 comprobaciones. |
+| `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag y torso escalable. 9 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
@@ -242,6 +243,13 @@ baseline actualizada a ciegas convierte el test en un sello de goma.
   parry normal y perfecto, poise con GuardBreak, soft-lock y 3 Guardianes.
   **El jugador se mueve mientras ataca** (`AttackData.movilidad`) y al morir los
   enemigos salen despedidos como cadaver fisico (`Ragdoll`).
+- **Enemigos con FSM propia.** `Enemigo` (cuerpo) + `EnemyMotor` (fisica) +
+  `EnemyStateMachine`/`EnemyState`, el mismo patron que el jugador. Cada enemigo
+  declara SUS estados en su `.tscn`, asi que anadir uno no toca a los demas: el
+  volador no comparte una linea de IA con el guardian terrestre, y su unica
+  diferencia de fisica es `vuela = true`. Hoy son seis: los 3 Guardianes
+  (Lancero/Escudo/Vigia), el **Embestidor**, el **Volador** y el
+  **ColosoMediano** escalable. Viven en `Gym._corral()`, nunca en la Arena.
 
 Ademas: agachado con side hop, escalada BotW con wall lunge, Dive y DiveAttack,
 aterrizajes agachado (slide con velocidad, recepcion en cuclillas sin ella) y el
@@ -250,3 +258,12 @@ la **IA acuatica**, documentada en `project.md`.
 
 Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
+
+Pendiente de la lista del parche 3.03: **la camara cinematografica**.
+`src/camera/CameraTuning.gd` (valores / influencias / curvas), `PhantomDirector.gd`
+y `PhantomRig.tscn` estan escritos pero **sin cablear** —`Main.tscn` sigue con
+`CameraRig.tscn`—. El obstaculo esta medido: Phantom Camera se queda con el
+`transform` de la camara, y **todo el movimiento deduce la direccion de
+`player.camara()`**, asi que cablearlo tal cual pone 18 tests en rojo. Migrar
+significa darle a Phantom el rig y dejar que `player.camara()` siga leyendo un
+`Camera3D` valido, no colgar el plugin al lado del propio.

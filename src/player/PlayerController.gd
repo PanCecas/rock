@@ -108,8 +108,6 @@ var cd_dive: float = 0.0
 ## consulta `LocomotionMotor.aplicar_gravedad`, asi que vale para Fall, Jump y
 ## Glide sin que ninguno tenga que saber que existe.
 var hangtime: float = 0.0
-## ¿La camara debe ir en primera persona? Lo pide el ataque pesado en carrera.
-var primera_persona: bool = false
 var _giro_visual_restante: float = 0.0
 
 

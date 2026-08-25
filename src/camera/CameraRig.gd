@@ -20,11 +20,6 @@ const MODOS := {
 	# Peleando la camara baja y se acerca: encuadra a los dos cuerpos y hace el
 	# combate legible. Mas FOV para que no se pierda lo que entra por los lados.
 	&"Combat": {"dist": 0.88, "altura": 1.15, "fov": 1.06, "suave": 0.75, "pitch_min": -55.0},
-	# PRIMERA PERSONA: el brazo se recoge del todo y la camara sube a la altura de
-	# los ojos. No hace falta una segunda camara ni una escena aparte —el modo ya
-	# se interpola, asi que la entrada y la salida salen suavizadas gratis, que es
-	# justo lo que pide una transicion a primera persona.
-	&"Primera": {"dist": 0.0, "altura": 1.42, "fov": 1.22, "suave": 0.28, "pitch_min": -80.0},
 }
 
 var objetivo: Node3D
@@ -166,12 +161,6 @@ func _interpolar_modo(delta: float) -> void:
 
 func _on_estado_cambiado(_anterior: StringName, _nuevo: StringName) -> void:
 	if _jugador == null or _jugador.fsm == null:
-		return
-	# La primera persona manda sobre la categoria: es un modo que pide un ataque
-	# concreto, no una consecuencia de en que grupo esta la FSM.
-	if _jugador.primera_persona:
-		modo = &"Primera"
-		DebugOverlay.set_line("cámara", modo)
 		return
 	var cat: StringName = _jugador.fsm.actual.categoria
 	if cat == &"Attached":

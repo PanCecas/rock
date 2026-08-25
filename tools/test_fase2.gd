@@ -169,7 +169,7 @@ func _construir_guion() -> void:
 				_aux = _g.velocity.y,
 			func() -> bool: return (_aux < 1.5
 				and _g.estado == Guardian.Estado.ATURDIDO
-				and is_equal_approx(_g._stagger, _p.ataque_pesado.stagger)),
+				and is_equal_approx(_g.stagger, _p.ataque_pesado.stagger)),
 			"el pesado debe dejar knockback terrestre y stagger, no lanzamiento"),
 
 		# --- Correccion 2.2: movilidad en combo -------------------------------
@@ -985,7 +985,7 @@ func _construir_guion() -> void:
 		_paso_("repoblar para el rebote", 0.35, func() -> void:
 			_soltar_todo()
 			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("el clavado pesado rebota en el enemigo", 0.8,
+		_chequeo_("el clavado LIGERO rebota en el enemigo", 0.8,
 			func() -> void:
 				_soltar_todo()
 				_lancero()
@@ -1005,9 +1005,9 @@ func _construir_guion() -> void:
 				_mirar_a(180.0)
 				_p.fsm.cambiar(&"Fall")
 				_vy_max = -99.0
-				_esperar_pesado = 2,
+				_esperar_ataque = 2,
 			func() -> bool: return _vy_max > 6.0,
-			"clavarse sobre un enemigo debe pisarle la cabeza y devolverte al aire"),
+			"el ligero debe pisarle la cabeza al enemigo y devolverte al aire"),
 
 		# GROUND POUND: el picado vertical no se pierde, se muda a agachado + pesado.
 		_chequeo_("agachado + pesado sigue siendo picado", 0.4,
@@ -1111,7 +1111,7 @@ func _construir_guion() -> void:
 		_paso_("repoblar para el rebote 3.01", 0.35, func() -> void:
 			_soltar_todo()
 			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("el rebote NO devuelve el doble salto", 0.8,
+		_chequeo_("el rebote del ligero NO devuelve el doble salto", 0.8,
 			func() -> void:
 				_soltar_todo()
 				_lancero()
@@ -1126,7 +1126,7 @@ func _construir_guion() -> void:
 				_p.saltos_aereos = 0
 				_vy_max = -99.0
 				_latch_hangtime = false
-				_esperar_pesado = 2,
+				_esperar_ataque = 2,
 			func() -> bool: return _vy_max > 6.0 and _p.saltos_aereos == 0,
 			"el rebote tiene que empujar hacia arriba SIN devolver el salto aereo"),
 		_chequeo_("y abre una ventana de gravedad cero", 0.05,
@@ -1134,33 +1134,28 @@ func _construir_guion() -> void:
 			func() -> bool: return _latch_hangtime,
 			"sin hang time el rebote es un empujon; con el, una pausa para decidir"),
 
-		# EMBESTIDA EN PRIMERA PERSONA: el pesado, pero lanzado EN CARRERA.
-		_paso_("carrerilla para la embestida", 1.6, func() -> void:
+		# EL PESADO NO REBOTA: LEVANTA. Es la otra mitad del par —uno sube al enemigo,
+		# el otro te mantiene a ti arriba—, y si los dos rebotaran volverian a ser el
+		# mismo clavado con distinto nombre.
+		_paso_("repoblar para el lanzamiento", 0.35, func() -> void:
 			_soltar_todo()
-			_reponer()
-			_visitados.erase(&"Attack")
-			_p.global_position = Vector3(0.0, 0.05, 0.0)
-			_p.fsm.cambiar(&"Idle")
-			_mirar_a(-90.0)
-			_pulsar(&"move_forward"), &"Move"),
-		_chequeo_("el pesado en carrera entra en primera persona", 0.25,
-			func() -> void: _esperar_pesado = 2,
-			func() -> bool: return _p.primera_persona,
-			"corriendo, el pesado tiene que meter la camara en la cabeza"),
-		_chequeo_("y la camara vuelve al salir", 0.9,
-			func() -> void: pass,
-			func() -> bool: return not _p.primera_persona,
-			"un modo de camara del que te quedas atrapado es peor que no tenerlo"),
-		_chequeo_("parado, el pesado es el de siempre", 0.4,
+			(_main.get_node("Arena") as Arena).poblar(), &""),
+		_chequeo_("el clavado pesado levanta al enemigo", 0.9,
 			func() -> void:
 				_soltar_todo()
+				_lancero()
 				_reponer()
-				_p.global_position = Vector3(0.0, 0.05, 0.0)
+				_plantar_guardian()
+				_aux = _g.global_position.y
+				_p.global_position = Vector3(0.0, 5.0, 5.8)
 				_p.velocity = Vector3.ZERO
-				_p.fsm.cambiar(&"Idle")
+				_p.orientar_a(Vector3(0, 0, -1))
+				_mirar_a(180.0)
+				_p.fsm.cambiar(&"Fall")
+				_alto_enemigo = -99.0
 				_esperar_pesado = 2,
-			func() -> bool: return not _p.primera_persona,
-			"la embestida es una maniobra de carrera, no un modo que se pida parado"),
+			func() -> bool: return _alto_enemigo > _aux + 1.5,
+			"el pesado tiene que mandar al enemigo por los aires, no rebotar en el"),
 
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
@@ -1208,6 +1203,9 @@ var _vy_sidejump: float = -99.0
 ## ¿Se ha visto gravedad cero en algun momento del paso? El hang time dura tres
 ## decimas: comprobarlo solo en el frame final mediria el reloj, no la mecanica.
 var _latch_hangtime: bool = false
+## Altura MAXIMA que alcanza el Guardian durante el paso. El lanzamiento sube y
+## baja: comprobarlo en el frame final mediria la caida, no el golpe.
+var _alto_enemigo: float = -99.0
 
 
 ## Coloca al jugador delante de la rampa de `angulo` del Gym, pidiendo agarre.
@@ -1316,6 +1314,8 @@ func _physics_process(delta: float) -> void:
 		_vy_sidejump = maxf(_vy_sidejump, _p.motor.get_vertical())
 	if _p.hangtime > 0.0:
 		_latch_hangtime = true
+	if is_instance_valid(_g):
+		_alto_enemigo = maxf(_alto_enemigo, _g.global_position.y)
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())

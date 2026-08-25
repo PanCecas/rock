@@ -36,8 +36,11 @@ extends Resource
 ## Los tres peldaños de la locomocion sin Shift. NO se eligen por la fuerza del
 ## stick: se encadenan por TIEMPO manteniendo la direccion, que es lo que da la
 ## sensacion de que el personaje coge carrerilla.
-@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
-@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
+## Caminar estaba en 3.0 y se sentia arrastrado: es la velocidad con la que
+## empiezas SIEMPRE, antes de que la carrerilla haga nada, asi que es la primera
+## impresion del movimiento y no puede ser la mas floja.
+@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 4.2
+@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 6.4
 @export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 9.4
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
@@ -471,12 +474,6 @@ extends Resource
 
 # --- Combate ----------------------------------------------------------------
 @export_group("Combate")
-## ATAQUE PESADO CORRIENDO -> PRIMERA PERSONA. Velocidad minima para que el pesado
-## se convierta en la embestida en primera persona. Por debajo sale el pesado de
-## siempre: es una maniobra de carrera, no un modo que se pueda pedir parado.
-@export_range(0.0, 25.0, 0.1) var fps_velocidad_min: float = 7.5
-## Lo que dura el bloqueo de rotacion mirando al frente de camara en ese ataque.
-@export_range(0.0, 2.0, 0.05) var fps_duracion: float = 0.55
 @export_range(0.02, 0.6, 0.01) var parry_ventana: float = 0.16
 @export_range(0.01, 0.3, 0.01) var parry_ventana_perfecta: float = 0.06
 @export_range(0.0, 2.0, 0.01) var parry_recuperacion_fallo: float = 0.4

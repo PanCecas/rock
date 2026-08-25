@@ -88,14 +88,7 @@ func shared_update(delta: float) -> void:
 		fsm.cambiar(&"Attack", {"datos": player.ataque_ligero, "indice": 1})
 		return
 	if player.ataque_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		# EMBESTIDA EN PRIMERA PERSONA: el mismo boton, pero lanzado EN CARRERA. No
-		# es un ataque nuevo, es el pesado de siempre comprometido a una direccion
-		# y visto desde dentro. Por debajo de `fps_velocidad_min` sale el pesado
-		# normal: es una maniobra de carrera, no un modo que se pida parado.
-		var corriendo := motor.rapidez_plana() >= tuning.fps_velocidad_min
-		fsm.cambiar(&"Attack", {
-			"datos": player.ataque_pesado, "indice": 1, "primera_persona": corriendo,
-		})
+		fsm.cambiar(&"Attack", {"datos": player.ataque_pesado, "indice": 1})
 		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

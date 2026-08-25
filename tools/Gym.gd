@@ -34,6 +34,11 @@ extends Node3D
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
 
+const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
+const VOLADOR := preload("res://src/enemies/Volador.tscn")
+const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
+const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
+
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
 var _mat_piedra: StandardMaterial3D
@@ -67,6 +72,7 @@ func construir() -> void:
 	_pared_escalable()
 	_rampas_escalada()
 	_domo()
+	_corral()
 	_tunel()
 	_piscina()
 
@@ -290,6 +296,47 @@ func _domo() -> void:
 	_raiz.add_child(anillo)
 
 	_etiqueta("DOMO — el anillo es el limite (%d°)" % int(limite), centro + Vector3(0, 0.06, r + 2.0))
+
+
+## CORRAL DE ENEMIGOS. Los tres del parche 3.03, cada uno en su sitio y lejos de
+## los demas.
+##
+## Aparte de la Arena a proposito: la Arena es el patio de combate de los tres
+## Guardianes y **su poblacion es load-bearing** para los tests de la Fase 2.
+## Anadir tres enemigos alli hacia que alguno alcanzara al jugador en mitad de la
+## prueba de la cadena de golpes. Un banco de pruebas no puede alterar otro.
+##
+## Y separados entre si porque cada uno ensena una cosa distinta: mezclarlos
+## convierte el corral en un caos donde no se puede estudiar ninguno.
+func _corral() -> void:
+	var centro := Vector3(11.0, 0.0, -32.0)
+	_etiqueta("CORRAL — embestidor · volador · coloso", centro + Vector3(0, 0.06, 5.0))
+
+	# Un muro corto detras del embestidor: sin algo contra lo que estrellarse, su
+	# carga fallida no tiene consecuencia y la mecanica no se entiende.
+	_bloque("Corral_Muro", Vector3(9.0, 3.0, 0.8), centro + Vector3(0, 1.5, -6.0), _mat_piedra_osc)
+
+	for datos in [
+		{"escena": EMBESTIDOR, "nombre": "Embestidor", "pos": Vector3(-4.0, 0.2, 0.0),
+			"ataque": "res://content/data/attacks/embestida.tres"},
+		{"escena": VOLADOR, "nombre": "Volador", "pos": Vector3(4.0, 5.0, 0.0),
+			"ataque": "res://content/data/attacks/volador_disparo.tres"},
+		# El coloso NO lleva ataque: su unico trabajo es dejarse escalar.
+		{"escena": COLOSO, "nombre": "ColosoMediano", "pos": Vector3(0.0, 3.6, 3.5), "ataque": ""},
+	]:
+		var escena: PackedScene = datos["escena"]
+		if escena == null:
+			continue
+		var e := escena.instantiate() as Enemigo
+		e.name = datos["nombre"]
+		e.palette = palette
+		var ruta: String = datos["ataque"]
+		if not ruta.is_empty():
+			e.ataque = load(ruta)
+		if e is Volador:
+			(e as Volador).proyectil = PROYECTIL
+		_raiz.add_child(e)
+		e.global_position = centro + (datos["pos"] as Vector3)
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza
