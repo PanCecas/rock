@@ -184,6 +184,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Parry | Q | LT |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
+| **Lanzar la lanza** | **T** | D-pad arriba |
+| **Recuperar la lanza** | **Y** | D-pad izq. |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
 
@@ -228,6 +230,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3, etapa 1): se clava, es plataforma, el jugador se sube, vuelve por una curva y atraviesa enemigos. 8 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
@@ -272,7 +275,13 @@ aterrizajes agachado (slide con velocidad, recepcion en cuclillas sin ella) y el
 agua completa: nado en superficie, buceo, clavado y combate acuatico. Falta solo
 la **IA acuatica**, documentada en `project.md`.
 
-Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
+**Fase 3 en marcha.** Etapa 1 hecha: la lanza existe, vuela atravesando cuerpos,
+se para en seco contra piedra y al clavarse es **plataforma** — tirarla a lo alto
+y subirse encima ya funciona. FSM propia en `src/weapons/`, con el mismo patron
+que la de enemigos. Faltan reposicionamiento, cordon, balanceo, moveset y la
+interfaz contra colosos.
+
+Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
 
 Pendiente de la lista del parche 3.03: **la camara cinematografica**.

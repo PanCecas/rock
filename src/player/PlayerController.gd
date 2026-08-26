@@ -49,6 +49,10 @@ extends CharacterBody3D
 @onready var salud: HealthComponent = $Salud
 @onready var poise: PoiseComponent = $Poise
 @onready var targeting: TargetingSystem = $Targeting
+
+## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
+## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
+var lanza: Spear = null
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -151,6 +155,7 @@ func _physics_process(delta: float) -> void:
 	var frente := direccion_frontal()
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
+	_input_lanza()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -254,6 +259,37 @@ func _avanzar_relojes(delta: float) -> void:
 
 
 # --- Servicios para los estados ----------------------------------------------
+
+## TIRAR Y RECUPERAR LA LANZA.
+##
+## Vive aqui y no en los grupos de la FSM a proposito: lanzar NO cambia el estado
+## del jugador —se tira corriendo, saltando o cayendo, y sigues haciendo lo que
+## hacias—, asi que no es una transicion y no le corresponde a la maquina de
+## estados. Meterlo en los grupos obligaria a repetirlo en los cinco, que es
+## justo la clase de duplicado que la regla dura #13 acaba castigando.
+##
+## El input sale del `InputBuffer` como todo lo demas (regla dura #4).
+func _input_lanza() -> void:
+	if lanza == null or not is_instance_valid(lanza):
+		return
+	if buffer.consume(InputActions.THROW_SPEAR):
+		if lanza.en_mano():
+			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
+	if buffer.consume(InputActions.RECALL_SPEAR):
+		lanza.recuperar()
+
+
+## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
+##
+## Es lo que espera cualquiera que haya tirado algo en un juego en tercera
+## persona: apuntas mirando. El cuerpo va por detras girando, y usar su frente
+## haria que la lanza saliera hacia donde estabas mirando hace medio segundo.
+func _direccion_de_tiro() -> Vector3:
+	var cam := camara()
+	if cam != null:
+		return -cam.global_basis.z
+	return direccion_frontal()
+
 
 ## CLAMP DURO de la velocidad horizontal, en el último punto antes de mover.
 ##
@@ -791,5 +827,7 @@ func _debug() -> void:
 		salud.fraccion() * 100.0, poise.fraccion() * 100.0,
 		"  QUEBRADA" if poise.rota else ""])
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
+	if lanza != null and is_instance_valid(lanza):
+		DebugOverlay.set_line("lanza", lanza.debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])

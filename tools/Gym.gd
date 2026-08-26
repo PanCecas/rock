@@ -38,6 +38,7 @@ const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
 const VOLADOR := preload("res://src/enemies/Volador.tscn")
 const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
+const LANZA := preload("res://src/weapons/Spear.tscn")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -73,6 +74,7 @@ func construir() -> void:
 	_rampas_escalada()
 	_domo()
 	_corral()
+	_muro_lanza()
 	_tunel()
 	_piscina()
 
@@ -308,6 +310,49 @@ func _domo() -> void:
 ##
 ## Y separados entre si porque cada uno ensena una cosa distinta: mezclarlos
 ## convierte el corral en un caos donde no se puede estudiar ninguno.
+## MURO DE LA LANZA: un paredón liso y alto contra el que probar el bucle
+## completo —tirarla, que se clave, subirse encima—. Liso a proposito: sin
+## salientes que confundan "me subi a la lanza" con "me subi a una repisa".
+##
+## Y aqui es donde nace LA lanza, una sola, atada al jugador (`docs/03 §4`).
+func _muro_lanza() -> void:
+	# Lejos de todo, y en concreto FUERA del fondo de las tomas de escalada: las
+	# camaras de `escalada_muro_90` y `escalada_rampa_60` miran hacia +Z desde
+	# detras de las rampas, asi que cualquier cosa alta plantada a diez metros por
+	# detras sale en el encuadre. Un muro nuevo no tiene por que cambiar una
+	# referencia que va de la POSTURA del personaje.
+	var centro := Vector3(-26.0, 0.0, 20.0)
+	_etiqueta("MURO DE LA LANZA — tirala, clavala, subete", centro + Vector3(0, 0.06, 4.0))
+	_bloque("MuroLanza", Vector3(12.0, 9.0, 1.0), centro + Vector3(0, 4.5, 0), _mat_piedra_osc)
+
+	# En el editor no hay jugador ni autoloads listos: el muro se dibuja para
+	# poder colocarlo, pero la lanza es cosa del juego corriendo.
+	if LANZA == null or Engine.is_editor_hint():
+		return
+	# El jugador puede no existir todavia: quien construye primero depende del
+	# orden en `Main.tscn`, y eso no es algo sobre lo que se deba apostar.
+	if GameState.player != null:
+		_dar_lanza(GameState.player)
+	elif not EventBus.player_spawned.is_connected(_dar_lanza):
+		EventBus.player_spawned.connect(_dar_lanza, CONNECT_ONE_SHOT)
+
+
+## Crea LA lanza y se la entrega al jugador. Una sola en todo el juego.
+func _dar_lanza(jugador: Node3D) -> void:
+	if jugador == null or _raiz == null or not is_instance_valid(_raiz):
+		return
+	if jugador.get("lanza") != null:
+		return
+	var l := LANZA.instantiate() as Spear
+	l.name = "Lanza"
+	l.palette = palette
+	l.ataque = load("res://content/data/attacks/lanza_vuelo.tres")
+	_raiz.add_child(l)
+	l.dueno = jugador
+	l.global_position = jugador.global_position + Vector3.UP
+	jugador.set("lanza", l)
+
+
 func _corral() -> void:
 	var centro := Vector3(11.0, 0.0, -32.0)
 	_etiqueta("CORRAL — embestidor · volador · coloso", centro + Vector3(0, 0.06, 5.0))
