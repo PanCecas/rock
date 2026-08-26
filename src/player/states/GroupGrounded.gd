@@ -56,6 +56,11 @@ func shared_update(delta: float) -> void:
 	#
 	# El salto se pregunta desde el buffer, nunca desde Input directamente.
 	# Si la hoja tiene su propio salto (Crouch, Surf), el grupo no se lo roba.
+	# ZIP A LA LANZA, antes que el salto: desde el suelo sirve para SUBIR a una
+	# lanza clavada en alto, y si el salto se lo comiera nunca saldria.
+	if intentar_zip():
+		return
+
 	if not (fsm.actual != null and fsm.actual.maneja_salto()):
 		if player.consumir_salto():
 			# SIDE JUMP: si venias corriendo y acabas de pedir la direccion

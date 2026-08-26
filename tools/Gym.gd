@@ -316,14 +316,24 @@ func _domo() -> void:
 ##
 ## Y aqui es donde nace LA lanza, una sola, atada al jugador (`docs/03 §4`).
 func _muro_lanza() -> void:
-	# Lejos de todo, y en concreto FUERA del fondo de las tomas de escalada: las
-	# camaras de `escalada_muro_90` y `escalada_rampa_60` miran hacia +Z desde
-	# detras de las rampas, asi que cualquier cosa alta plantada a diez metros por
-	# detras sale en el encuadre. Un muro nuevo no tiene por que cambiar una
-	# referencia que va de la POSTURA del personaje.
-	var centro := Vector3(-26.0, 0.0, 20.0)
+	# Sitio elegido MIRANDO el resto del Gym, no a ojo. Los dos intentos previos
+	# fallaron por eso: (-9,0,-20) asomaba por detras de las rampas y contaminaba
+	# las tomas de escalada, y (-26,0,20) caia DENTRO de la base de la torre
+	# —x -28.5..-19.5, z 17.5..26.5— asi que la lanza se clavaba en la torre a
+	# ochenta centimetros de salir.
+	#
+	# Al fondo del +Z, DETRAS de la camara de `gym_general` —que esta en
+	# (14, 9, 22) mirando al origen—, lejos del domo (28,0,30) y CON SUELO debajo
+	# —el Gym mide 70x70 centrado en el origen, asi que pasado z=35 no hay nada—. Los dos intentos
+	# previos fallaron por no mirar el resto del Gym: (-26,0,20) caia DENTRO de la
+	# base de la torre y (6,0,16) se plantaba en mitad del espacio de juego,
+	# tapando medio encuadre general con un paredon de 12x9.
+	#
+	# Y mide 7x5, no 12x9: para tirarle una lanza no hace falta mas, y cuanto
+	# menos ocupa menos estorba.
+	var centro := Vector3(0.0, 0.0, 26.0)
 	_etiqueta("MURO DE LA LANZA — tirala, clavala, subete", centro + Vector3(0, 0.06, 4.0))
-	_bloque("MuroLanza", Vector3(12.0, 9.0, 1.0), centro + Vector3(0, 4.5, 0), _mat_piedra_osc)
+	_bloque("MuroLanza", Vector3(7.0, 5.0, 1.0), centro + Vector3(0, 2.5, 0), _mat_piedra_osc)
 
 	# En el editor no hay jugador ni autoloads listos: el muro se dibuja para
 	# poder colocarlo, pero la lanza es cosa del juego corriendo.

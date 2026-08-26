@@ -46,8 +46,9 @@ se implementa.
 ## EN PROCESO
 
 - **Fase 3 — la lanza.** Etapa 0 (Escape abre el menú) y **etapa 1** hechas: la
-  lanza vuela, atraviesa cuerpos, se clava en piedra y es plataforma. Quedan
-  reposicionamiento, cordón, balanceo, moveset y la interfaz contra colosos.
+  lanza vuela, atraviesa cuerpos, se clava en piedra y es plataforma. **Etapa 2**
+  hecha: el zip te lleva hasta ella —impulso, no teletransporte— conservando
+  momentum. Quedan cordón, balanceo, moveset y la interfaz contra colosos.
 
 ---
 

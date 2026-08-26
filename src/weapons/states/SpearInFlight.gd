@@ -41,7 +41,8 @@ func physics_update(delta: float) -> void:
 	if not golpe.is_empty():
 		var punto: Vector3 = golpe["position"]
 		lanza.global_position = punto + lanza.direccion * tuning.hundimiento
-		fsm.cambiar(&"Embedded", {"punto": punto, "normal": golpe["normal"]})
+		fsm.cambiar(&"Embedded", {
+			"punto": punto, "normal": golpe["normal"], "cuerpo": golpe["collider"]})
 		return
 
 	lanza.global_position = hasta

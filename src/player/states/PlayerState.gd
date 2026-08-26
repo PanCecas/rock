@@ -70,6 +70,17 @@ func maneja_salto() -> bool:
 	return false
 
 
+## ¿Este estado sobrevive a quedarse sin stamina?
+##
+## `GroupAttached` te suelta en cuanto la stamina llega a cero, y esta bien: sin
+## fuerzas te resbalas de una pared. Pero eso vale para lo que se SOSTIENE —
+## escalar, colgarse—, no para un gesto que ya se pago entero al empezar. El zip
+## a la lanza cuesta 12 de golpe; con 12 justos arrancaba y se cancelaba solo al
+## frame siguiente, que se lee como que el juego ignoro la pulsacion.
+func resiste_agotamiento() -> bool:
+	return false
+
+
 ## Texto para el DebugOverlay. Se sobrescribe si el estado tiene algo que contar.
 func debug_line() -> String:
 	return ""

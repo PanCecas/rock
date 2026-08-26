@@ -565,3 +565,30 @@ func velocidad_salto_corto() -> float:
 ## Velocidad del dash derivada de distancia y duración.
 func velocidad_dash() -> float:
 	return dash_distancia / maxf(dash_duracion, 0.001)
+
+
+# --- Lanza: cambiar de posicion ----------------------------------------------
+@export_group("Lanza")
+## Velocidad de crucero del tiron hacia la lanza.
+##
+## 21 y no mas, a proposito: el clamp global esta en `velocidad_maxima` (22) y se
+## aplica en `_limitar_velocidad()`, un solo sitio, justo antes de mover (regla
+## dura #12). Un zip mas rapido que eso se recortaria EN SILENCIO en horizontal
+## y no en vertical, asi que subir a una lanza clavada arriba se sentiria bien y
+## cruzar en horizontal se sentiria roto, sin que nada avisara.
+@export_range(5.0, 60.0, 0.5) var zip_velocidad: float = 21.0
+## Lo rapido que se alcanza esa velocidad. Alto: el tiron tiene que ser inmediato.
+@export_range(10.0, 400.0, 5.0) var zip_aceleracion: float = 170.0
+## A que distancia de la lanza se considera que has llegado.
+@export_range(0.3, 5.0, 0.1) var zip_radio_llegada: float = 1.5
+## Techo de duracion. Existe por si la lanza queda detras de un muro: sin esto el
+## jugador se quedaria empujando contra la piedra para siempre.
+@export_range(0.2, 6.0, 0.1) var zip_duracion_max: float = 1.6
+## Coste de stamina, de golpe al empezar. Es un recurso de movilidad, no gratis.
+@export_range(0.0, 60.0, 1.0) var zip_stamina: float = 12.0
+## Fraccion de la velocidad que se CONSERVA al llegar.
+##
+## `docs/03 §5` lo pide para el modo Zip y tiene razon: si al llegar te frenas en
+## seco, el zip solo sirve para colocarte y no para encadenar. Conservando
+## momentum, llegar es el principio de otra cosa.
+@export_range(0.0, 1.5, 0.05) var zip_conserva: float = 0.8

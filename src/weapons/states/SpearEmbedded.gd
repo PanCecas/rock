@@ -13,7 +13,13 @@ extends SpearState
 func enter(msg: Dictionary = {}) -> void:
 	lanza.punto_clavado = msg.get("punto", lanza.global_position)
 	lanza.normal_clavado = msg.get("normal", Vector3.UP)
+	lanza.cuerpo_clavado = msg.get("cuerpo", null) as Node3D
 	lanza.poner_plataforma()
+	# FUERA de la pared, sobre el trozo de asta que sobresale. El origen de la
+	# lanza queda hundido dentro de la superficie, asi que dejar la plataforma
+	# ahi la entierra y el jugador la atraviesa al caer encima.
+	lanza.colocar_plataforma(lanza.punto_clavado
+		+ lanza.normal_clavado * tuning.plataforma_salida)
 	# Clavada CONTRA la superficie: el asta apunta hacia dentro.
 	lanza.apuntar_a(-lanza.normal_clavado)
 	EventBus.camara_shake.emit(0.35, 0.12)

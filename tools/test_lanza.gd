@@ -18,6 +18,13 @@ var _fallos: PackedStringArray = []
 var _visto: Dictionary = {}
 var _aux: float = 0.0
 var _origen: Vector3 = Vector3.ZERO
+## Pulsa la cuerda durante unos frames: 1 = con lanza fuera, 2 = con lanza en mano.
+var _zip: int = 0
+var _vel_llegada: float = 0.0
+## Latches del zip. Se miden MIENTRAS pasa, no al final: cuando termina la
+## ventana del chequeo el jugador ya ha llegado arriba y ha vuelto a caer.
+var _alto_max: float = -99.0
+var _dist_min: float = 9999.0
 
 
 func _ready() -> void:
@@ -40,7 +47,7 @@ func _construir() -> void:
 		_chequeo_("se clava en un muro", 1.4,
 			func() -> void:
 				# Frente al muro de la lanza, mirandolo.
-				_p.global_position = Vector3(-26.0, 0.05, 27.0)
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
 				_p.velocity = Vector3.ZERO
 				_visto.clear()
 				_l.lanzar(_p.global_position + Vector3.UP, Vector3(0, 0.25, -1).normalized()),
@@ -67,7 +74,7 @@ func _construir() -> void:
 		# --- RECUPERACION -----------------------------------------------------
 		_chequeo_("vuelve a la mano", 2.0,
 			func() -> void:
-				_p.global_position = Vector3(-26.0, 0.05, 27.0)
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
 				_p.velocity = Vector3.ZERO
 				_visto.clear()
 				_l.recuperar(),
@@ -80,6 +87,44 @@ func _construir() -> void:
 				var pl := _l.get_node_or_null("Plataforma") as StaticBody3D
 				return pl != null and not pl.get_collision_layer_value(1),
 			"una plataforma que sobrevive a la lanza es un bloque flotante"),
+
+		# --- CAMBIAR DE POSICION (etapa 2) ------------------------------------
+		_chequeo_("zip: te acerca a la lanza clavada", 2.2,
+			func() -> void:
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_l.lanzar(_p.global_position + Vector3.UP, Vector3(0, 0.35, -1).normalized())
+				_aux = 0.0
+				_visto.clear()
+				_alto_max = -99.0
+				_dist_min = 9999.0
+				_zip = 1,
+			func() -> bool:
+				# Llego a la lanza Y gano altura. Las dos medidas son latches: al
+				# terminar la ventana ya ha vuelto a caer, asi que preguntarlo al
+				# final mediria la gravedad, no el zip.
+				return _dist_min < 4.0 and _alto_max > 2.0,
+			"tirarla a lo alto y subirse es el bucle de progresion vertical"),
+
+		_chequeo_("y al llegar CONSERVA momentum", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _vel_llegada > 1.0,
+			"frenarse en seco al llegar convierte el zip en un colocador, no en un enlace"),
+
+		_chequeo_("sin lanza fuera de la mano no hay zip", 0.8,
+			func() -> void:
+				# Directo a la mano y no `recuperar()`: recuperar tarda dos decimas
+				# en volver, y durante ese vuelo la lanza SIGUE estando fuera de la
+				# mano, asi que el zip disparaba con razon y el test medía otra cosa.
+				_l.fsm.cambiar(&"Wielded")
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_visto.clear()
+				_zip = 2,
+			func() -> bool: return not _visto.has(&"SpearZip"),
+			"con la lanza en la mano no hay a donde tirar"),
 
 		# --- ATRAVESAR --------------------------------------------------------
 		_chequeo_("atraviesa a los enemigos sin pararse", 1.2,
@@ -124,6 +169,19 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _zip > 0:
+		# Se pulsa a mano: el buffer es el unico camino del input (regla dura #4)
+		# y esta es la forma de simular una pulsacion desde un test.
+		Input.action_press(&"rope")
+		_zip -= 1
+		if _zip == 0:
+			Input.action_release(&"rope")
+	_visto[_p.fsm.nombre_actual()] = true
+	if _p.fsm.nombre_actual() == &"SpearZip":
+		_vel_llegada = _p.velocity.length()
+	_alto_max = maxf(_alto_max, _p.global_position.y)
+	if _l != null and is_instance_valid(_l):
+		_dist_min = minf(_dist_min, _p.global_position.distance_to(_l.global_position))
 	if _l != null and is_instance_valid(_l):
 		_visto[_l.fsm.nombre_actual()] = true
 		if _l.fsm.nombre_actual() == &"InFlight":

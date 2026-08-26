@@ -43,6 +43,9 @@ var direccion: Vector3 = Vector3.FORWARD
 ## Punto y normal del clavado. Los escribe `Embedded`.
 var punto_clavado: Vector3 = Vector3.ZERO
 var normal_clavado: Vector3 = Vector3.UP
+## EN QUE se clavo. Lo necesita la Fase 4 —una lanza clavada en un coloso es un
+## asidero que se mueve con el— y de paso hace depurable el vuelo.
+var cuerpo_clavado: Node3D = null
 
 var _mat: StandardMaterial3D
 
@@ -110,6 +113,12 @@ func poner_plataforma() -> void:
 	var forma := plataforma.get_node_or_null("Forma") as CollisionShape3D
 	if forma != null:
 		forma.disabled = false
+
+
+## Deja la plataforma en un punto del mundo, independiente de donde este el asta.
+func colocar_plataforma(punto: Vector3) -> void:
+	if plataforma != null:
+		plataforma.global_position = punto
 
 
 func soltar_plataforma() -> void:

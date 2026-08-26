@@ -29,6 +29,13 @@ extends Resource
 ## Lado de la plataforma cuadrada que aparece al clavarse. `docs/03 §4.3` fija
 ## 0.4 m: cabe una cápsula de pie y no tanto como para caminar por encima.
 @export_range(0.1, 2.0, 0.05) var plataforma_lado: float = 0.4
+## Cuanto SALE la plataforma de la superficie, a lo largo de la normal.
+##
+## Existe porque la lanza se hunde `hundimiento` metros al clavarse, asi que su
+## origen queda DENTRO de la pared. Colgar ahi la plataforma la entierra: el
+## jugador cae encima y la atraviesa porque el muro esta en medio. Se pisa el
+## ASTA, que es lo que sobresale, no el punto de impacto.
+@export_range(0.0, 2.0, 0.05) var plataforma_salida: float = 0.45
 ## Grosor de esa plataforma. Fina, para que se lea como "estoy sobre la lanza" y
 ## no como "hay un bloque flotando".
 @export_range(0.02, 0.5, 0.01) var plataforma_grosor: float = 0.12

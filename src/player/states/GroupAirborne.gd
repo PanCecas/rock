@@ -132,6 +132,12 @@ func shared_update(delta: float) -> void:
 				fsm.cambiar(&"WallSlide")
 				return
 
+	# 4.5) ZIP A LA LANZA. Detras del terreno y delante del combate: si hay lanza
+	#      fuera de la mano, tirar de la cuerda gana a atacar. Es un verbo de
+	#      posicion y estas en el aire; atacar puede esperar medio segundo.
+	if intentar_zip():
+		return
+
 	# 5) Combate aereo. El plunge es el pesado: cae a plomo y revienta en area.
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
