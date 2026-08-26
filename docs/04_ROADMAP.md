@@ -704,7 +704,21 @@ impresion del movimiento y no puede ser la mas floja.
 - **La guia de ProtonScatter.** El plugin ya compila en 4.7 desde la 3.02; falta el
   ejemplo de uso.
 
-Tests: Fase 1 **12/12** · Fase 2 **129/129** · Enemigos **9/9** · visual **7/7** ·
+**LOS TRES ENEMIGOS SE ESCALABAN COMO EL GUARDIAN.** Cazado despues, y solo por
+una imagen: el generador de escenas reemplazaba `radius`/`height` con `count=1`,
+asi que tocaba el `CapsuleShape3D` y dejaba el `CapsuleMesh` con las medidas del
+Guardian. El coloso tenia collider de 7 m y **malla de 2 m**: un muro invisible
+con una capsula pequena pintada en medio. Collider y hurtbox eran correctos, asi
+que los 150 tests funcionales pasaron sin inmutarse —miden colisiones, no
+pixeles—. Corregidas las tres mallas y sacada la marca del frente al radio real.
+
+Con ello el `TestVisual` pasa de 7 a **10 tomas**: `corral_enemigos` (los tres en
+fila con el jugador al lado de regla), `coloso_escalada` (la pose de agarre
+contra el torso, que el funcional solo comprobaba con un booleano) y
+`volador_alcance` (la separacion vertical que hoy lo hace inalcanzable, leyendo
+`altura_vuelo` del propio nodo).
+
+Tests: Fase 1 **12/12** · Fase 2 **129/129** · Enemigos **9/9** · visual **10/10** ·
 humo 0 infracciones. La baseline `gym_general` se regenero por el corral nuevo,
 despues de mirar el diff en `user://visual/` y comprobar que lo rojo era **solo** el
 muro, su cartel y las tres capsulas: capsula del jugador, rampas y plataformas sin

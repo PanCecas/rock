@@ -208,7 +208,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
-| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 7 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
+| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 10 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |

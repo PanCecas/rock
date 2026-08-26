@@ -21,7 +21,7 @@ height = 1.40
 
 [sub_resource type="CapsuleMesh" id="malla"]
 radius = 0.45
-height = 2.0
+height = 1.40
 
 [sub_resource type="BoxMesh" id="marca"]
 size = Vector3(0.3, 0.3, 0.12)
@@ -47,7 +47,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 mesh = SubResource("malla")
 
 [node name="Marca" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -0.42)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.30, -0.51)
 mesh = SubResource("marca")
 
 [node name="Salud" type="Node" parent="."]

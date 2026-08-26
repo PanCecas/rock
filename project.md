@@ -132,6 +132,97 @@ Lo que sí conviene saber ya, porque condiciona decisiones del presente:
 No añadir `MountPoint`, `RiderComponent` ni ganchos "por si acaso": un hueco vacío
 en la arquitectura envejece peor que un hueco inexistente.
 
+### 5. BOSS: el sincronizador — modelo de Kuramoto **idea, no implementar**
+
+Un jefe que proyecta **dos copias de sí mismo**. Tres cuerpos en pantalla, uno
+solo real. Cuando el real se mueve o ataca, las copias repiten lo mismo **con
+desfase**, y el sistema entero tiende a sincronizarse solo.
+
+#### Qué es el modelo de Kuramoto, y por qué no es decoración
+
+Es el modelo estándar de sincronización espontánea: N osciladores, cada uno con
+una fase `θᵢ` y una frecuencia propia `ωᵢ`, acoplados entre sí.
+
+```
+dθᵢ/dt = ωᵢ + (K/N) · Σⱼ sin(θⱼ − θᵢ)
+```
+
+Por debajo de un acoplamiento crítico `Kc` cada uno va a su ritmo. Por encima,
+**se enganchan solos** y acaban latiendo como uno. Lo que mide cuánto lo están es
+el *parámetro de orden*:
+
+```
+r = | (1/N) · Σⱼ e^{iθⱼ} |          r = 0 disperso · r = 1 al unísono
+```
+
+Importa porque esas dos fórmulas **son las reglas del combate**, no una excusa
+temática. `r` es la amenaza y `K` es la dificultad, y las dos son un solo número
+que ya significa algo por sí mismo.
+
+#### La mecánica que sale de ahí
+
+- **`r` es el peligro.** Con `r → 1` los tres golpean en el mismo instante y el
+  ataque es imparable. Con `r → 0` llegan escalonados y hay hueco entre golpe y
+  golpe. El jugador no lucha contra puntos de vida: **lucha por mantener `r`
+  bajo**.
+- **Pegar desfasa.** Un impacto perturba la fase del cuerpo que lo recibe. Esa es
+  la acción principal, y por eso el jefe no se mata a base de daño: se
+  *desordena*.
+- **`K` sube durante la pelea.** Cuanto más avanza, más fuerte tiran de volver a
+  engancharse. Un solo número controla toda la curva de dificultad, y el
+  jugador la siente como "cada vez cuesta más mantenerlos separados".
+
+#### Cómo se sabe cuál es el real — y por qué esto es lo bueno
+
+**Que la respuesta salga de las propias matemáticas, no de un truco visual.**
+
+Las copias están esclavizadas al real: es el marcapasos. Entonces
+
+- golpear una **copia** la desfasa a ella, y vuelve a engancharse enseguida;
+- golpear al **real** desfasa a los tres, porque las otras dos están acopladas
+  a él.
+
+O sea: **pega a uno y mira a los otros dos.** Si el sistema entero se tambalea,
+ese era el bueno. No hace falta un brillo distinto, ni una barra, ni un tell
+animado. La identificación es una *lectura del sistema*, que es exactamente la
+habilidad que pide el resto del juego.
+
+#### Legibilidad: la fase se ve
+
+Tres cuerpos atacando a la vez es un caos ilegible salvo que la fase se lea de un
+vistazo. La vía barata y consistente con lo que ya hay: **fase → color**, igual
+que `Enemigo._actualizar_color()` ya usa el color para decir el estado.
+Sincronizados laten del mismo color a la vez; desincronizados son tres colores
+corridos. `r` se ve sin números.
+
+Ojo con la regla dura #8: los tonos azul y rojo están reservados y el croma de
+los acentos tiene mínimo. La rueda de fase tendrá que vivir dentro de lo que
+`Palette.validar()` permita, o ser el caso justificado que la rompe a propósito.
+
+#### Riesgos, dichos ahora y no cuando duela
+
+- **Tres hitboxes vivas a la vez no se pueden leer.** Casi seguro solo uno puede
+  tener hitbox activa mientras están desincronizados; sincronizados es cuando el
+  golpe triple existe, y por eso da miedo.
+- **Un ataque en área lo rompe.** Si se puede pegar a los tres de golpe, la
+  identificación sobra y la mecánica se cae. Las copias tienen que ser inmunes,
+  o castigar al que pega a ciegas.
+- **Kuramoto es tiempo continuo.** En un juego es integrar una ODE por frame:
+  trivial. Lo que no es trivial es elegir `ωᵢ` y `K` para que el resultado sea
+  *jugable* y no un péndulo caótico. Eso se calibra en el Gym con capsulas
+  grises, como todo lo demás.
+
+#### Qué NO hace falta construir antes
+
+Nada nuevo. La FSM de enemigos extraída en la 3.03 ya deja que cada enemigo
+declare sus estados en su escena, y una fase es un `float`. El jefe es un
+`Enemigo` con tres cuerpos y un director que integra las fases.
+
+Dónde encaja: **después** del coloso mediano y probablemente junto a la Fase 4.
+Es un jefe de *ritmo*, no de escalada, así que complementa al coloso en vez de
+competir con él — pero pide que el combate base esté cerrado, porque toda su
+gracia depende de que pegar y esquivar ya se sientan bien.
+
 ---
 
 ## Agua — Fase 2
