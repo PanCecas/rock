@@ -148,7 +148,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 
 ## Controles
 
-**La fuente de verdad es el menu del juego (F1), no esta tabla.** El menu lee las
+**La fuente de verdad es el menu del juego (Escape), no esta tabla.** El menu lee las
 teclas del InputMap en vivo, asi que no puede mentir; esta tabla es papel y ya se
 desincronizo una vez —siguio anunciando la embestida en primera persona semanas
 despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige aqui.
@@ -184,7 +184,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Parry | Q | LT |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
-| **Menu de controles** | **F1** (Escape cierra) | Start |
+| **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
 
 **El planeo esta separado del salto a proposito.** Compartir tecla obligaba a

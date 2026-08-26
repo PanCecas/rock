@@ -1,5 +1,5 @@
 extends CanvasLayer
-## MENÚ DE CONTROLES. F1 lo abre, F1 o Escape lo cierran.
+## MENÚ DE CONTROLES. **Escape** lo abre y lo cierra; F1 hace lo mismo.
 ##
 ## Es la primera UI del proyecto (`src/ui/` estaba vacío), así que fija dos
 ## costumbres para las que vengan detrás:
@@ -26,6 +26,15 @@ extends CanvasLayer
 ## dejar una fila vacía que nadie mira.
 
 ## Acción que abre y cierra. Se declara aquí y se comprueba en `_validar()`.
+##
+## Hoy es **Escape**, con F1 de alias. Escape es la tecla que todo el mundo
+## prueba primero, y mientras no haya nada más que abrir es suya.
+##
+## AVISO PARA CUANDO LO HAYA: en cuanto exista un menú de pausa de verdad
+## —o un inventario— Escape va a estar disputado, y estos controles deberían
+## dejar de ser una pantalla suelta para pasar a ser una PÁGINA dentro de él.
+## No es un cambio grande si se hace entonces; sí lo es si para entonces hay
+## tres pantallas peleándose por la misma tecla.
 const ACCION_MENU := &"menu_controles"
 
 var abierto: bool = false
@@ -46,14 +55,13 @@ func _ready() -> void:
 
 
 func _unhandled_input(evento: InputEvent) -> void:
+	# Un solo camino. Escape estaba ademas cableado a mano aqui para cerrar,
+	# porque la accion era solo F1; ahora Escape ES la accion y esa rama sobraba.
+	# Dos caminos para el mismo gesto es como se llega a que uno de los dos se
+	# quede sin actualizar.
 	if InputMap.has_action(ACCION_MENU) and evento.is_action_pressed(ACCION_MENU):
 		alternar()
 		get_viewport().set_input_as_handled()
-		return
-	if abierto and evento is InputEventKey and (evento as InputEventKey).pressed:
-		if (evento as InputEventKey).keycode == KEY_ESCAPE:
-			alternar()
-			get_viewport().set_input_as_handled()
 
 
 func alternar() -> void:
