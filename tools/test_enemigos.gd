@@ -176,6 +176,35 @@ func _construir() -> void:
 				return _e.arrastre_en_el_borde() < _p.tuning.velocidad_caminar,
 			"si el borde barre mas rapido que caminar, no puedes andar en contra"),
 
+		# LAS TRES PIEZAS QUE IMPIDEN EL ARRASTRE. Se comprueban por separado porque
+		# cada una, por si sola, lo reintroduce entera: el movimiento se aplicaba
+		# DOS VECES —`move_and_slide` acarreando desde WORLD y `arrastrar()`
+		# moviendote con el marco— y montarse encima era un caos.
+		_chequeo_("no cuenta como plataforma movil", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				# En WORLD, `move_and_slide` acarrea. En COLOSSUS_SURFACE el jugador
+				# choca igual —su mascara la incluye— pero no hereda el giro.
+				return (not (_e as CollisionObject3D).get_collision_layer_value(1)
+					and (_e as CollisionObject3D).get_collision_layer_value(11)),
+			"si vuelve a la capa WORLD, girar arrastra a quien tenga encima"),
+
+		_chequeo_("y el jugador solo acarrea desde mundo estatico", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				return (_p.platform_floor_layers == Layers.WORLD
+					and _p.platform_wall_layers == Layers.WORLD),
+			"por defecto son TODAS las capas, que es como empezo el bug"),
+
+		_chequeo_("y agarrarse a el no lo adopta como marco", 0.6,
+			func() -> void:
+				_p.global_position = _e.global_position + Vector3(0.0, 1.0, 2.5)
+				_p.set("velocity", Vector3.ZERO)
+				_p.call("orientar_a", Vector3(0, 0, -1))
+				_p.fsm.cambiar(&"Climb"),
+			func() -> bool: return _p.superficie.frame == null,
+			"un marco movil arrastra; hoy nadie declara serlo y eso es lo correcto"),
+
 		_chequeo_("el jugador se agarra a el", 1.6,
 			func() -> void:
 				_p.global_position = _e.global_position + Vector3(0, -1.5, 2.6)

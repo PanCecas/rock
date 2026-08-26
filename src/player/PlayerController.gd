@@ -196,6 +196,18 @@ func _configurar_cuerpo() -> void:
 	wall_min_slide_angle = deg_to_rad(12.0)
 	safe_margin = 0.02
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
+	# ACARREO DE PLATAFORMA: SOLO desde mundo estatico.
+	#
+	# Estas dos propiedades no se tocaban, y por defecto valen TODAS LAS CAPAS.
+	# Eso significaba que `move_and_slide` acarreaba al jugador desde cualquier
+	# cuerpo que se moviera... incluido el coloso escalable, que ademas ya te
+	# arrastra por su cuenta via `SurfaceContext.arrastrar()`. El movimiento se
+	# aplicaba DOS VECES, y por eso montarse encima era un caos.
+	#
+	# El marco movil de un coloso es trabajo de `SurfaceContext` —regla dura #3—,
+	# no del acarreo del motor. Un solo mecanismo, y es el nuestro.
+	platform_floor_layers = Layers.WORLD
+	platform_wall_layers = Layers.WORLD
 	up_direction = superficie.up
 
 

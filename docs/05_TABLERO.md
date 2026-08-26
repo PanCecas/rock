@@ -25,15 +25,15 @@ Cinco estados, y la diferencia entre ellos importa:
 | Traversal: FSM jerárquica de 5 grupos y 27 estados | `TestFase1` 12/12 |
 | `SurfaceContext` + `LocomotionMotor`, escalada 45–110° | `TestFase1` · `TestVisual` |
 | Combate: `AttackData`, hitbox por consulta, hitstop, parry, poise, ragdoll | `TestFase2` 129/129 |
-| **FSM de enemigos extraída** (P0.1) — `Guardian.gd` de 372 a ~100 líneas | `TestEnemigos` 14/14 |
-| Embestidor · Volador · ColosoMediano | `TestEnemigos` 14/14 |
+| **FSM de enemigos extraída** (P0.1) — `Guardian.gd` de 372 a ~100 líneas | `TestEnemigos` 17/17 |
+| Embestidor · Volador · ColosoMediano | `TestEnemigos` 17/17 |
 | Los dos clavados diferenciados: ligero rebota, pesado levanta | `TestFase2` |
 | Screenshot test, 10 tomas | `TestVisual` 10/10 |
 | Mallas de los tres enemigos (collider ≠ visual) | `TestVisual` · toma `corral_enemigos` |
 | ProtonScatter compilando en 4.7 | arranque limpio |
 | **Portabilidad**: Player, Volador, Guardián y Coloso arrancan en escena desnuda | medido, ver §Notas |
 | **Apuntado en 3D** — un enemigo encima ya se puede fijar | `TestEnemigos` |
-| **El arrastre del coloso** — 13.82 → **1.73 m/s** en el borde, por debajo de caminar | `TestEnemigos`, invariante |
+| **El arrastre del coloso** — de 3.11 m de acarreo a **0.00**. Se aplicaba dos veces | `TestEnemigos`, 4 invariantes |
 | **La altura del volador** — medida sobre el suelo, no sobre tu cabeza | `TestEnemigos` |
 | **Menu de controles (F1)** — primera UI del proyecto, lee el InputMap en vivo | `TestMenu` 4/4 |
 

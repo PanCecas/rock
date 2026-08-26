@@ -31,6 +31,11 @@ extends Enemigo
 ## Capa CLIMBABLE del proyecto (`Layers.gd`). El `WallSensor` la busca desde la
 ## Fase 1: marcar el collider es todo lo que hace falta para que se pueda trepar.
 const CAPA_CLIMBABLE := 4
+## Capa 11 = `Layers.COLOSSUS_SURFACE`. El jugador la pisa igual que el mundo
+## —su mascara es `WORLD | COLOSSUS_SURFACE` y `SUELO_JUGADOR` tambien—, pero
+## NO cuenta como plataforma movil, asi que girar no arrastra a quien tenga
+## encima. Ver `PlayerController._configurar_cuerpo()`.
+const CAPA_SUPERFICIE_COLOSO := 11
 
 
 func _ready() -> void:
@@ -71,5 +76,11 @@ func _marcar_escalable() -> void:
 	if col == null:
 		return
 	set_collision_layer_value(CAPA_CLIMBABLE, true)
-	# También cuenta como mundo: si no, el jugador lo atraviesa al caminar.
-	set_collision_layer_value(1, true)
+	# Solido para el jugador, pero por SUPERFICIE DE COLOSO y no por WORLD.
+	#
+	# Estuvo en WORLD y era la mitad del bug del arrastre: WORLD es la capa desde
+	# la que `move_and_slide` acarrea, asi que este cuerpo era una plataforma
+	# movil de 2.2 m de radio girando. Desde COLOSSUS_SURFACE el jugador choca
+	# igual —la mascara la incluye— pero no hereda su giro.
+	set_collision_layer_value(CAPA_SUPERFICIE_COLOSO, true)
+	set_collision_layer_value(1, false)

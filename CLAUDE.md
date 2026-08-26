@@ -86,7 +86,15 @@ plataformas en movimiento.
 	mirar el mapa de diff en `user://visual/` y comprobar que lo que ha cambiado
 	es lo que tenia que cambiar. Si el diff muestra algo que no esperabas, eso no
 	es una baseline vieja: es un bug.
-18. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+18. **UN SOLO mecanismo mueve al jugador con una superficie movil, y es
+	`SurfaceContext`.** El acarreo de `move_and_slide` esta acotado a `WORLD`
+	(`platform_floor_layers` / `platform_wall_layers`), y un cuerpo solo arrastra
+	si se declara en el grupo `marcos_moviles` —lista blanca, hoy vacia—. Los dos
+	defaults de Godot son "todas las capas", asi que el coloso escalable acababa
+	moviendo al jugador DOS VECES: una por el motor y otra por `arrastrar()`.
+	Montarse encima era un caos y costo dos rondas encontrarlo, porque `velocity`
+	marcaba 0.00 mientras el cuerpo se desplazaba metros.
+19. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
 	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
 	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
@@ -219,7 +227,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
-| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag y torso escalable. 9 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
