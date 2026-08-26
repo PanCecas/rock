@@ -33,6 +33,14 @@ func enter(_msg: Dictionary = {}) -> void:
 	# de cerca da un arco corto y rápido, de lejos uno largo y amplio. Que el jugador
 	# elija el radio con la posición desde la que se cuelga es control gratis.
 	_largo = clampf(player.global_position.distance_to(_ancla), 1.0, tuning.swing_largo_max)
+	# Y ademas: LA CUERDA SE ACORTA para que el fondo del arco no quede bajo
+	# tierra. Colgarse de un ancla a 5 m con 7 m de cuerda pone el punto bajo dos
+	# metros por debajo del suelo, asi que te estrellas en el primer cuarto de arco
+	# y parece que el balanceo esta roto. Es lo que haria cualquiera con una cuerda
+	# de verdad: agarrarla mas arriba.
+	var libre := _ancla.y - _suelo_bajo(_ancla) - tuning.swing_altura_minima
+	if libre > 1.0:
+		_largo = minf(_largo, libre)
 	EventBus.camara_shake.emit(0.2, 0.1)
 
 
@@ -111,6 +119,18 @@ func _colgable() -> bool:
 	if l == null or not is_instance_valid(l):
 		return false
 	return l.clavada_en_algo()
+
+
+## Y del suelo bajo un punto. Si no encuentra nada, se queda con la del propio
+## punto: sin suelo debajo no hay contra que estrellarse.
+func _suelo_bajo(punto: Vector3) -> float:
+	var espacio := player.get_world_3d().direct_space_state
+	var desde := punto + Vector3.UP * 0.5
+	var q := PhysicsRayQueryParameters3D.create(
+		desde, desde + Vector3.DOWN * (tuning.swing_largo_max + 10.0), Layers.SUELO_JUGADOR)
+	q.exclude = [player.get_rid()]
+	var r := espacio.intersect_ray(q)
+	return (r.position as Vector3).y if not r.is_empty() else punto.y
 
 
 func _punto_ancla() -> Vector3:

@@ -21,6 +21,7 @@ var _origen: Vector3 = Vector3.ZERO
 ## Pulsa la cuerda durante unos frames: 1 = con lanza fuera, 2 = con lanza en mano.
 var _zip: int = 0
 var _salto: int = 0
+var _cuerda: int = 0
 var _vel_llegada: float = 0.0
 ## Latches del zip. Se miden MIENTRAS pasa, no al final: cuando termina la
 ## ventana del chequeo el jugador ya ha llegado arriba y ha vuelto a caer.
@@ -148,9 +149,14 @@ func _construir() -> void:
 				_swing_ymin = 999.0
 				_swing_ymax = -999.0
 				_swing_vmax = 0.0
-				_p.fsm.cambiar(&"SpearSwing"),
-			func() -> bool: return _swing_vmax > 5.0,
-			"colgado de una lanza clavada, la gravedad tiene que ponerte a girar"),
+				# POR LA TECLA, no forzando el estado. Este chequeo estaba escrito
+				# con `fsm.cambiar(&"SpearSwing")` y por eso daba verde mientras el
+				# balanceo no aparecia jugando: comprobaba la fisica del pendulo y
+				# NO que se pueda entrar en el.
+				_p.fsm.cambiar(&"Fall")
+				_cuerda = 3,
+			func() -> bool: return _visto.has(&"SpearSwing") and _swing_vmax > 5.0,
+			"pulsar la cuerda en el aire, con la lanza clavada, tiene que colgarte"),
 
 		_chequeo_("el pendulo llega abajo del arco", 0.1,
 			func() -> void: pass,
@@ -163,6 +169,26 @@ func _construir() -> void:
 			func() -> void: pass,
 			func() -> bool: return _swing_ymax <= _swing_y0 + 0.5,
 			"con la gravedad asimetrica del juego el arco subia 6 m por encima de donde empezaba"),
+
+		_chequeo_("la cuerda se acorta para despejar el suelo", 2.2,
+			func() -> void:
+				# Ancla BAJA con el jugador lejos: la cuerda natural seria mas
+				# larga que la altura del ancla y el fondo del arco caeria bajo
+				# tierra. Asi se veia el balanceo desde fuera: te estrellabas en el
+				# primer cuarto de arco y parecia que no funcionaba.
+				_l.global_position = Vector3(16.0, 6.0, 34.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(16.0, 4.0, 43.0)
+				_p.velocity = Vector3(0, -2, 0)
+				_p.stamina.llenar()
+				_swing_ymin = 999.0
+				_swing_vmax = 0.0
+				_visto.clear()
+				_p.fsm.cambiar(&"Fall")
+				_cuerda = 3,
+			func() -> bool: return _visto.has(&"SpearSwing") and _swing_ymin > 0.4,
+			"con la cuerda mas larga que el ancla, el arco pasa BAJO TIERRA y te estrellas"),
 
 		_chequeo_("saltar suelta la cuerda", 1.0,
 			func() -> void:
@@ -219,6 +245,11 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _cuerda > 0:
+		Input.action_press(&"rope")
+		_cuerda -= 1
+		if _cuerda == 0:
+			Input.action_release(&"rope")
 	if _salto > 0:
 		Input.action_press(&"jump")
 		_salto -= 1

@@ -617,3 +617,10 @@ func velocidad_dash() -> float:
 ## Techo horizontal SOLO mientras cuelgas. El global (22) le quitaba energia al
 ## arco justo en su punto mas rapido. Medido: una cuerda de 14 m da 28 m/s totales.
 @export_range(10.0, 60.0, 0.5) var swing_velocidad_max: float = 34.0
+## Cuanto tiene que despejar el suelo el punto BAJO del arco.
+##
+## La cuerda se acorta sola hasta cumplirlo. Sin esto, colgarse de un ancla a 5 m
+## con 7 m de cuerda pone el fondo del arco DOS METROS BAJO TIERRA: te estrellas
+## en el primer cuarto de arco y parece que el balanceo no funciona. Acortar la
+## cuerda es lo que haria cualquiera con una cuerda de verdad.
+@export_range(0.0, 8.0, 0.1) var swing_altura_minima: float = 1.6

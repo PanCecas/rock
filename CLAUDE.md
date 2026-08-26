@@ -253,6 +253,13 @@ ataque llega de verdad. Si una comprobacion necesita un golpe enemigo, se entreg
 a mano con `recibir_golpe()`; orquestar la IA para que ataque en el frame exacto
 hace el test fragil sin probar nada mas.
 
+**Un test que fuerza el estado no prueba que se pueda LLEGAR a el.** El balanceo
+tuvo cuatro comprobaciones en verde mientras el usuario reportaba que no se
+balanceaba, porque el test hacia `fsm.cambiar(&"SpearSwing")` en vez de pulsar la
+tecla: media la fisica del pendulo y no la ENTRADA. Todo verbo nuevo se prueba por
+su camino de entrada real —`Input.action_press()` y el `InputBuffer`— aunque
+ademas se mida su fisica aparte.
+
 **Los tres tests son complementarios y ninguno sustituye a otro:** el funcional
 comprueba que la FSM llega a un estado, el de medicion cronometra como se siente,
 y el visual comprueba que el personaje se VE bien estando ahi. Media docena de
