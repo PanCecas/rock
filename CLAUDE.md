@@ -226,7 +226,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
-| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 10 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
+| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 11 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
@@ -289,8 +289,9 @@ la **IA acuatica**, documentada en `project.md`.
 se para en seco contra piedra y al clavarse es **plataforma** — tirarla a lo alto
 y subirse encima ya funciona. FSM propia en `src/weapons/`, con el mismo patron
 que la de enemigos. Etapa 2 tambien: **zip** hasta la lanza, con impulso y
-no teletransporte, conservando momentum al llegar. Faltan cordon, balanceo,
-moveset y la interfaz contra colosos.
+no teletransporte, conservando momentum al llegar. Y **etapa 3**: el cordon,
+verlet de paso fijo y **puramente visual** —no colisiona, no se corta, no
+restringe nada—. Faltan balanceo, moveset y la interfaz contra colosos.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

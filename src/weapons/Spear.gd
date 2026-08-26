@@ -36,6 +36,7 @@ signal estado_cambiado(nombre: StringName)
 @onready var hitbox: Hitbox = $Hitbox
 @onready var visual: Node3D = $Visual
 @onready var plataforma: StaticBody3D = $Plataforma
+@onready var cordon: Cordon = $Cordon
 
 var dueno: Node3D = null
 ## Dirección de vuelo. La escribe `InFlight`.
@@ -57,6 +58,8 @@ func _ready() -> void:
 		palette = GameState.palette
 	dueno = get_node_or_null(dueno_path) as Node3D
 	_preparar_visual()
+	if cordon != null:
+		cordon.palette = palette
 	soltar_plataforma()
 	if hitbox != null:
 		hitbox.dueno = self
@@ -68,6 +71,19 @@ func _physics_process(delta: float) -> void:
 	if HitstopManager.global_activo():
 		return
 	fsm.physics_update(delta)
+	_tender_cordon()
+
+
+## El cordon se tiende desde la MANO, no desde el asta: la lanza clavada esta a
+## treinta metros y lo que cuelga del jugador es la cuerda, no el arma.
+##
+## Solo existe cuando la lanza esta fuera de la mano. Guardada o empunada no
+## cuelga de nada, y dibujar una cuerda de cero metros da una mancha en pantalla.
+func _tender_cordon() -> void:
+	if cordon == null:
+		return
+	var fuera := not en_mano() and fsm.nombre_actual() != &"Holstered"
+	cordon.tender(punto_de_mano(), global_position, fuera and dueno != null)
 
 
 # --- Servicios para los estados -----------------------------------------------

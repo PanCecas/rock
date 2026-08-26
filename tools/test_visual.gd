@@ -109,6 +109,15 @@ func _construir() -> void:
 		_toma("arena", Vector3(45, 7, -30), Vector3(45, 1, -45),
 			func() -> void: _situar(Vector3(45, 0.5, -34))),
 
+		# EL CORDON. Es lo UNICO que puede cubrirlo: el cordon no colisiona, no
+		# restringe nada y no cambia ningun estado —es adorno a proposito—, asi que
+		# ningun test funcional puede afirmar nada sobre el. O se mira, o no se
+		# comprueba.
+		_toma("cordon", Vector3.ZERO, Vector3.ZERO,
+			func() -> void: _tender_cordon(),
+			func() -> void: _sostener_cordon(),
+			func() -> void: _encuadrar_cordon()),
+
 		# --- CORRAL DEL 3.03 -------------------------------------------------
 		# `TestEnemigos` comprueba que la rafaga sale, que la carga no persigue y
 		# que `pared.hay_pared` se pone a true sobre el coloso. Ninguna de esas
@@ -159,6 +168,13 @@ func _tick() -> void:
 		# para fijar la pose, y ese congelado no puede sobrevivir a la siguiente.
 		_p.set_physics_process(true)
 		_pose = 0
+		# La lanza vuelve a la mano al empezar CADA toma. La del cordon la deja
+		# clavada, y con ella clavada el cordon cruza el resto de encuadres de
+		# punta a punta: el jugador se teletransporta al corral y la cuerda le
+		# sigue desde treinta metros.
+		var l: Spear = _p.get("lanza")
+		if l != null and is_instance_valid(l):
+			l.fsm.cambiar(&"Wielded")
 		(t["preparar"] as Callable).call()
 		if t.has("encuadre"):
 			(t["encuadre"] as Callable).call()
@@ -435,4 +451,47 @@ func _encuadrar_volador() -> void:
 	# Por el sur y algo escorada. Hacia el este no se puede: a x ~18.5 empiezan
 	# los muros de 9 m de la piscina y la camara acaba DENTRO, mirando su pared.
 	_cam.global_position = medio + Vector3(-3.5, 0.5, 9.0)
+	_cam.look_at(medio, Vector3.UP)
+
+
+# --- El cordon ----------------------------------------------------------------
+
+## Punto desde el que se tira, delante del muro de la lanza del Gym.
+const ANTE_MURO := Vector3(0.0, 0.05, 33.0)
+
+
+func _tender_cordon() -> void:
+	_situar(ANTE_MURO)
+	var l: Spear = _p.get("lanza")
+	if l == null:
+		return
+	# Un poco hacia arriba, para que se clave a media altura del muro y el cordon
+	# tenga caida que ensenar. Clavada a ras de suelo la cuerda seria una recta.
+	l.fsm.cambiar(&"Wielded")
+	l.lanzar(l.punto_de_mano(), Vector3(0.0, 0.30, -1.0).normalized())
+
+
+## El jugador se queda quieto: los DOS extremos tienen que estar parados para que
+## el verlet llegue a su reposo. Con uno moviendose la cuerda nunca se asienta y
+## la referencia baila.
+func _sostener_cordon() -> void:
+	_p.global_position = ANTE_MURO
+	_p.set("velocity", Vector3.ZERO)
+	# Al reposo a mano en cuanto se clava. Dejar que se asiente sola depende de
+	# cuanto tiempo real pase, y eso cambia con la maquina: la toma bailaba entre
+	# 0.36% y 0.54% con el tope en 0.40.
+	var l: Spear = _p.get("lanza")
+	if l != null and is_instance_valid(l) and l.clavada_en_algo():
+		l.cordon.asentar()
+
+
+func _encuadrar_cordon() -> void:
+	var l: Spear = _p.get("lanza")
+	if l == null:
+		_cam.global_position = ANTE_MURO + Vector3(7.0, 3.0, 6.0)
+		_cam.look_at(ANTE_MURO, Vector3.UP)
+		return
+	# De lado y con los dos extremos dentro: lo que se fotografia es la CURVA.
+	var medio := (_p.global_position + l.global_position) * 0.5
+	_cam.global_position = medio + Vector3(6.5, 1.6, 3.2)
 	_cam.look_at(medio, Vector3.UP)
