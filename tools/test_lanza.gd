@@ -32,6 +32,9 @@ var _swing_ymin: float = 999.0
 var _swing_ymax: float = -999.0
 var _swing_vmax: float = 0.0
 var _swing_y0: float = 0.0
+## Mayor salto de velocidad entre frames colgado. ES la medida de lo clunky.
+var _swing_tiron: float = 0.0
+var _v_ant: float = 0.0
 
 
 func _ready() -> void:
@@ -96,7 +99,7 @@ func _construir() -> void:
 			"una plataforma que sobrevive a la lanza es un bloque flotante"),
 
 		# --- CAMBIAR DE POSICION (etapa 2) ------------------------------------
-		_chequeo_("zip: te acerca a la lanza clavada", 2.2,
+		_chequeo_("la cuerda te lleva hasta la lanza clavada", 2.2,
 			func() -> void:
 				_p.global_position = Vector3(0.0, 0.05, 33.0)
 				_p.velocity = Vector3.ZERO
@@ -179,7 +182,9 @@ func _construir() -> void:
 				_l.global_position = Vector3(16.0, 6.0, 34.0)
 				_l.fsm.cambiar(&"Embedded", {
 					"punto": _l.global_position, "normal": Vector3.UP})
-				_p.global_position = Vector3(16.0, 4.0, 43.0)
+				# Dentro del suelo del Gym (70x70 centrado en el origen): en z=43
+				# no hay nada debajo, y sin suelo no hay altura que despejar.
+				_p.global_position = Vector3(16.0, 4.0, 25.0)
 				_p.velocity = Vector3(0, -2, 0)
 				_p.stamina.llenar()
 				_swing_ymin = 999.0
@@ -189,6 +194,33 @@ func _construir() -> void:
 				_cuerda = 3,
 			func() -> bool: return _visto.has(&"SpearSwing") and _swing_ymin > 0.4,
 			"con la cuerda mas larga que el ancla, el arco pasa BAJO TIERRA y te estrellas"),
+
+		# DESDE EL SUELO, UNA SOLA PULSACION. Es lo que se reporto como clunky:
+		# antes hacian falta dos gestos y dos estados —zip en el suelo, balanceo en
+		# el aire— para algo que en la cabeza del jugador es un movimiento.
+		_chequeo_("una sola Z desde el suelo ya te cuelga", 2.4,
+			func() -> void:
+				_l.global_position = Vector3(16.0, 9.3, 34.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(16.0, 0.05, 25.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_swing_tiron = 0.0
+				_swing_vmax = 0.0
+				_visto.clear()
+				_p.fsm.cambiar(&"Idle")
+				_cuerda = 3,
+			func() -> bool:
+				return (_visto.has(&"SpearSwing")
+					and _p.fsm.nombre_actual() == &"SpearSwing"
+					and _p.global_position.y > 1.0),
+			"engancharse a algo clavado es UNA accion, la empieces en el suelo o en el aire"),
+
+		_chequeo_("y no da tirones al pasar de recoger a girar", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _swing_tiron < 3.0,
+			"escribiendo la velocidad el salto era de 16.75 m/s en un frame: ESO es lo clunky"),
 
 		_chequeo_("saltar suelta la cuerda", 1.0,
 			func() -> void:
@@ -269,7 +301,12 @@ func _physics_process(delta: float) -> void:
 	if _p.fsm.nombre_actual() == &"SpearSwing":
 		_swing_ymin = minf(_swing_ymin, _p.global_position.y)
 		_swing_ymax = maxf(_swing_ymax, _p.global_position.y)
-		_swing_vmax = maxf(_swing_vmax, _p.velocity.length())
+		var v := _p.velocity.length()
+		_swing_tiron = maxf(_swing_tiron, absf(v - _v_ant))
+		_v_ant = v
+		_swing_vmax = maxf(_swing_vmax, v)
+	else:
+		_v_ant = _p.velocity.length()
 	if _l != null and is_instance_valid(_l):
 		_dist_min = minf(_dist_min, _p.global_position.distance_to(_l.global_position))
 	if _l != null and is_instance_valid(_l):

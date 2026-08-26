@@ -21,23 +21,24 @@ func shared_update(_delta: float) -> void:
 
 ## LA CUERDA, compartida. Devuelve true si ha cambiado de estado.
 ##
-## Un solo boton y una sola idea —"tirar de la cuerda"—, pero hace dos cosas
-## segun donde estes, y la regla es lo bastante corta para tenerla en la cabeza:
+## UNA sola cosa y un solo gesto:
 ##
-##   **en el suelo la cuerda te SUBE; en el aire te SOSTIENE.**
+##   lanza CLAVADA  -> te enganchas. Si estas lejos te recoge, y en cuanto llegas
+##                     al radio ya estas balanceandote. Sin cambio de estado en
+##                     medio y SIN tener que estar en el aire.
+##   lanza EN VUELO -> te tira hacia ella. No hay de que colgarse todavia: la
+##                     persigues.
 ##
-## Con la lanza en vuelo siempre tira, porque no hay de que colgarse todavia:
-## vas detras de ella.
-##
-## Esto no es un boton contextual de los que el proyecto evita. La INTENCION es
-## siempre la misma; lo que cambia es que tengas suelo debajo o no, que es algo
-## que el jugador ya sabe sin mirar.
+## Antes esto eran dos verbos separados —zip en el suelo, balanceo en el aire— y
+## se sentia clunky con razon: obligaba a dos pulsaciones y a un cambio de estado
+## para algo que en la cabeza del jugador es un movimiento. Engancharse a algo
+## clavado es UNA accion; que empiece recogiendo cuerda o girando es un detalle de
+## donde estabas, no una decision que haya que tomar.
 ##
 ## Vive aqui —y no repetido en cada grupo— porque es UNA regla. Los grupos solo
-## deciden DONDE en su orden preguntarla, que es lo unico que cambia entre ellos,
-## y va detras de las preguntas de TERRENO: el corolario de la regla dura #13 dice
-## que un guardia de accion no puede cancelar una transicion de terreno, y ahi
-## vivio el "floating fall".
+## deciden DONDE en su orden preguntarla, y va detras de las preguntas de TERRENO:
+## el corolario de la regla dura #13 dice que un guardia de accion no puede
+## cancelar una transicion de terreno.
 func intentar_cuerda() -> bool:
 	var l: Spear = player.lanza
 	if l == null or not is_instance_valid(l) or l.en_mano():
@@ -45,9 +46,7 @@ func intentar_cuerda() -> bool:
 	if not buffer.consume(InputActions.ROPE):
 		return false
 
-	# Colgarse pide una lanza CLAVADA y no tener suelo debajo. De una lanza en
-	# vuelo no cuelga nadie, y colgarse pisando el suelo no es colgarse.
-	if l.clavada_en_algo() and not player.is_on_floor():
+	if l.clavada_en_algo():
 		fsm.cambiar(&"SpearSwing", {}, true)
 		return true
 

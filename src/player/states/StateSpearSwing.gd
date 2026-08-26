@@ -23,6 +23,8 @@ extends PlayerState
 var _ancla: Vector3 = Vector3.ZERO
 var _largo: float = 0.0
 var _soltado_a_mano: bool = false
+## ¿Todavía se está recogiendo cuerda? Mientras sí, no hay péndulo: está floja.
+var _recogiendo: bool = false
 
 
 func enter(_msg: Dictionary = {}) -> void:
@@ -32,13 +34,21 @@ func enter(_msg: Dictionary = {}) -> void:
 	# El largo es la distancia a la que te enganchaste, no un valor fijo: engancharse
 	# de cerca da un arco corto y rápido, de lejos uno largo y amplio. Que el jugador
 	# elija el radio con la posición desde la que se cuelga es control gratis.
+	# El radio sale de la distancia a la que te enganchaste, pero ACOTADO: si te
+	# enganchas desde muy lejos, el radio seria la distancia entera y no habria
+	# nada que recoger. Con techo, engancharse de lejos empieza recogiendo.
 	_largo = clampf(player.global_position.distance_to(_ancla), 1.0, tuning.swing_largo_max)
 	# Y ademas: LA CUERDA SE ACORTA para que el fondo del arco no quede bajo
 	# tierra. Colgarse de un ancla a 5 m con 7 m de cuerda pone el punto bajo dos
 	# metros por debajo del suelo, asi que te estrellas en el primer cuarto de arco
 	# y parece que el balanceo esta roto. Es lo que haria cualquiera con una cuerda
 	# de verdad: agarrarla mas arriba.
-	var libre := _ancla.y - _suelo_bajo(_ancla) - tuning.swing_altura_minima
+	# El suelo se mide bajo el JUGADOR, no bajo el ancla. Bajo el ancla suele estar
+	# la cosa en la que se clavo la lanza —la cima de un pilar, un saliente— a
+	# treinta centimetros, asi que la cuenta daba negativa y la cuerda no se
+	# acortaba nunca: el arco terminaba cuatro metros bajo tierra. Contra lo que te
+	# estrellas es contra el suelo donde estas, no contra el techo del pilar.
+	var libre := _ancla.y - _suelo_bajo(player.global_position) - tuning.swing_altura_minima
 	if libre > 1.0:
 		_largo = minf(_largo, libre)
 	EventBus.camara_shake.emit(0.2, 0.1)
@@ -64,20 +74,43 @@ func physics_update(delta: float) -> void:
 	_ancla = _punto_ancla()
 	player.stamina.drenar(tuning.swing_stamina, delta)
 
-	# 1) GRAVEDAD, y SIMÉTRICA. El motor del péndulo.
+	# 1) GRAVEDAD, y SIMÉTRICA. Se aplica SIEMPRE, también mientras se recoge
+	#    cuerda: es lo que te da velocidad de arco antes de llegar al radio. Sin
+	#    ella llegabas apuntando al ancla y sin nada tangencial, y el péndulo
+	#    nacía muerto.
 	#
-	# No se usa `motor.aplicar_gravedad()` a propósito: la del juego es asimétrica
-	# —-38 cayendo, -22 subiendo—, que es medio game feel gratis en un salto y
-	# **rompe un péndulo**. Subes con menos peso del que caíste, así que cada
-	# pasada devuelve más energía de la que costó: medido, el arco salía 6 m por
-	# ENCIMA de donde empezó. Un columpio que sube solo no es un columpio.
+	#    No se usa `motor.aplicar_gravedad()` a propósito: la del juego es
+	#    asimétrica —-38 cayendo, -22 subiendo—, que es medio game feel gratis en
+	#    un salto y **rompe un péndulo**. Subes con menos peso del que caíste, así
+	#    que cada pasada devuelve más energía de la que costó: medido, el arco
+	#    terminaba 6 m por ENCIMA de donde empezó.
 	player.velocity += sc.gravedad_actual(tuning.swing_gravedad) * delta
+
+	# 2) RECOGER CUERDA. Si sobra cuerda, el enganche TIRA de ti. Es la mitad que
+	#    antes era un estado aparte —el zip— y ahora es la misma actualización:
+	#    engancharse a algo clavado es UNA acción, y que empiece recogiendo o
+	#    girando depende de dónde estabas.
+	#
+	#    Tira con una ACELERACIÓN y no escribiendo la velocidad, que es lo que
+	#    hacía la versión anterior: escribirla producía un salto de 16.75 m/s en un
+	#    frame al pasar de recoger a girar, y ese salto ES lo que se siente clunky.
+	#    Y se limita la velocidad de ACERCAMIENTO, no la total: sin ese tope te
+	#    disparabas hasta el ancla en vez de asentarte en el arco.
+	var hacia_ancla := _ancla - player.global_position
+	var separacion := hacia_ancla.length()
+	_recogiendo = separacion > _largo + 0.1
+	if _recogiendo and separacion > 0.001:
+		var dir := hacia_ancla / separacion
+		player.velocity += dir * tuning.swing_recogida * delta
+		var acercandose := player.velocity.dot(dir)
+		if acercandose > tuning.swing_recogida_max:
+			player.velocity -= dir * (acercandose - tuning.swing_recogida_max)
 
 	# 2) BOMBEO. La entrada se proyecta sobre el plano perpendicular a la cuerda:
 	#    empujar hacia el ancla o hacia fuera no haría nada —la restricción lo
 	#    deshace— así que solo cuenta lo que va por el arco.
 	var entrada := buffer.move_vector()
-	if entrada.length() > 0.2:
+	if not _recogiendo and entrada.length() > 0.2:
 		var deseada := sc.direccion_movimiento(entrada, player.camara())
 		var radial := (player.global_position - _ancla).normalized()
 		var tangente := deseada - radial * deseada.dot(radial)
@@ -100,7 +133,7 @@ func physics_update(delta: float) -> void:
 	# engancharse desde el borde de una plataforma seguia diciendo "hay suelo" y
 	# el balanceo se cortaba antes de empezar. Nadie aterriza en la primera
 	# decima de un columpio que acaba de empezar.
-	if t > 0.12 and player.is_on_floor() and sc.vertical(player.velocity) <= 0.0:
+	if not _recogiendo and t > 0.12 and player.is_on_floor() and sc.vertical(player.velocity) <= 0.0:
 		_soltar()
 
 
@@ -128,7 +161,15 @@ func _suelo_bajo(punto: Vector3) -> float:
 	var desde := punto + Vector3.UP * 0.5
 	var q := PhysicsRayQueryParameters3D.create(
 		desde, desde + Vector3.DOWN * (tuning.swing_largo_max + 10.0), Layers.SUELO_JUGADOR)
-	q.exclude = [player.get_rid()]
+	var fuera: Array[RID] = [player.get_rid()]
+	# EXCLUIR AQUELLO EN LO QUE ESTA CLAVADA. Si la lanza esta en la cima de un
+	# pilar, el suelo "bajo el ancla" es el pilar mismo, a treinta centimetros: la
+	# cuerda no se acortaba nada y el arco terminaba CUATRO METROS BAJO TIERRA.
+	# Para esto se guardo `cuerpo_clavado`.
+	var l: Spear = player.lanza
+	if l != null and is_instance_valid(l) and l.cuerpo_clavado is CollisionObject3D:
+		fuera.append((l.cuerpo_clavado as CollisionObject3D).get_rid())
+	q.exclude = fuera
 	var r := espacio.intersect_ray(q)
 	return (r.position as Vector3).y if not r.is_empty() else punto.y
 
@@ -153,8 +194,32 @@ func _tensar() -> void:
 	if dist <= _largo or dist < 0.001:
 		return
 	var radial := hacia / dist
-	player.global_position = _ancla + radial * _largo
+	# La correccion de POSICION va acotada por frame. Escribir `global_position`
+	# salta por encima de las colisiones, asi que un tiron grande —un ancla que se
+	# mueve, un radio recalculado— podia meter al jugador dentro de la geometria.
+	# Con tope, la mayor parte del trabajo la hace la velocidad, que si colisiona.
+	var correccion: float = minf(dist - _largo, tuning.swing_correccion_max)
+	var desplazamiento := -radial * correccion
+	player.global_position += desplazamiento
 	player.velocity -= radial * maxf(player.velocity.dot(radial), 0.0)
+
+	# Y SE PAGA LA ALTURA QUE REGALA LA CORRECCION.
+	#
+	# Moverse en linea recta un frame deja al jugador un pelin FUERA de la esfera
+	# —la cuerda del arco es mas corta que el arco—, asi que cada frame hay que
+	# recogerlo. En el fondo del arco "hacia el ancla" es hacia ARRIBA, o sea que
+	# esa correccion levanta al jugador contra la gravedad: trabajo gratis. Medido,
+	# el balanceo daba vueltas a altura constante acelerando de 10 a 19 m/s sola.
+	#
+	# Se descuenta la energia equivalente: v' = sqrt(v² - 2·g·Δh). Es la
+	# conversion exacta de altura ganada a velocidad perdida, no un amortiguador
+	# puesto a ojo.
+	var subida := desplazamiento.dot(sc.up)
+	if subida > 0.0:
+		var v2 := player.velocity.length_squared() - 2.0 * tuning.swing_gravedad * subida
+		var v := player.velocity.length()
+		if v > 0.001:
+			player.velocity *= sqrt(maxf(v2, 0.0)) / v
 
 
 func _soltar() -> void:

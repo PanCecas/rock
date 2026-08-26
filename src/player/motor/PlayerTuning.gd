@@ -624,3 +624,12 @@ func velocidad_dash() -> float:
 ## en el primer cuarto de arco y parece que el balanceo no funciona. Acortar la
 ## cuerda es lo que haria cualquiera con una cuerda de verdad.
 @export_range(0.0, 8.0, 0.1) var swing_altura_minima: float = 1.6
+## Cuanto puede corregir la cuerda la POSICION del jugador en un frame, en metros.
+## Escribir la posicion salta por encima de las colisiones; con tope, el grueso
+## del trabajo lo hace la velocidad, que si choca con las cosas.
+@export_range(0.05, 4.0, 0.05) var swing_correccion_max: float = 0.6
+## Aceleracion con la que la cuerda te recoge cuando sobra cuerda, en m/s².
+@export_range(0.0, 200.0, 1.0) var swing_recogida: float = 70.0
+## Tope de velocidad de ACERCAMIENTO al ancla mientras recoge. Sin el te disparas
+## hasta el ancla en vez de asentarte en el arco, y llegar es un frenazo.
+@export_range(1.0, 40.0, 0.5) var swing_recogida_max: float = 13.0

@@ -191,7 +191,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
 | **Lanzar la lanza** | **T** | D-pad arriba |
-| **Cuerda: en el suelo SUBE, en el aire CUELGA** | **Z** | D-pad der. |
+| **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
 | **Recuperar la lanza** | **Y** | D-pad izq. |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
