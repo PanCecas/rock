@@ -36,8 +36,11 @@ extends Resource
 ## Los tres peldaños de la locomocion sin Shift. NO se eligen por la fuerza del
 ## stick: se encadenan por TIEMPO manteniendo la direccion, que es lo que da la
 ## sensacion de que el personaje coge carrerilla.
-@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
-@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
+## Caminar estaba en 3.0 y se sentia arrastrado: es la velocidad con la que
+## empiezas SIEMPRE, antes de que la carrerilla haga nada, asi que es la primera
+## impresion del movimiento y no puede ser la mas floja.
+@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 4.2
+@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 6.4
 @export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 9.4
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
@@ -287,12 +290,16 @@ extends Resource
 ## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
 ## mano dentro del estado (numero magico, regla dura #1).
 @export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
-@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 21.0
+## LIGERO: poco alcance y mucha caida. Es un CLAVADO, no una diagonal larga.
+## Estaba en 21/-7 y con eso salia casi igual que el pesado: los dos eran la misma
+## parabola tendida y el jugador no tenia forma de distinguirlos jugando. Ahora el
+## ligero cae a plomo hacia delante y el pesado es el que viaja.
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
 ## LA COMPONENTE QUE FALTABA. El clavado arrancaba con velocidad vertical 0 y
 ## dejaba que la gravedad hiciera el resto, asi que la trayectoria empezaba plana
 ## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
 ## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
-@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -7.0
+@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -17.0
 ## ESPERA ENTRE CLAVADOS. Sin ella, machacar salto + ataque encadenaba QUINCE
 ## clavados por segundo: saltar, clavarse, aterrizar y volver a saltar cabe en
 ## cuatro frames, y el resultado era un tembleque que ademas viajaba mas rapido de
@@ -308,6 +315,10 @@ extends Resource
 ## hacia arriba, de vuelta al aire y con el clavado disponible otra vez. Es lo que
 ## convierte el ataque en una cadena en vez de en un punto final.
 @export_range(0.0, 30.0, 0.5) var dive_rebote: float = 12.5
+## HANG TIME tras el rebote: gravedad CERO durante este tiempo. Es la ventana en la
+## que se encadena el siguiente clavado sobre otra cabeza. Sin ella el rebote es un
+## empujon hacia arriba y ya; con ella, es una pausa en la que decides.
+@export_range(0.0, 1.5, 0.01) var dive_hangtime: float = 0.30
 ## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
 @export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
 @export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0

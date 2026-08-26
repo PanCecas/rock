@@ -27,6 +27,10 @@ extends Node
 const TOLERANCIA_CANAL := 10
 ## Fraccion de pixeles distintos que se tolera antes de fallar.
 const TOLERANCIA_PCT := 0.004
+## Centro del corral del Gym. Escrito aqui a proposito y no deducido: una toma de
+## referencia FIJA una pose, asi que sus coordenadas son parte del contrato. Si
+## `Gym._corral()` se mueve, esta constante y las referencias se actualizan juntas.
+const CORRAL := Vector3(11.0, 0.0, -32.0)
 ## Frames de reposo antes de disparar. Da tiempo a que la fisica se asiente y a
 ## que las orientaciones interpoladas (nado, escalada) lleguen a su destino.
 const REPOSO := 40
@@ -40,6 +44,8 @@ var _f: int = 0
 var _fallos: PackedStringArray = []
 var _nuevas: PackedStringArray = []
 var _actualizar: bool = false
+## Frames que lleva sostenida una pose que hay que congelar. Ver `_ante_coloso`.
+var _pose: int = 0
 
 
 func _ready() -> void:
@@ -102,6 +108,44 @@ func _construir() -> void:
 		# ARENA: los tres Guardianes, para vigilar silueta y color.
 		_toma("arena", Vector3(45, 7, -30), Vector3(45, 1, -45),
 			func() -> void: _situar(Vector3(45, 0.5, -34))),
+
+		# --- CORRAL DEL 3.03 -------------------------------------------------
+		# `TestEnemigos` comprueba que la rafaga sale, que la carga no persigue y
+		# que `pared.hay_pared` se pone a true sobre el coloso. Ninguna de esas
+		# nueve comprobaciones mira si los tres se VEN como lo que son: un
+		# embestidor bajo y ancho, un volador pequeno en el aire y un coloso de
+		# siete metros. Escala relativa, silueta y color solo los caza una imagen.
+		_toma("corral_enemigos", Vector3.ZERO, Vector3.ZERO,
+			func() -> void:
+				_montar_corral()
+				# En la fila, no delante: sirve de REGLA. Sin un cuerpo conocido
+				# al lado, "el coloso es grande" no es una medida de nada.
+				_situar(CORRAL + Vector3(-3.0, 0.05, 0.0)),
+			func() -> void: _montar_corral(),
+			func() -> void: _encuadrar_corral()),
+
+		# EL COLOSO ESCALADO. La toma que mas falta hacia de las tres: el funcional
+		# se conforma con un booleano del sensor de pared, y ese booleano vale
+		# igual con el cuerpo pegado al torso que con la capsula metida dentro de
+		# la del coloso o el personaje colgando en horizontal. Aqui se ve.
+		_toma("coloso_escalada", Vector3.ZERO, Vector3.ZERO,
+			func() -> void:
+				_montar_corral()
+				_ante_coloso(),
+			func() -> void:
+				_montar_corral()
+				_ante_coloso(),
+			func() -> void: _encuadrar_coloso()),
+
+		# LA ALTURA DEL VOLADOR, con el jugador en el suelo y en el mismo encuadre.
+		# Es una toma de MEDIDA: fija en una imagen la distancia vertical que hoy
+		# lo hace inalcanzable. El dia que se toque `altura_vuelo` o el punto al
+		# que se ancla, esta referencia lo va a ensenar en rojo, que es justo lo
+		# que se quiere de un cambio asi.
+		_toma("volador_alcance", Vector3.ZERO, Vector3.ZERO,
+			func() -> void: _montar_alcance(),
+			func() -> void: _montar_alcance(),
+			func() -> void: _encuadrar_volador()),
 	]
 
 
@@ -111,6 +155,10 @@ func _tick() -> void:
 	_f += 1
 	var t: Dictionary = _tomas[_i]
 	if _f == 1:
+		# Toda toma empieza con el jugador procesando: alguna lo congela al final
+		# para fijar la pose, y ese congelado no puede sobrevivir a la siguiente.
+		_p.set_physics_process(true)
+		_pose = 0
 		(t["preparar"] as Callable).call()
 		if t.has("encuadre"):
 			(t["encuadre"] as Callable).call()
@@ -251,3 +299,140 @@ func _ante_rampa(angulo: float) -> void:
 	_p.global_position = Vector3(-33.0 + 3.4 * float(i), centro_y - radio, z)
 	_p.set("velocity", Vector3.ZERO)
 	_estado(&"Climb")
+
+
+# --- El corral del 3.03 -------------------------------------------------------
+
+## Planta a los tres enemigos en reposo y los CONGELA.
+##
+## Congelarlos no es comodidad, es la unica forma de que la toma signifique algo:
+## con su FSM viva el embestidor te ve y carga, el volador se coloca sobre tu
+## cabeza y dispara, y el coloso camina. Dos capturas del mismo encuadre no
+## coincidirian nunca y la referencia seria ruido.
+##
+## Y se PLANTAN en una posicion explicita en vez de fotografiarlos donde nacen,
+## porque donde nacen no es donde reposan: el coloso aparece con los pies 1.1 m
+## por encima del suelo y cae durante los primeros frames. Fotografiarlo "tal
+## cual sale" daria una imagen distinta segun cuando dispares.
+func _montar_corral() -> void:
+	# EN FILA, y no donde los pone el Gym. En el corral real el coloso esta
+	# adelantado y tapa a los otros dos desde cualquier angulo util —el rincon
+	# esta encajonado entre los muros de 9 m de la piscina y los del wall-run—.
+	# Puestos en linea, la toma hace lo unico que se le pide: comparar las tres
+	# siluetas de un vistazo. La disposicion REAL del corral ya la fotografia
+	# `gym_general`.
+	#
+	# La Y esta calculada, no puesta a ojo: el collider de cada enemigo cuelga a
+	# +1 de su origen, asi que el origen que deja los pies en el suelo es
+	# `altura / 2 - 1`.
+	_plantar("Embestidor", CORRAL + Vector3(-6.0, 0.1, 0.0))
+	_plantar("ColosoMediano", CORRAL + Vector3(0.0, 2.5, 0.0))
+	_plantar("Volador", CORRAL + Vector3(5.5, 4.0, 0.0))
+
+
+func _plantar(nombre: String, pos: Vector3) -> void:
+	var e := _enemigo(nombre)
+	if e == null:
+		return
+	e.set_physics_process(false)
+	e.global_position = pos
+	# El yaw tambien: `encarar()` los gira hacia el jugador, y una capsula girada
+	# se fotografia distinta por la marca del frente.
+	e.rotation = Vector3.ZERO
+	e.set("velocity", Vector3.ZERO)
+
+
+## `owned = false` es obligatorio: el Gym los instancia por codigo, asi que no
+## tienen owner y la busqueda por defecto no los encuentra.
+func _enemigo(nombre: String) -> Node3D:
+	return _main.find_child(nombre, true, false) as Node3D
+
+
+## Pega al jugador al torso del coloso y lo engancha. El desfase es el mismo que
+## usa `test_enemigos.gd` para su comprobacion de agarre, y sale del cuerpo y no
+## de coordenadas escritas a mano: media altura y algo mas que el radio de su
+## capsula, por la cara +Z.
+func _ante_coloso() -> void:
+	var c := _enemigo("ColosoMediano")
+	if c == null:
+		return
+	# A la altura del CENTRO de la capsula (origen +1), que es donde su pared es
+	# un cilindro y la normal sale horizontal. Mas abajo se entra en el casquete
+	# inferior, donde la normal apunta hacia abajo y el cuerpo se inclina como si
+	# estuviera colgando del techo: una pose real, pero no la que se quiere fijar
+	# como referencia de "escalar un torso".
+	# Se deja correr un rato y DESPUES se congela. Inclinar el cuerpo contra la
+	# normal es trabajo de la FSM, no del test —calcularlo aqui a mano seria
+	# duplicar el juego y la referencia dejaria de comprobar nada—; pero una vez
+	# resuelta la pose hay que fijarla, porque `escalada_adherencia` empuja contra
+	# la superficie en CADA paso de fisica y cuantos pasos caben entre dos frames
+	# de render no es determinista. Sin congelar, la toma bailaba al 0.38% con el
+	# tope en 0.40: habria acabado dando rojos que no son bugs.
+	_pose += 1
+	_p.global_position = c.global_position + Vector3(0.0, 1.0, 2.5)
+	_p.set("velocity", Vector3.ZERO)
+	if _pose > 30:
+		# Recolocar y congelar EN EL MISMO frame, en este orden. Congelar antes de
+		# recolocar dejaba la pose donde la hubiera dejado el ultimo paso de
+		# fisica, y la toma salia bimodal: 0.000% o 0.360% segun la pasada.
+		_p.set_physics_process(false)
+		return
+	# ENCARARLO, y no es un detalle cosmetico: el `WallSensor` sondea hacia
+	# `direccion_frontal()`, que sin velocidad devuelve la Z del visual. Colocado
+	# sin girar, el jugador sondeaba en direccion CONTRARIA al coloso, no
+	# encontraba pared y se quedaba en `Climb` arrastrando la normal de la toma
+	# anterior —la rampa de 60—. La foto salia con una pose inclinada creible y
+	# completamente falsa: el peor resultado posible en un test de referencia.
+	_p.call("orientar_a", c.global_position - _p.global_position)
+	_estado(&"Climb")
+
+
+## Pone al jugador en el suelo y al volador a su altura de vuelo REAL encima,
+## leyendo `altura_vuelo` del propio nodo en vez de escribir un numero. Asi la
+## toma documenta el valor que este configurado: el dia que se toque, o que se
+## deje de anclar a la Y del jugador, la referencia sale en rojo. Que es
+## exactamente lo que se quiere de un cambio asi.
+func _montar_alcance() -> void:
+	_montar_corral()
+	var v := _enemigo("Volador")
+	if v == null:
+		return
+	var suelo := CORRAL + Vector3(5.5, 0.05, 0.0)
+	_p.global_position = suelo
+	_p.set("velocity", Vector3.ZERO)
+	_estado(&"Idle")
+	var alt: Variant = v.get("altura_vuelo")
+	v.global_position = suelo + Vector3.UP * (alt if alt is float else 4.5)
+
+
+## Tres cuartos desde arriba: es el unico angulo en el que los tres caben sin
+## taparse entre ellos y en el que la diferencia de tamano se lee de un vistazo.
+func _encuadrar_corral() -> void:
+	# De frente y desde el sur, que es el unico eje despejado: al este estan los
+	# muros de 9 m de la piscina (x ~18.5) y al oeste los del wall-run (x ~2).
+	_cam.global_position = CORRAL + Vector3(0.0, 6.0, 11.0)
+	_cam.look_at(CORRAL + Vector3(0.0, 3.0, 0.5), Vector3.UP)
+
+
+## Desde delante y por fuera del coloso. La camara NO puede ir donde la pone
+## `_encuadrar_jugador()` —cuatro metros por detras— porque ahi estaria dentro de
+## la capsula de 2.2 m de radio y la toma saldria negra.
+func _encuadrar_coloso() -> void:
+	var c := _enemigo("ColosoMediano")
+	if c == null:
+		return
+	_cam.global_position = c.global_position + Vector3(4.2, 1.4, 7.6)
+	_cam.look_at(_p.global_position + Vector3(0.0, 0.7, 0.0), Vector3.UP)
+
+
+## De perfil y a media altura entre los dos, para que lo que se lea sea la
+## SEPARACION vertical y no cada uno por su lado.
+func _encuadrar_volador() -> void:
+	var v := _enemigo("Volador")
+	if v == null:
+		return
+	var medio := (v.global_position + _p.global_position) * 0.5
+	# Por el sur y algo escorada. Hacia el este no se puede: a x ~18.5 empiezan
+	# los muros de 9 m de la piscina y la camara acaba DENTRO, mirando su pared.
+	_cam.global_position = medio + Vector3(-3.5, 0.5, 9.0)
+	_cam.look_at(medio, Vector3.UP)

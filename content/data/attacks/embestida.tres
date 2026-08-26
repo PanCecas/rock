@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Embestida"
+frames_windup = 0
+frames_activo = 90
+frames_recuperacion = 0
+dano = 18.0
+dano_poise = 22.0
+empuje = Vector3(0, 3, 14)
+stagger = 0.8
+rompe_guardia = true
+alcance = 1.3
+radio = 1.0
+altura = 0.9
+arco_grados = 100.0
+avance = 0.0
+movilidad = 0.0
+hitstop = 0.09
+shake = 0.8
+frame_cadena = 999
+color_vfx = &"carmesi"

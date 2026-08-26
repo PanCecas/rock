@@ -870,3 +870,213 @@ no cierres esa puerta. Nada de ganchos vacíos "por si acaso".
 7) Al terminar: informe de qué cambió, en qué archivo y por qué, valores finales,
 checklist de testing manual, y qué NO has podido comprobar.
 ```
+
+---
+
+## PROMPT PARCHE 3.02 — lo que quedó fuera de la 3.01
+
+```
+Godot 4.7, GDScript. Lee CLAUDE.md antes de nada: 17 reglas duras, y la #13 y la
+#14 son las que más veces se han incumplido sin querer.
+
+Este parche continúa el 3.01, que dejó fuera tres bloques a propósito. Van en este
+orden porque el primero desbloquea al tercero.
+
+--- 1) EXTRAER LA FSM DE Guardian.gd (P0 del roadmap) ---
+
+`src/enemies/Guardian.gd` son 372 líneas que mezclan tres cosas: la IA (un `match`
+sobre un enum dentro de `_physics_process`), la física (`is_on_floor()`, gravedad
+manual) y la presentación (material, color, ondas). Eso bloquea al director de
+grupo, a los enemigos nuevos, al coloso mediano y a los acuáticos.
+
+Extrae la FSM con la MISMA estructura que ya usa el jugador —`StateMachine` +
+estados como nodos con `enter/exit/physics_update`— porque duplicar un patrón que
+funciona cuesta menos que inventar otro y se lee igual. El cuerpo queda como
+orquestador, igual que `PlayerController`.
+
+Criterio de terminado, y es literal: escribir un enemigo que NADE sin tocar el
+script del Guardián terrestre.
+
+--- 2) INVENTARIO ESTILO BREATH OF THE WILD ---
+
+`src/ui/` está vacío: no hay HUD, ni navegación de menús, ni gestión de foco. Esto
+no es una funcionalidad, es la primera capa de UI del proyecto, así que constrúyela
+como capa antes que como inventario.
+
+- Rejilla paginada con pestañas por categoría (Armas, Consumibles, Materiales).
+- Los ítems son Resources (`ItemData`), como `AttackData`: nada de datos en el .gd.
+- Navegación por rejilla con mando Y teclado, no solo ratón. El foco tiene que ser
+  visible siempre.
+- Arrastrar y soltar, y reordenar dentro de la página.
+- El juego se pausa al abrirlo, y el `InputBuffer` se invalida al cerrarlo o la
+  primera pulsación se cuela en el gameplay.
+
+Aviso de diseño, para que lo decidas tú antes de que yo lo construya: el personaje
+lleva espada, lanza, lazo y arco. Cuatro objetos fijos, sin loot ni crafteo. Eso
+hoy es un `enum`, no un inventario. Si la idea es que en la Fase 6 haya recursos y
+materiales, el inventario tiene sentido; si no, es una pantalla que se abre para
+mirar cuatro iconos.
+
+--- 3) DOS ENEMIGOS NUEVOS (después del punto 1) ---
+
+VOLADOR ÁGIL. Ciclo estricto atacar / recargar.
+  · Atacar: ráfaga de 3 proyectiles con separación fija entre ellos.
+  · Recargar: calcula un vector ALEJÁNDOSE del jugador y ejecuta tres dashes en
+    zig-zag encadenados hasta una posición más lejana, mientras corre el
+    temporizador de recarga. Waypoints lerpeados o curva bezier: lo que importa es
+    que el zig-zag sea legible desde lejos, porque es el aviso de que está
+    recargando y de que es su momento de vulnerabilidad.
+  · No hereda gravedad ni suelo. Ese es el motivo del punto 1.
+
+EMBESTIDOR. Cono de visión + carga.
+  · Detección por producto escalar contra el frente, más un raycast que confirme
+    que no hay pared en medio. El dot solo no basta: te detecta a través del suelo.
+  · Al detectar, estado de ANTICIPACIÓN visible —se planta, se orienta— y ahí
+    BLOQUEA la dirección. Que la carga se pueda esquivar es la mecánica entera; si
+    persigue mientras carga, no hay esquiva posible.
+  · Impulso físico fuerte hacia delante hasta chocar con pared o con el jugador.
+  · Contra la pared: aturdido y abierto un buen rato. Es la recompensa por esquivar.
+
+--- REGLAS DE ESTE PROYECTO QUE TE VAN A MORDER ---
+
+- Ningún número mágico en `.gd`: todo valor de feel va a un `.tres` (regla #1).
+- Los grupos de la FSM corren ANTES que las hojas y les roban el input; y su
+  guardia hace `return` a media función, así que las preguntas de TERRENO van antes
+  que las de ACCIÓN (regla #13). Aquí han vivido seis bugs.
+- La postura la resuelve el controlador, nunca las transiciones (regla #14).
+- Hitstop congela el AnimationTree, JAMÁS `Engine.time_scale` (regla #5).
+- La hitbox es una consulta de forma, no un Area3D: un Area llega un frame tarde y
+  en ventanas de 4 frames eso es un 25% de error.
+
+--- ANTES DE DAR NADA POR BUENO ---
+
+Los tres tests, y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn      (12 estados)
+  godot --headless --path . tools/TestFase2.tscn      (131 comprobaciones)
+  godot --path . --resolution 960x540 tools/TestVisual.tscn   (7 tomas, necesita GPU)
+
+Comprueba con LATCHES —si algo ocurrió en algún momento del paso— y no solo en el
+frame final, o medirás timing en vez de mecánicas.
+
+Al terminar: informe de qué cambió y en qué archivo, valores finales, checklist de
+testing manual y qué NO has podido comprobar. No inventes resultados de pruebas que
+no hayas ejecutado.
+```
+
+---
+
+## REGLA PERMANENTE — el screenshot test
+
+```
+Corre SIEMPRE el screenshot test antes de dar por terminado cualquier trabajo:
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+No es opcional. No se salta "porque este cambio no toca lo visual" —los bugs
+visuales de este proyecto (el cuerpo torcido al salir del agua, la cápsula partida
+por la mitad junto a una rampa, el cuerpo sin inclinar al escalar) pasaron TODOS
+los tests funcionales sin despeinarse—. Necesita GPU: no corre en --headless.
+
+Y no hagas trampa. Regenerar una baseline con `-- actualizar` para que el test pase
+es convertirlo en un sello de goma. Una referencia solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has mirado el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, eso no es una baseline vieja: es un bug.
+
+Los tres tests van juntos en cada entrega y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn    -> llega la FSM al estado
+  godot --headless --path . tools/TestFase2.tscn    -> hace lo que dice que hace
+  godot --path . --resolution 960x540 tools/TestVisual.tscn  -> se VE bien haciéndolo
+```
+
+---
+
+## PROMPT — verificación de errores y screenshot test
+
+```
+Proyecto Godot 4.7, GDScript. Lee CLAUDE.md: 18 reglas duras. La #17 es la que más
+se incumple sin querer.
+
+TAREA: verificar el proyecto, corregir los errores que aparezcan, y NO dar nada por
+bueno sin correr el screenshot test.
+
+--- 1) DIAGNOSTICAR ANTES DE TOCAR ---
+
+No inventes soluciones. Interpreta primero, decide después.
+
+Captura TODOS los errores, sin filtrar por lo que te resulte cómodo:
+
+  godot --headless --path . --import 2>&1 | grep -iE "ERROR|WARNING|Parse|Compile"
+
+Separa el ruido de los errores reales:
+  · "RIDs leaked", "resources still in use", "Pages in use in PagedAllocator" al
+    salir son NORMALES en un editor headless. No son bugs.
+  · Un "Parse Error" o un "Compile Error" sí lo es, siempre.
+
+Y comprueba dónde aparece cada error, porque no todos importan igual:
+
+  A) En el JUEGO:     godot --path . --quit-after 600
+  B) En el EDITOR:    godot --path . -e --quit-after 900
+  C) En el import:    godot --headless --path . --import
+
+Un error que solo sale en (C) puede ser artefacto del arranque reducido. Uno que
+sale en (A) es un bug de verdad.
+
+--- 2) ¿ES NUESTRO O DEL ADDON? ---
+
+Si el error viene de algo en addons/, la prueba decisiva es reproducirlo en un
+PROYECTO VACÍO con solo ese addon. Crea uno en un temporal, copia el addon, un
+project.godot mínimo, y arranca el editor. Si reproduce, el bug es de upstream y
+no se parchea: se documenta y se decide si el addon compensa.
+
+NUNCA edites nada dentro de addons/. Se pierde al actualizar y te conviertes en
+mantenedor de un fork que no querías.
+
+--- 3) LA DECISIÓN SENSATA ANTE UN ADDON QUE FALLA ---
+
+Un plugin que no usa ni una línea del proyecto y que ensucia la consola no se
+parchea ni se aguanta: se DESACTIVA en [editor_plugins] hasta que se integre.
+Desactivar no es desinstalar —sigue en addons/— y se revierte con una línea.
+Al desactivarlo, quita también sus autoloads de project.godot: un autoload sin su
+plugin es exactamente lo que produce "unregister de un singleton que nadie
+registró".
+
+--- 4) EL SCREENSHOT TEST, SIEMPRE ---
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+Necesita GPU: no corre en --headless. Corre los cuatro, y ninguno sustituye a otro:
+
+  TestFase1  -> ¿llega la FSM al estado?
+  TestFase2  -> ¿hace lo que dice que hace?
+  smoke      -> ¿arranca y la paleta cumple?
+  TestVisual -> ¿se VE bien haciéndolo?     <-- este es el que se olvida
+
+Y NO HAGAS TRAMPA. Regenerar una baseline con `-- actualizar` para que pase
+convierte el test en un sello de goma. Solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has abierto el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, no es una baseline vieja: es un bug.
+
+--- 5) CUIDADO: EL EDITOR MODIFICA ESCENAS ---
+
+Abrir el editor con ciertos plugins activos MUTA las escenas abiertas. Cyclops
+Level Builder inyecta nodos CyclopsBlock en la escena y sube su formato de 3 a 4.
+Si luego desactivas el plugin, la escena queda con referencias colgando y deja de
+cargar el entorno —los tests funcionales siguen verdes y solo lo caza el visual—.
+
+Después de cualquier sesión de editor, comprueba SIEMPRE:
+
+  git status --short
+  git diff --stat content/levels/Main.tscn
+
+Si el editor tocó una escena y tú no lo pediste, revierte:  git checkout -- <ruta>
+
+--- 6) INFORME ---
+
+Al terminar: qué error era, dónde aparecía, si era nuestro o de upstream, qué
+decidiste y por qué. Y los cuatro resultados de test. No inventes resultados de
+pruebas que no hayas ejecutado.
+```
