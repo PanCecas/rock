@@ -34,6 +34,8 @@ extends Enemigo
 @export_range(0.0, 90.0, 5.0) var apertura_zigzag: float = 55.0
 ## Altura de vuelo sobre el objetivo. Se mantiene aunque el suelo suba o baje.
 @export_range(0.0, 20.0, 0.5) var altura_vuelo: float = 4.5
+## Hasta donde busca el suelo bajo el jugador para medir su altura de vuelo.
+@export_range(2.0, 120.0, 1.0) var sondeo_suelo: float = 60.0
 
 
 func _ready() -> void:
@@ -62,7 +64,24 @@ func estado_de_ataque() -> StringName:
 func punto_de_vuelo() -> Vector3:
 	if not objetivo_valido():
 		return global_position
-	return objetivo.global_position + Vector3.UP * altura_vuelo
+	var p := objetivo.global_position
+	# Sobre el SUELO, no sobre el jugador. Anclarlo a la Y del objetivo lo hacia
+	# literalmente inalcanzable: saltabas y subia contigo manteniendo el hueco,
+	# asi que perseguirlo en vertical era imposible por definicion. Ahora saltar
+	# recorta distancia, que es lo unico que hace que valga la pena saltar.
+	return Vector3(p.x, _altura_del_suelo(p) + altura_vuelo, p.z)
+
+
+## Y del suelo bajo un punto. Si no encuentra nada —hueco, borde del mapa— se
+## queda con la del propio objetivo: quedarse quieto es mejor que desplomarse.
+func _altura_del_suelo(punto: Vector3) -> float:
+	var espacio := get_world_3d().direct_space_state
+	var desde := punto + Vector3.UP * 2.0
+	var q := PhysicsRayQueryParameters3D.create(
+		desde, desde + Vector3.DOWN * sondeo_suelo, Layers.WORLD)
+	q.exclude = [get_rid()]
+	var r := espacio.intersect_ray(q)
+	return (r.position as Vector3).y if not r.is_empty() else punto.y
 
 
 ## Dispara UNO. Lo llama el estado de ráfaga, una vez por disparo.

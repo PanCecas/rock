@@ -24,6 +24,23 @@ extends CharacterBody3D
 @export var vuela: bool = false
 @export var velocidad: float = 3.4
 @export_range(1.0, 100.0, 1.0) var aceleracion: float = 24.0
+## Grados por segundo que puede girar sobre si mismo. Es el valor de DISEÑO: un
+## bicho pequeño gira como un bicho pequeño y uno de siete metros no deberia
+## poder dar una vuelta por segundo.
+@export_range(15.0, 720.0, 5.0) var velocidad_giro: float = 360.0
+## RED DE SEGURIDAD, en m/s: lo mas rapido que el borde del cuerpo puede barrer
+## el suelo al girar.
+##
+## Existe porque un cuerpo en la capa WORLD es una PLATAFORMA MOVIL para
+## `move_and_slide`, y girar arrastra a quien tenga encima a velocidad ω·r sin
+## tocarle la velocidad. Con el coloso —radio 2.2 y giro a 360°/s— eso eran
+## **13.8 m/s**, mas rapido que correr: el jugador salia disparado en circulos.
+##
+## El tope se aplica sobre el RADIO REAL del cuerpo, asi que protege tambien a
+## los enemigos que aun no existen. El valor por defecto es lo bastante alto como
+## para no tocar a los Guardianes (radio 0.45 -> permite 509°/s, muy por encima
+## de su giro de diseño): quien lo nota es el que es grande, que es quien debe.
+@export_range(0.5, 20.0, 0.1) var arrastre_maximo: float = 4.0
 
 @export_group("Muerte")
 ## Multiplicador local sobre la `fuerza_muerte` del ataque que remata. Permite que
@@ -70,10 +87,15 @@ const NOMBRES := [
 ]
 
 
+## Radio real del cuerpo, medido del collider. Lo usa el tope de giro.
+var _radio: float = 0.0
+
+
 func _ready() -> void:
 	if palette == null:
 		palette = GameState.palette
 	add_to_group(&"enemigos")
+	_radio = _medir_radio()
 	motor = EnemyMotor.new(self)
 	motor.vuela = vuela
 	motor.aceleracion = aceleracion
@@ -270,7 +292,42 @@ func encarar(hacia: Vector3) -> void:
 	if d.length_squared() < 0.01:
 		return
 	var objetivo_yaw := atan2(d.x, d.z)
-	rotation.y = rotate_toward(rotation.y, objetivo_yaw, deg_to_rad(360.0) * get_physics_process_delta_time())
+	rotation.y = rotate_toward(rotation.y, objetivo_yaw, giro_maximo() * get_physics_process_delta_time())
+
+
+## Velocidad angular efectiva, en rad/s: la de diseño, recortada por el arrastre
+## que el borde del cuerpo puede hacer sobre quien tenga encima.
+func giro_maximo() -> float:
+	var tope := deg_to_rad(velocidad_giro)
+	if _radio > 0.01:
+		tope = minf(tope, arrastre_maximo / _radio)
+	return tope
+
+
+## A que velocidad barre el suelo el borde de este cuerpo al girar al tope, en
+## m/s. Es EL numero del bug del coloso, y por eso es publico: se puede afirmar
+## sobre el en un test en vez de tener que reproducir el mareo a mano.
+func arrastre_en_el_borde() -> float:
+	return giro_maximo() * _radio
+
+
+## Radio real de la capsula del cuerpo. Se mide, no se declara: declararlo a mano
+## en cada escena es como se llega a que un enemigo mienta sobre su tamaño.
+func _medir_radio() -> float:
+	var col := get_node_or_null("Collider") as CollisionShape3D
+	if col == null:
+		return 0.0
+	var f := col.shape
+	if f is CapsuleShape3D:
+		return (f as CapsuleShape3D).radius
+	if f is SphereShape3D:
+		return (f as SphereShape3D).radius
+	if f is CylinderShape3D:
+		return (f as CylinderShape3D).radius
+	if f is BoxShape3D:
+		var s := (f as BoxShape3D).size
+		return maxf(s.x, s.z) * 0.5
+	return 0.0
 
 
 func color_de(nombre: StringName) -> Color:

@@ -43,6 +43,16 @@ func configurar_tipo() -> void:
 	salud.maxima = 400.0
 	poise.maxima = 200.0
 	velocidad = 1.1
+	# GIRO DE GIGANTE. Con los 360°/s por defecto, su borde —radio 2.2— barria el
+	# suelo a 13.8 m/s, mas rapido que correr (9.4), y como esta en la capa WORLD
+	# eso es una PLATAFORMA MOVIL: `move_and_slide` arrastraba al jugador en
+	# circulos sin tocarle la velocidad. Medido: 3.11 m de desplazamiento con
+	# `velocity` a 0.00 en todo momento.
+	#
+	# A 45°/s el borde va a 1.7 m/s, por debajo de caminar (4.2), asi que siempre
+	# se puede andar en contra. Y ademas tarda ocho segundos en darse la vuelta,
+	# que es como debe moverse algo de siete metros.
+	velocidad_giro = 45.0
 	salud.actual = salud.maxima
 	poise.actual = poise.maxima
 

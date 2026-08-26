@@ -103,6 +103,54 @@ func _construir() -> void:
 				and _e.global_position.distance_to(_pos) > 4.0),
 			"recargar tiene que ALEJARLO: es su ventana de vulnerabilidad y debe verse"),
 
+		# EL BUG DEL VOLADOR INALCANZABLE. `punto_de_vuelo()` se anclaba a la Y del
+		# jugador: saltabas y subia contigo manteniendo el hueco. Estaba definido
+		# como inalcanzable.
+		_chequeo_("su altura NO sigue al jugador al saltar", 0.4,
+			func() -> void:
+				_e.objetivo = _p
+				_p.global_position = Vector3(0, 0.05, 6.0),
+			func() -> bool:
+				var en_suelo: float = (_e as Volador).punto_de_vuelo().y
+				# Como si el jugador saltara cinco metros.
+				_p.global_position = Vector3(0, 5.05, 6.0)
+				var en_aire: float = (_e as Volador).punto_de_vuelo().y
+				_p.global_position = Vector3(0, 0.05, 6.0)
+				return absf(en_aire - en_suelo) < 0.5,
+			"si su altura de vuelo sube contigo, saltar no recorta nada y no se alcanza nunca"),
+
+		# --- APUNTADO EN 3D --------------------------------------------------
+		# El caso que estaba roto: un enemigo JUSTO ENCIMA daba vector plano cero,
+		# caia en el `continue` de `_buscar()` y era inseleccionable. Mirar hacia
+		# arriba lo empeoraba, porque la referencia tambien se aplastaba.
+		_chequeo_("un enemigo encima se puede fijar", 0.5,
+			func() -> void:
+				_crear(VOLADOR, Vector3(0, 5.2, 0), "res://content/data/attacks/volador_disparo.tres")
+				_p.global_position = Vector3(0, 0.05, 0),
+			func() -> bool:
+				# Se apunta a mano hacia arriba —lo que hace el jugador al mirar al
+				# cielo— porque el controlador reescribe esto cada frame con el
+				# frente de la camara.
+				_p.targeting.actualizar(Vector3(0.1, 1.0, 0.0).normalized())
+				return _p.targeting.objetivo() == _e,
+			"con la Y aplastada un enemigo vertical no existe para el soft-lock"),
+
+		_chequeo_("y se le apunta hacia arriba", 0.4,
+			func() -> void: pass,
+			func() -> bool:
+				_p.targeting.actualizar(Vector3(0.1, 1.0, 0.0).normalized())
+				var d := _p.targeting.direccion_3d()
+				# Muy por encima: la componente vertical tiene que dominar.
+				return d.y > 0.8 and _p.targeting.distancia_3d() > 3.0,
+			"direccion_3d() tiene que subir; la plana sigue siendo plana para encarar"),
+
+		_chequeo_("y la plana sigue plana", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				_p.targeting.actualizar(Vector3(0.1, 1.0, 0.0).normalized())
+				return is_zero_approx(_p.targeting.direccion_a_objetivo().y),
+			"si esta se inclina, pegar a algo que vuela despega al jugador"),
+
 		# --- COLOSO MEDIANO ---------------------------------------------------
 		_chequeo_("el coloso es escalable", 0.5,
 			func() -> void:
@@ -117,6 +165,16 @@ func _construir() -> void:
 				_visto.clear(),
 			func() -> bool: return not _visto.has(&"Telegrafia") and not _visto.has(&"Atacar"),
 			"por ahora su unico trabajo es dejarse escalar"),
+
+		# EL BUG DEL ARRASTRE. Un cuerpo en la capa WORLD es una plataforma movil
+		# para `move_and_slide`: al girar arrastra a quien tenga encima a ω·r, sin
+		# tocarle la velocidad. Con 360°/s y radio 2.2 eran 13.8 m/s —mas que
+		# correr— y el jugador salia disparado en circulos.
+		_chequeo_("y no te arrastra mas rapido que andar", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				return _e.arrastre_en_el_borde() < _p.tuning.velocidad_caminar,
+			"si el borde barre mas rapido que caminar, no puedes andar en contra"),
 
 		_chequeo_("el jugador se agarra a el", 1.6,
 			func() -> void:
