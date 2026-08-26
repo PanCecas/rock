@@ -237,6 +237,15 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
 
+**Un test no puede depender de la IA.** `TestFase2` fue intermitente durante un
+tiempo —fallaba 1 de cada 4 veces— por dos causas de la misma familia: los
+enemigos atacaban al jugador en mitad de una medicion, y tres comprobaciones del
+clavado pasaban solo porque el Guardian CAMINABA hasta meterse debajo. Ahora la
+suite pacifica a todos los enemigos (`_pacificar()`) y coloca al jugador donde el
+ataque llega de verdad. Si una comprobacion necesita un golpe enemigo, se entrega
+a mano con `recibir_golpe()`; orquestar la IA para que ataque en el frame exacto
+hace el test fragil sin probar nada mas.
+
 **Los tres tests son complementarios y ninguno sustituye a otro:** el funcional
 comprueba que la FSM llega a un estado, el de medicion cronometra como se siente,
 y el visual comprueba que el personaje se VE bien estando ahi. Media docena de

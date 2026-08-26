@@ -35,6 +35,7 @@ Cinco estados, y la diferencia entre ellos importa:
 | **Apuntado en 3D** — un enemigo encima ya se puede fijar | `TestEnemigos` |
 | **El arrastre del coloso** — de 3.11 m de acarreo a **0.00**. Se aplicaba dos veces | `TestEnemigos`, 4 invariantes |
 | **La altura del volador** — medida sobre el suelo, no sobre tu cabeza | `TestEnemigos` |
+| **`TestFase2` deja de ser intermitente** — fallaba 1 de cada 4 | 11 pasadas seguidas en verde |
 | **Menú de controles (Escape)** — primera UI del proyecto, lee el InputMap en vivo | `TestMenu` 4/4 |
 
 Jefe Kuramoto **documentado** en `project.md §5`. Documentar es el entregable; no
@@ -53,17 +54,6 @@ se implementa.
 ## BUGUEADO
 
 Ordenados por lo que más estorba para jugar.
-
-### 0 · `TestFase2` falla 1 de cada 4 veces — **PREEXISTENTE**
-Dos o cuatro comprobaciones aéreas caen de vez en cuando, siempre con la misma
-firma en la traza: `AirAttack>Hitstun` o `Dive>Hitstun`. **Le están pegando al
-jugador** en mitad del test, así que el ataque que se iba a medir no llega a
-ejecutarse.
-
-No lo introdujo la lanza: se midió. Con el código limpio, sin lanza ni muro
-nuevo, la tercera pasada de ocho dio **125/129**. Un test que falla una de cada
-cuatro veces bloquea cada entrega futura, así que esto vale más que casi
-cualquier funcionalidad de la lista.
 
 ### 1 · Los verbos de pared se pisan
 La adherencia automática mide la **dirección de input deseada**

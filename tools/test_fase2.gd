@@ -24,6 +24,9 @@ func _ready() -> void:
 	_main = load("res://content/levels/Main.tscn").instantiate()
 	add_child(_main)
 	_p = _main.get_node("Player") as PlayerController
+	# Antes de la primera comprobacion: la Arena y el corral se pueblan solos en
+	# su `_ready`, asi que para cuando arranca el guion ya hay enemigos despiertos.
+	_pacificar()
 	EventBus.player_jumped.connect(func(_n: int) -> void: _saltos_contados += 1)
 	EventBus.player_state_changed.connect(
 		func(a: StringName, n: StringName) -> void:
@@ -984,7 +987,8 @@ func _construir_guion() -> void:
 		# CLAVADO PESADO CON REBOTE. Golpear desde arriba devuelve al aire.
 		_paso_("repoblar para el rebote", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("el clavado LIGERO rebota en el enemigo", 0.8,
 			func() -> void:
 				_soltar_todo()
@@ -999,7 +1003,10 @@ func _construir_guion() -> void:
 				# El clavado pesado es una DIAGONAL de 25 m/s, no una caida: desde
 				# 5 m de altura recorre casi seis metros antes de llegar abajo.
 				# Colocarse encima del enemigo lo sobrevuela entero.
-				_p.global_position = Vector3(0.0, 5.0, 5.8)
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
 				_p.velocity = Vector3.ZERO
 				_p.orientar_a(Vector3(0, 0, -1))
 				_mirar_a(180.0)
@@ -1045,7 +1052,8 @@ func _construir_guion() -> void:
 		# cambia entre los dos pasos es desde donde te tiraste.
 		_paso_("repoblar para el picado", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("picado bajo: dano de base", 1.0,
 			func() -> void:
 				_soltar_todo()
@@ -1110,14 +1118,18 @@ func _construir_guion() -> void:
 		# cadena en vuelo infinito; sin el, cada rebote es un compromiso.
 		_paso_("repoblar para el rebote 3.01", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("el rebote del ligero NO devuelve el doble salto", 0.8,
 			func() -> void:
 				_soltar_todo()
 				_lancero()
 				_reponer()
 				_plantar_guardian()
-				_p.global_position = Vector3(0.0, 5.0, 5.8)
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
 				_p.velocity = Vector3.ZERO
 				_p.orientar_a(Vector3(0, 0, -1))
 				_mirar_a(180.0)
@@ -1139,7 +1151,8 @@ func _construir_guion() -> void:
 		# mismo clavado con distinto nombre.
 		_paso_("repoblar para el lanzamiento", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("el clavado pesado levanta al enemigo", 0.9,
 			func() -> void:
 				_soltar_todo()
@@ -1147,7 +1160,10 @@ func _construir_guion() -> void:
 				_reponer()
 				_plantar_guardian()
 				_aux = _g.global_position.y
-				_p.global_position = Vector3(0.0, 5.0, 5.8)
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
 				_p.velocity = Vector3.ZERO
 				_p.orientar_a(Vector3(0, 0, -1))
 				_mirar_a(180.0)
@@ -1161,7 +1177,8 @@ func _construir_guion() -> void:
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
 		_paso_("repoblar arena", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("pesado mata con ragdoll", 0.4,
 			func() -> void:
 				_lancero()
@@ -1434,6 +1451,36 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Deja a TODOS los enemigos incapaces de empezar un ataque por su cuenta.
+##
+## No es hacerle trampas al test: es lo que el test YA hacia a mano. Los dos
+## chequeos que miden dano lo ENTREGAN ellos —`_p.recibir_golpe(Golpe.new(...))`—
+## y llevan este comentario al lado: "orquestar la IA para que ataque en el frame
+## exacto haria el test fragil sin probar mas". Un enemigo que ademas ataca por
+## su cuenta no prueba nada; solo estropea la medicion de otro.
+##
+## Y eso era EL FLAKE: la suite fallaba 1 de cada 4 veces, siempre con la misma
+## firma —`AirAttack>Hitstun`, `Dive>Hitstun`—. Le pegaban al jugador en mitad de
+## un ataque aereo y el ataque que se iba a medir no llegaba a ejecutarse.
+##
+## `_plantar_guardian()` y `_colocar()` ya ponian al Guardian en DORMIDO, pero
+## **`Dormido` es un estado que se DESPIERTA**: ve al jugador delante y sale a por
+## el. Y solo tocaban a uno de los tres. Aqui se les quita la VISTA, que es lo
+## unico que consulta `EnemyDormido` para despertar, y se aplica a todos los
+## enemigos del arbol —incluidos los del corral del Gym, que el jugador cruza
+## durante el guion y cuyo volador dispara a 22 m—.
+##
+## `ataque` se deja intacto: el chequeo del parry construye el Golpe a partir de el.
+func _pacificar() -> void:
+	for e in get_tree().get_nodes_in_group(&"enemigos"):
+		if not (e is Enemigo) or e.is_queued_for_deletion():
+			continue
+		var en := e as Enemigo
+		en.vista = 0.0
+		if en.fsm != null and en.fsm.nombre_actual() != &"Muerto":
+			en.fsm.cambiar(&"Dormido")
 
 
 ## Planta al Guardian en el origen, quieto y entero. Las dos medidas del picado
