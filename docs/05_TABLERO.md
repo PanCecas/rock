@@ -35,6 +35,7 @@ Cinco estados, y la diferencia entre ellos importa:
 | **Apuntado en 3D** — un enemigo encima ya se puede fijar | `TestEnemigos` |
 | **El arrastre del coloso** — 13.82 → **1.73 m/s** en el borde, por debajo de caminar | `TestEnemigos`, invariante |
 | **La altura del volador** — medida sobre el suelo, no sobre tu cabeza | `TestEnemigos` |
+| **Menu de controles (F1)** — primera UI del proyecto, lee el InputMap en vivo | `TestMenu` 4/4 |
 
 Jefe Kuramoto **documentado** en `project.md §5`. Documentar es el entregable; no
 se implementa.
@@ -77,7 +78,7 @@ tiene delante.
 | Qué | Bloqueado por |
 |---|---|
 | **Cámara cinematográfica** | `CameraTuning` / `PhantomDirector` / `PhantomRig` están escritos pero sin cablear. Phantom se queda con el `transform` y todo el movimiento deduce la dirección de `player.camara()`: cablearlo tal cual son **18 tests en rojo**. |
-| **Inventario BotW** | `src/ui/` está vacío. No es una funcionalidad, es la primera capa de UI del proyecto. |
+| **Inventario BotW** | Sigue siendo la capa de UI que no existe. El menú de controles abrió `src/ui/` y fijó las costumbres —se construye por código, los colores salen de la `Palette`—, pero un inventario paginado con arrastrar y soltar pide navegación y gestión de foco, que es otro orden de magnitud. |
 
 ---
 

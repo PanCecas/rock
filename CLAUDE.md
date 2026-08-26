@@ -91,7 +91,7 @@ plataformas en movimiento.
 	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
 ## Autoloads
-Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`.
+Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `MenuControles`.
 De plugins: `PhantomCameraManager`, `Dialogic`, `CyclopsAutoload`.
 
 Los tres de plugin los registra el editor al activarlos. Estan escritos a mano en
@@ -140,6 +140,12 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 
 ## Controles
 
+**La fuente de verdad es el menu del juego (F1), no esta tabla.** El menu lee las
+teclas del InputMap en vivo, asi que no puede mentir; esta tabla es papel y ya se
+desincronizo una vez —siguio anunciando la embestida en primera persona semanas
+despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige aqui.
+
+
 | Accion | Teclado / raton | Mando |
 |---|---|---|
 | Mover / camara | WASD / raton | Stick izq. / stick der. |
@@ -170,6 +176,7 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Parry | Q | LT |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
+| **Menu de controles** | **F1** (Escape cierra) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
 
 **El planeo esta separado del salto a proposito.** Compartir tecla obligaba a
@@ -213,6 +220,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag y torso escalable. 9 comprobaciones. |
+| `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
