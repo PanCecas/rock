@@ -81,6 +81,27 @@ func resiste_agotamiento() -> bool:
 	return false
 
 
+## Techo de velocidad HORIZONTAL para este estado, en m/s. Negativo = el global.
+##
+## La regla dura #12 dice que la velocidad se limita en UN SOLO SITIO, y se sigue
+## cumpliendo: `_limitar_velocidad()` sigue siendo ese sitio. Lo que esto permite
+## es que un estado DECLARE su techo ahi, en vez de recortar por su cuenta.
+##
+## Existe por el balanceo, y con una medicion detras. La gravedad de caida de este
+## juego es -38 m/s², asi que un pendulo alcanza `sqrt(2*38*L)` abajo del arco:
+## con cuerda de mas de 6.4 m ya pasa de 22. El clamp global no le hacia de techo,
+## le hacia de IMPUESTO —le quitaba energia justo en el punto mas rapido, que es
+## donde el arco es horizontal— y el columpio perdia altura en cada pasada por
+## una razon que no era fisica.
+##
+## Se le da techo propio y no barra libre porque el motivo del clamp global sigue
+## siendo bueno: encadenar sin techo saca al jugador del mapa. Pero un pendulo no
+## es momentum encadenado; es un sistema cerrado cuyo pico lo fija la altura de
+## caida, y esa la pone el nivel.
+func techo_velocidad() -> float:
+	return -1.0
+
+
 ## Texto para el DebugOverlay. Se sobrescribe si el estado tiene algo que contar.
 func debug_line() -> String:
 	return ""

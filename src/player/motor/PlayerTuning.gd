@@ -592,3 +592,28 @@ func velocidad_dash() -> float:
 ## seco, el zip solo sirve para colocarte y no para encadenar. Conservando
 ## momentum, llegar es el principio de otra cosa.
 @export_range(0.0, 1.5, 0.05) var zip_conserva: float = 0.8
+## Largo maximo de cuerda con el que se puede colgar uno. Mas alla, el peso del
+## personaje sobre una lanza clavada deja de ser creible.
+@export_range(2.0, 60.0, 0.5) var swing_largo_max: float = 18.0
+## Aceleracion TANGENCIAL que aporta el stick. Es el bombeo: no te mueve contra
+## la cuerda, te mueve a lo largo del arco, que es como se gana altura en un
+## columpio de verdad.
+@export_range(0.0, 120.0, 1.0) var swing_bombeo: float = 30.0
+## Gravedad mientras cuelgas, en m/s². ABSOLUTA y simetrica, no un multiplicador
+## de la del juego: la del juego es asimetrica (-38 cayendo, -22 subiendo) y eso
+## rompe un pendulo —subirias con menos peso del que caiste y el arco ganaria
+## altura sola—. Un valor entre los dos deja el balanceo con el peso del juego sin
+## regalar energia.
+@export_range(5.0, 90.0, 0.5) var swing_gravedad: float = 30.0
+## Energia que se pierde por segundo en el arco. Cero da un pendulo perpetuo, que
+## se siente a maquina; un poco de perdida hace que bombear signifique algo.
+@export_range(0.0, 1.0, 0.01) var swing_perdida: float = 0.06
+## Empujon vertical al soltarse. Suficiente para que soltar en lo alto del arco
+## se sienta como un salto y no como caerse.
+@export_range(0.0, 12.0, 0.1) var swing_salida: float = 3.2
+## Stamina por segundo colgado. Colgarse es sostener, y sostener cuesta: si fuera
+## gratis, el balanceo sustituiria al resto del traversal.
+@export_range(0.0, 40.0, 0.5) var swing_stamina: float = 6.0
+## Techo horizontal SOLO mientras cuelgas. El global (22) le quitaba energia al
+## arco justo en su punto mas rapido. Medido: una cuerda de 14 m da 28 m/s totales.
+@export_range(10.0, 60.0, 0.5) var swing_velocidad_max: float = 34.0

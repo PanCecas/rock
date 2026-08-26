@@ -71,13 +71,19 @@ plataformas en movimiento.
 	el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
 	distintos para la misma rampa es como se llega a que sea "demasiado empinada
 	para andar" y "demasiado tumbada para escalar" a la vez.
-16. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
+16. **La gravedad del juego es ASIMETRICA** (-38 cayendo, -22 subiendo) y eso es
+	medio game feel gratis en un salto —flotas al subir, caes con peso—, pero
+	**rompe cualquier cosa que tenga que conservar energia**. Un pendulo con
+	gravedad asimetrica sube mas alto de lo que cayo: medido, el balanceo salia
+	6 m por encima de donde empezaba. Todo lo que sea un sistema cerrado usa su
+	propia gravedad simetrica, no `motor.aplicar_gravedad()`.
+17. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
 	El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
 	yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
 	salir, o el personaje se queda torcido para siempre. Y se hace en la
 	TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
 	el dash, el agachado y el planeo.
-17. **EL SCREENSHOT TEST SE CORRE SIEMPRE.** No es opcional, no se salta "porque
+18. **EL SCREENSHOT TEST SE CORRE SIEMPRE.** No es opcional, no se salta "porque
 	este cambio no toca lo visual", y no se da por bueno sin ejecutarlo. Los tres
 	tests van juntos en cada entrega: funcional, de estados y **visual**.
 	**Y no se hace trampa:** regenerar una baseline con `-- actualizar` para que
@@ -86,7 +92,7 @@ plataformas en movimiento.
 	mirar el mapa de diff en `user://visual/` y comprobar que lo que ha cambiado
 	es lo que tenia que cambiar. Si el diff muestra algo que no esperabas, eso no
 	es una baseline vieja: es un bug.
-18. **UN SOLO mecanismo mueve al jugador con una superficie movil, y es
+19. **UN SOLO mecanismo mueve al jugador con una superficie movil, y es
 	`SurfaceContext`.** El acarreo de `move_and_slide` esta acotado a `WORLD`
 	(`platform_floor_layers` / `platform_wall_layers`), y un cuerpo solo arrastra
 	si se declara en el grupo `marcos_moviles` —lista blanca, hoy vacia—. Los dos
@@ -94,7 +100,7 @@ plataformas en movimiento.
 	moviendo al jugador DOS VECES: una por el motor y otra por `arrastrar()`.
 	Montarse encima era un caos y costo dos rondas encontrarlo, porque `velocity`
 	marcaba 0.00 mientras el cuerpo se desplazaba metros.
-19. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+20. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
 	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
 	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
 
@@ -185,7 +191,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
 | **Lanzar la lanza** | **T** | D-pad arriba |
-| **Ir hasta la lanza (zip)** | **Z** | D-pad der. |
+| **Cuerda: en el suelo SUBE, en el aire CUELGA** | **Z** | D-pad der. |
 | **Recuperar la lanza** | **Y** | D-pad izq. |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
@@ -289,9 +295,10 @@ la **IA acuatica**, documentada en `project.md`.
 se para en seco contra piedra y al clavarse es **plataforma** — tirarla a lo alto
 y subirse encima ya funciona. FSM propia en `src/weapons/`, con el mismo patron
 que la de enemigos. Etapa 2 tambien: **zip** hasta la lanza, con impulso y
-no teletransporte, conservando momentum al llegar. Y **etapa 3**: el cordon,
-verlet de paso fijo y **puramente visual** —no colisiona, no se corta, no
-restringe nada—. Faltan balanceo, moveset y la interfaz contra colosos.
+no teletransporte, conservando momentum al llegar. Y **etapas 3 y 4**: el cordon
+(verlet de paso fijo, **puramente visual**) y el **balanceo**, con restriccion
+analitica y gravedad simetrica propia. Faltan moveset y la interfaz contra
+colosos.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

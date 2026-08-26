@@ -20,11 +20,17 @@ var _aux: float = 0.0
 var _origen: Vector3 = Vector3.ZERO
 ## Pulsa la cuerda durante unos frames: 1 = con lanza fuera, 2 = con lanza en mano.
 var _zip: int = 0
+var _salto: int = 0
 var _vel_llegada: float = 0.0
 ## Latches del zip. Se miden MIENTRAS pasa, no al final: cuando termina la
 ## ventana del chequeo el jugador ya ha llegado arriba y ha vuelto a caer.
 var _alto_max: float = -99.0
 var _dist_min: float = 9999.0
+## Latches del pendulo.
+var _swing_ymin: float = 999.0
+var _swing_ymax: float = -999.0
+var _swing_vmax: float = 0.0
+var _swing_y0: float = 0.0
 
 
 func _ready() -> void:
@@ -126,6 +132,47 @@ func _construir() -> void:
 			func() -> bool: return not _visto.has(&"SpearZip"),
 			"con la lanza en la mano no hay a donde tirar"),
 
+		# --- BALANCEO (etapa 4) -----------------------------------------------
+		# El ancla se coloca a mano y alta: es una MEDICION del pendulo, y para que
+		# haya pendulo hace falta caida. Con la lanza clavada en el muro de 5 m la
+		# cuerda llegaria al suelo antes de completar el arco.
+		_chequeo_("colgarse de la lanza clavada", 2.6,
+			func() -> void:
+				_l.global_position = Vector3(0.0, 20.0, 0.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = _l.global_position + Vector3(0.0, -0.2, 14.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_swing_y0 = _p.global_position.y
+				_swing_ymin = 999.0
+				_swing_ymax = -999.0
+				_swing_vmax = 0.0
+				_p.fsm.cambiar(&"SpearSwing"),
+			func() -> bool: return _swing_vmax > 5.0,
+			"colgado de una lanza clavada, la gravedad tiene que ponerte a girar"),
+
+		_chequeo_("el pendulo llega abajo del arco", 0.1,
+			func() -> void: pass,
+			func() -> bool:
+				# Ancla a 20 con cuerda de 14: el punto bajo esta en 6.
+				return absf(_swing_ymin - 6.0) < 0.6,
+			"si no baja hasta el radio, la cuerda no esta restringiendo nada"),
+
+		_chequeo_("y NO gana energia al subir", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _swing_ymax <= _swing_y0 + 0.5,
+			"con la gravedad asimetrica del juego el arco subia 6 m por encima de donde empezaba"),
+
+		_chequeo_("saltar suelta la cuerda", 1.0,
+			func() -> void:
+				_p.stamina.llenar()
+				_visto.clear()
+				_salto = 3,
+			func() -> bool:
+				return _visto.has(&"Jump") and _p.fsm.nombre_actual() != &"SpearSwing",
+			"el balanceo se usa para LLEGAR a un sitio, y llegar termina en un salto"),
+
 		# --- ATRAVESAR --------------------------------------------------------
 		_chequeo_("atraviesa a los enemigos sin pararse", 1.2,
 			func() -> void:
@@ -135,6 +182,9 @@ func _construir() -> void:
 				# coloso es lo que la lanza DEBE hacer, no un fallo.
 				# x=4 esta pasados los muros del wall-run (x 1.3..2.3), que cortaban
 				# el disparo a metro y medio de salir.
+				# A la mano primero: los chequeos del pendulo la dejan clavada a
+				# veinte metros, y de ahi no se puede lanzar.
+				_l.fsm.cambiar(&"Wielded")
 				_p.global_position = Vector3(4.0, 0.05, -32.0)
 				_p.velocity = Vector3.ZERO
 				_visto.clear()
@@ -169,6 +219,11 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _salto > 0:
+		Input.action_press(&"jump")
+		_salto -= 1
+		if _salto == 0:
+			Input.action_release(&"jump")
 	if _zip > 0:
 		# Se pulsa a mano: el buffer es el unico camino del input (regla dura #4)
 		# y esta es la forma de simular una pulsacion desde un test.
@@ -180,6 +235,10 @@ func _physics_process(delta: float) -> void:
 	if _p.fsm.nombre_actual() == &"SpearZip":
 		_vel_llegada = _p.velocity.length()
 	_alto_max = maxf(_alto_max, _p.global_position.y)
+	if _p.fsm.nombre_actual() == &"SpearSwing":
+		_swing_ymin = minf(_swing_ymin, _p.global_position.y)
+		_swing_ymax = maxf(_swing_ymax, _p.global_position.y)
+		_swing_vmax = maxf(_swing_vmax, _p.velocity.length())
 	if _l != null and is_instance_valid(_l):
 		_dist_min = minf(_dist_min, _p.global_position.distance_to(_l.global_position))
 	if _l != null and is_instance_valid(_l):

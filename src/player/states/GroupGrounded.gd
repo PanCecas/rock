@@ -58,7 +58,7 @@ func shared_update(delta: float) -> void:
 	# Si la hoja tiene su propio salto (Crouch, Surf), el grupo no se lo roba.
 	# ZIP A LA LANZA, antes que el salto: desde el suelo sirve para SUBIR a una
 	# lanza clavada en alto, y si el salto se lo comiera nunca saldria.
-	if intentar_zip():
+	if intentar_cuerda():
 		return
 
 	if not (fsm.actual != null and fsm.actual.maneja_salto()):

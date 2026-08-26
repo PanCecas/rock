@@ -299,8 +299,16 @@ func _direccion_de_tiro() -> Vector3:
 func _limitar_velocidad() -> void:
 	var plano := superficie.plano(velocity)
 	var rapidez := plano.length()
-	if rapidez > tuning.velocidad_maxima:
-		velocity = plano * (tuning.velocidad_maxima / rapidez) + superficie.up * superficie.vertical(velocity)
+	# El techo lo puede DECLARAR el estado activo. Sigue habiendo un solo sitio
+	# donde se recorta —este— pero no todos los verbos tienen el mismo limite: un
+	# pendulo es un sistema cerrado y su pico lo fija la altura de caida.
+	var techo := tuning.velocidad_maxima
+	if fsm != null and fsm.actual != null:
+		var propio := fsm.actual.techo_velocidad()
+		if propio > 0.0:
+			techo = propio
+	if rapidez > techo:
+		velocity = plano * (techo / rapidez) + superficie.up * superficie.vertical(velocity)
 
 
 ## PUERTA ÚNICA DEL SALTO. Todos los saltos pasan por aquí, sin excepción.

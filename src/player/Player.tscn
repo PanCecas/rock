@@ -1,4 +1,4 @@
-[gd_scene load_steps=68 format=3]
+[gd_scene load_steps=69 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -46,6 +46,7 @@
 [ext_resource type="Script" path="res://src/player/states/StateLedgeClimb.gd" id="st_lclimb"]
 [ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
 [ext_resource type="Script" path="res://src/player/states/StateSpearZip.gd" id="st_zip"]
+[ext_resource type="Script" path="res://src/player/states/StateSpearSwing.gd" id="st_swing"]
 [ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
 [ext_resource type="Script" path="res://src/player/states/StateSurf.gd" id="st_surf"]
 [ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
@@ -243,6 +244,9 @@ script = ExtResource("st_lclimb")
 
 [node name="SpearZip" type="Node" parent="StateMachine/Attached"]
 script = ExtResource("st_zip")
+
+[node name="SpearSwing" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_swing")
 
 [node name="Climb" type="Node" parent="StateMachine/Attached"]
 script = ExtResource("st_climb")
