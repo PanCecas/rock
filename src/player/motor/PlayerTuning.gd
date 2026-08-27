@@ -262,7 +262,13 @@ extends Resource
 ## ahi el wall-run es la lectura natural. Antes lo decidia de que lado quedaba la
 ## pared, que es una propiedad del sensor y no de como llegas, y por eso los dos
 ## verbos se pisaban.
+## LA frontera de los verbos de pared, en grados entre tu avance y la normal.
+## Por debajo vas de frente —escalas o resbalas—; por encima vas rozando y corres.
+## Un solo numero, sin hueco ni solape entre las dos mitades.
 @export_range(10.0, 89.0, 1.0) var pared_umbral_frontal: float = 55.0
+## Por debajo de esta velocidad plana, el angulo se mide con el INPUT y no con el
+## movimiento: pegado a un muro y casi parado, la velocidad plana es ruido.
+@export_range(0.1, 8.0, 0.1) var pared_avance_minimo: float = 1.5
 
 ## PERDON: sigues pudiendo saltar de la pared este tiempo despues de perder el
 ## contacto. Es lo que hace que encadenar dos muros no exija precision de frame.

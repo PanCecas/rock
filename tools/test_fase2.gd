@@ -1175,6 +1175,40 @@ func _construir_guion() -> void:
 
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
+		# LOS VERBOS DE PARED NO SE PISAN. Un solo numero —el angulo entre tu avance
+		# y la normal— parte el rango en dos mitades: por debajo del umbral vas de
+		# frente y escalas o resbalas, por encima vas rozando y corres.
+		#
+		# Antes eran DOS criterios sobre DOS vectores distintos: la adherencia media
+		# el input deseado (49.5 grados) y el wall-run el movimiento real (55). Con
+		# momentum divergen, asi que las dos condiciones podian ser ciertas a la vez
+		# —de ahi que se sintiera que "quiere hacer todo a la vez"— y entre 49.5 y 55
+		# no saltaba ninguna.
+		_chequeo_("los verbos de pared no se pisan ni dejan hueco", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer(),
+			func() -> bool:
+				var umbral: float = _p.tuning.pared_umbral_frontal
+				# Cara interior del muro de wall-run en x=+1.8, grosor 1.
+				for g in [0, 15, 30, 40, 49, 52, 55, 58, 65, 80, 90]:
+					var a := deg_to_rad(float(g))
+					_p.global_position = Vector3(0.95, 3.0, -34.0)
+					_p.velocity = Vector3(cos(a), 0.0, sin(a)) * 9.0
+					_p.pared.sondear(_p.velocity.normalized())
+					if not _p.pared.hay_pared:
+						return false
+					var medido: float = _p.angulo_contra_pared()
+					var frontal := medido < umbral
+					var rozando := medido >= umbral
+					# EXACTAMENTE uno. Ni los dos (solape) ni ninguno (hueco).
+					if frontal == rozando:
+						return false
+					if absf(medido - float(g)) > 1.5:
+						return false
+				return true,
+			"dos criterios sobre dos vectores es como se llega a que la pared quiera hacer todo a la vez"),
+
 		_paso_("repoblar arena", 0.35, func() -> void:
 			_soltar_todo()
 			(_main.get_node("Arena") as Arena).poblar()

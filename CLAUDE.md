@@ -101,8 +101,15 @@ plataformas en movimiento.
 	Montarse encima era un caos y costo dos rondas encontrarlo, porque `velocity`
 	marcaba 0.00 mientras el cuerpo se desplazaba metros.
 20. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
-	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
-	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
+	sin agarre, **UN SOLO numero** decide —`player.angulo_contra_pared()`, entre tu
+	avance y la normal— y `pared_umbral_frontal` lo parte en dos mitades sin hueco
+	ni solape: de frente escalas o resbalas, rozando corres. Nunca por
+	`pared.lado`: eso es del sensor, no del jugador.
+	Estuvo roto de la misma forma que las superficies antes de la regla #15: la
+	adherencia media el input DESEADO (49.5°) y el wall-run el movimiento REAL
+	(55°). Dos vectores decidiendo lo mismo divergen con momentum, asi que las dos
+	condiciones podian ser ciertas a la vez —"quiere hacer todo a la vez"— y entre
+	49.5 y 55 no saltaba ninguna.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `MenuControles`.
@@ -235,7 +242,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 11 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 129 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): se clava, es plataforma, el jugador se sube, vuelve por una curva, atraviesa enemigos y el zip te lleva hasta ella conservando momentum. 11 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |

@@ -223,6 +223,35 @@ Es un jefe de *ritmo*, no de escalada, así que complementa al coloso en vez de
 competir con él — pero pide que el combate base esté cerrado, porque toda su
 gracia depende de que pegar y esquivar ya se sientan bien.
 
+### 6. Moveset de la lanza — **etapa 5 de la Fase 3**
+
+Con la lanza equipada, el clic derecho cambia el moveset entero (`docs/03 §4.1`).
+El eje que lo ordena, dicho por el usuario:
+
+> *pesados lentos, y rápidos y precisos*
+
+Dos familias, y la lanza es el arma que mejor las separa porque **su alcance es
+su identidad**:
+
+- **Pesados y lentos.** Barrido en área (`spear_sweep`), mucho windup que se ve
+  venir, y sitio para que el enemigo reaccione. Es el que paga el alcance con
+  compromiso: si fallas, estás vendido.
+- **Rápidos y precisos.** Estocadas cortas, recuperación breve, poco daño y
+  mucho control. Es el que mantiene la distancia sin cerrarla.
+
+Por qué esta pareja y no la de la espada: con la espada el reparto es *corto y
+seguro* contra *largo y arriesgado*, y ahí el alcance no cambia. Con la lanza el
+alcance ya es largo siempre, así que lo que se negocia es **precisión contra
+área**, que es una decisión distinta y da un moveset que no se siente el mismo
+con otro modelo encima.
+
+Y `spear_vault` (`docs/03 §4.1`): si hay una lanza clavada cerca, te impulsas con
+ella como con una pértiga. Plataformeo disfrazado de arma.
+
+**Regla dura del cambio:** es un INTERCAMBIO de moveset, no un remapeo. Sin lanza,
+el kit a mano sigue intacto y las 130 comprobaciones de la Fase 2 siguen verdes.
+Si se ponen rojas, es que se remapeó.
+
 ---
 
 ## Agua — Fase 2

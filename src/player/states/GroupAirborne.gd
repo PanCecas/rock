@@ -74,11 +74,17 @@ func shared_update(delta: float) -> void:
 	# 3) WALL-JUMP. Con perdón: la pared sigue valiendo `pared_coyote` segundos
 	#    después de perder el contacto. Sin eso, encadenar dos muros exige
 	#    precisión de frame y es justo lo que hace que se sienta incómodo.
-	if fsm.actual.name != &"WallRun" and player.pared.reciente(tuning.pared_coyote):
-		if player.consumir_salto():
-			player.saltar_de_pared()
-			fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
-			return
+	#    Y el guardia de la regla dura #13: si la hoja se queda el salto, el grupo
+	#    NO se lo roba. Aqui habia un `fsm.actual.name != "WallRun"` —un
+	#    `if state == "x"` de los que prohibe la regla #2— que hacia justo eso pero
+	#    solo para un estado y por su nombre. El guardia existia en `GroupGrounded`
+	#    y NO aqui, que es exactamente el fallo que la regla avisa que se repite.
+	if not (fsm.actual != null and fsm.actual.maneja_salto()):
+		if player.pared.reciente(tuning.pared_coyote):
+			if player.consumir_salto():
+				player.saltar_de_pared()
+				fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
+				return
 
 	# 3.5) PRIORIDAD 1 — ESCALAR. Mantener el agarre gana a wall-run y wall-jump.
 	#      Con tres verbos compitiendo por la misma pared hace falta una regla que
@@ -92,43 +98,41 @@ func shared_update(delta: float) -> void:
 			fsm.cambiar(&"Climb")
 			return
 
-	# 4) PARED. La ambiguedad entre wall-run y wall-jump se resuelve por el ANGULO
-	#    con el que llegas, no por de que lado te queda el muro:
+	# 4) PARED. UN SOLO NUMERO decide, y es el mismo que decide si te agarras:
+	#    `player.angulo_contra_pared()`, el angulo entre tu avance y la normal.
 	#
-	#      de frente (angulo pequeno con la normal) -> no hay componente a lo
-	#        largo del muro que aprovechar. Rebotas: wall-slide y wall-jump.
-	#      rozando (angulo grande) -> ya vas casi paralelo. Correr es la lectura
+	#      por debajo de `pared_umbral_frontal` -> vas DE FRENTE. No hay componente
+	#        a lo largo del muro que aprovechar: rebotas. Wall-slide y wall-jump,
+	#        o escalar si insistes.
+	#      por encima -> vas ROZANDO, ya casi paralelo. Correr es la lectura
 	#        natural: wall-run.
 	#
-	#    Antes lo decidia `pared.lado`, que es una propiedad del sensor y no de
-	#    tu intencion, y por eso los dos verbos se pisaban.
-	# El wall-run y el wall-slide piden MAS que escalar: una pared casi vertical.
-	# Escalar vale desde el slope limit (45), pero correr por una ladera de 50
-	# grados no se sostiene ni fisica ni visualmente.
-	if player.pared.hay_pared and player.pared.angulo >= tuning.wallrun_angulo_min \
-			and fsm.actual.name != &"Dash":
+	#    Antes esto media la direccion de MOVIMIENTO con 55 grados mientras la
+	#    adherencia media la de INPUT DESEADO con 49.5: dos vectores distintos
+	#    decidiendo lo mismo. Con momentum divergen, asi que las dos podian ser
+	#    ciertas a la vez —de ahi que se sintiera que "quiere hacer todo a la
+	#    vez"— y entre 49.5 y 55 no saltaba ninguna.
+	#
+	# El wall-run y el wall-slide piden ADEMAS una pared casi vertical. Escalar
+	# vale desde el slope limit (45), pero correr por una ladera de 50 grados no se
+	# sostiene ni fisica ni visualmente.
+	if player.pared.hay_pared and player.pared.angulo >= tuning.wallrun_angulo_min 			and not fsm.en_categoria(&"Dash"):
 		var normal := sc.plano(player.pared.normal).normalized()
-		var avance := motor.direccion_plana()
 		var contra_pared := -sc.plano(player.velocity).dot(normal)
 		var quiere := buffer.move_vector().length() > 0.3 or contra_pared > tuning.wallslide_entrada_min
 
 		if quiere:
-			# Angulo entre el avance y la normal. 0 = de frente, 90 = rozando.
-			var grados := 0.0
-			if not avance.is_zero_approx():
-				grados = rad_to_deg(avance.angle_to(-normal))
-			var oblicuo := grados >= tuning.pared_umbral_frontal
-
+			var rozando := player.angulo_contra_pared() >= tuning.pared_umbral_frontal
 			var puede_correr := (
-				oblicuo
+				rozando
 				and player.wallrun_disponible
 				and motor.rapidez_plana() >= tuning.wallrun_velocidad_min
 				and buffer.move_vector().length() > 0.3
 			)
-			if puede_correr and fsm.actual.name != &"WallRun":
+			if puede_correr:
 				fsm.cambiar(&"WallRun")
 				return
-			if not puede_correr and motor.get_vertical() < 0.0 and fsm.actual.name != &"WallSlide":
+			if not rozando and motor.get_vertical() < 0.0:
 				fsm.cambiar(&"WallSlide")
 				return
 

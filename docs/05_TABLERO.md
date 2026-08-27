@@ -57,24 +57,16 @@ se implementa.
 
 Ordenados por lo que más estorba para jugar.
 
-### 1 · Los verbos de pared se pisan
-La adherencia automática mide la **dirección de input deseada**
-(`dot(-normal) ≥ 0.65`, o sea ≤ 49.5°); el wall-run mide la **dirección real de
-movimiento** (≥ 55°). Dos vectores distintos que con momentum divergen: **las
-dos condiciones pueden ser ciertas a la vez** y decide un temporizador de 0.35 s.
-Además queda una zona muerta entre 49.5° y 55°, y el wall-slide exige
-`get_vertical() < 0.0`, así que subiendo no ocurre nada.
+*Vacio.* Los tres que quedaban se cerraron:
 
-### 2 · `GroupAirborne` no comprueba `maneja_salto()`
-Solo lo hace `GroupGrounded`. Es el corolario de la regla dura #13 escrito en
-`CLAUDE.md` y aun así incumplido: en el aire, una hoja no puede reclamar el
-salto. En su lugar hay `fsm.actual.name != &"WallRun"`, que es el
-`if state == "x"` que prohíbe la regla #2.
-
-### 3 · `direccion_frontal()` devuelve +Z
-Devuelve `visual.global_basis.z`, no `-z`. Cazado montando el screenshot test:
-un jugador colocado sin girar sondea **en dirección contraria** a la pared que
-tiene delante.
+- **Los verbos de pared se pisaban** y **faltaba el guardia de salto en el aire**:
+  arreglados, con invariante en `TestFase2`.
+- **`direccion_frontal()` devuelve +Z** — **NO era un bug.** `orientar_a()` escribe
+  `visual.rotation.y = atan2(d.x, d.z)`, lo que hace que `visual.basis.z` **sea**
+  la direccion encarada, y el marcador `Frente` del visual esta en `z = +0.3`. La
+  convencion del proyecto es que el visual mira a +Z y las tres piezas son
+  coherentes. Lo que se vio montando el screenshot test fue un fallo del test:
+  colocaba al jugador sin orientarlo.
 
 ---
 

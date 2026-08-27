@@ -630,17 +630,48 @@ func _actualizar_adherencia(delta: float) -> void:
 	if not pared.hay_pared or stamina.vacia():
 		tiempo_contra_pared = 0.0
 		return
-	var entrada := buffer.move_vector()
-	if entrada.length() < 0.5:
+	if buffer.move_vector().length() < 0.5:
 		tiempo_contra_pared = 0.0
 		return
-	var deseada := superficie.direccion_movimiento(entrada, camara())
-	var normal := superficie.plano(pared.normal).normalized()
-	# Empujar CONTRA la pared, no pasar rozando.
-	if deseada.dot(-normal) < 0.65:
+	# EL MISMO numero que usan el wall-run y el wall-slide. Antes esto media la
+	# direccion de INPUT DESEADA con su propio umbral (dot >= 0.65, o sea 49.5
+	# grados) mientras el wall-run media la direccion de MOVIMIENTO REAL con otro
+	# (55 grados). Dos vectores distintos decidiendo lo mismo: con momentum
+	# divergen, las dos condiciones podian ser ciertas A LA VEZ, y encima quedaba
+	# un hueco muerto entre 49.5 y 55 donde no saltaba ninguna.
+	if angulo_contra_pared() >= tuning.pared_umbral_frontal:
 		tiempo_contra_pared = 0.0
 		return
 	tiempo_contra_pared += delta
+
+
+## ANGULO entre tu avance y la pared, en grados. 0 = de frente, 90 = rozando.
+##
+## **Un solo numero decide TODOS los verbos de pared**, y `pared_umbral_frontal`
+## lo parte en dos mitades sin hueco ni solape:
+##
+##   por debajo -> vas DE FRENTE  -> escalar (si insistes) o wall-slide
+##   por encima -> vas ROZANDO    -> wall-run
+##
+## Es el mismo tipo de arreglo que la regla dura #15 hizo con las superficies:
+## dos criterios distintos para la misma pared es como se llega a que sea
+## "demasiado de frente para correr" y "demasiado oblicua para escalar" a la vez.
+##
+## El avance sale del MOVIMIENTO cuando lo hay, y del input cuando estas casi
+## parado —pegado a un muro la velocidad plana es ruido— pero es UNA sola
+## decision, tomada aqui, y no dos criterios en dos archivos.
+func angulo_contra_pared() -> float:
+	if not pared.hay_pared:
+		return 180.0
+	var normal := superficie.plano(pared.normal).normalized()
+	if normal.is_zero_approx():
+		return 180.0
+	var avance := motor.direccion_plana()
+	if motor.rapidez_plana() < tuning.pared_avance_minimo:
+		avance = superficie.direccion_movimiento(buffer.move_vector(), camara())
+	if avance.is_zero_approx():
+		return 180.0
+	return rad_to_deg(avance.normalized().angle_to(-normal))
 
 
 func adherencia_lista() -> bool:
