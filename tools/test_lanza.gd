@@ -243,6 +243,28 @@ func _construir() -> void:
 			func() -> bool: return _swing_tiron < 3.0,
 			"escribiendo la velocidad el salto era de 16.75 m/s en un frame: ESO es lo clunky"),
 
+		_chequeo_("balancearse NO gasta stamina", 1.5,
+			func() -> void:
+				_l.global_position = Vector3(16.0, 9.3, 34.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(16.0, 4.0, 25.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_p.fsm.cambiar(&"Fall")
+				_cuerda = 3,
+			func() -> bool:
+				return (_p.fsm.nombre_actual() == &"SpearSwing"
+					and _p.stamina.fraccion() > 0.99),
+			"balancearse no puede vaciar la barra"),
+
+		_chequeo_("y con la stamina a CERO no te suelta", 1.0,
+			func() -> void:
+				# El caso que antes expulsaba: agotado a mitad de arco.
+				_p.stamina.actual = 0.0,
+			func() -> bool: return _p.fsm.nombre_actual() == &"SpearSwing",
+			"GroupAttached suelta a quien se agota; el balanceo no participa de esa regla"),
+
 		_chequeo_("saltar suelta la cuerda", 1.0,
 			func() -> void:
 				_p.stamina.llenar()

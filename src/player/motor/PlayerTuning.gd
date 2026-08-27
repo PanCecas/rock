@@ -611,9 +611,6 @@ func velocidad_dash() -> float:
 ## Empujon vertical al soltarse. Suficiente para que soltar en lo alto del arco
 ## se sienta como un salto y no como caerse.
 @export_range(0.0, 12.0, 0.1) var swing_salida: float = 3.2
-## Stamina por segundo colgado. Colgarse es sostener, y sostener cuesta: si fuera
-## gratis, el balanceo sustituiria al resto del traversal.
-@export_range(0.0, 40.0, 0.5) var swing_stamina: float = 6.0
 ## Techo horizontal SOLO mientras cuelgas. El global (22) le quitaba energia al
 ## arco justo en su punto mas rapido. Medido: una cuerda de 14 m da 28 m/s totales.
 @export_range(10.0, 60.0, 0.5) var swing_velocidad_max: float = 34.0

@@ -72,7 +72,6 @@ func physics_update(delta: float) -> void:
 		return
 
 	_ancla = _punto_ancla()
-	player.stamina.drenar(tuning.swing_stamina, delta)
 
 	# 1) GRAVEDAD, y SIMÉTRICA. Se aplica SIEMPRE, también mientras se recoge
 	#    cuerda: es lo que te da velocidad de arco antes de llegar al radio. Sin
@@ -234,6 +233,16 @@ func _soltar() -> void:
 ## abajo, que es donde el pendulo es horizontal.
 func techo_velocidad() -> float:
 	return tuning.swing_velocidad_max
+
+
+## BALANCEARSE NO CUESTA STAMINA, ni por drenaje ni por agotamiento.
+##
+## Y las dos mitades van juntas: si colgarse es gratis, quedarse sin fuerzas
+## escalando no puede soltarte de la cuerda tres segundos despues. `GroupAttached`
+## suelta a quien se queda a cero —bien para lo que se SOSTIENE con los brazos—,
+## y el balanceo se sale de esa regla porque ya no participa en ella.
+func resiste_agotamiento() -> bool:
+	return true
 
 
 func maneja_salto() -> bool:
