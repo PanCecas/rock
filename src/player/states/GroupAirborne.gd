@@ -171,6 +171,20 @@ func shared_update(delta: float) -> void:
 			fsm.cambiar(&"Plunge")
 			return
 
+	# CON LA LANZA EMPUNADA, el aire tambien cambia de moveset.
+	#
+	# Va ANTES de `cd_dive` a proposito: esa espera es de los clavados y estos no
+	# lo son. Estrangular la lanza con el cooldown de otro verbo es como se llega a
+	# que un arma "no responda" sin motivo visible.
+	var lanza_aereo := player.ataque_aereo_ligero_actual()
+	if lanza_aereo != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"AirAttack", {"datos": lanza_aereo})
+		return
+	var lanza_giro := player.ataque_aereo_pesado_actual()
+	if lanza_giro != null and buffer.consume(InputActions.ATTACK_HEAVY):
+		fsm.cambiar(&"AirAttack", {"datos": lanza_giro})
+		return
+
 	# La espera vale para los DOS clavados: son el mismo verbo con distinto peso, y
 	# un cooldown que solo mire a uno se esquiva alternandolos. Las pulsaciones se
 	# consumen igualmente para que no se queden en el buffer y disparen solas al

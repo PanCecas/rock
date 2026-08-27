@@ -318,6 +318,35 @@ func _construir() -> void:
 					and _p.ataque_pesado_actual() == _p.ataque_lanza_pesado),
 			"empunarla cambia los DOS, no solo uno"),
 
+		# EL MOVESET AEREO. Sin el, empunar la lanza solo cambiaba la mitad del
+		# combate: en el aire seguian saliendo los clavados a mano.
+		_chequeo_("empunada, el aire tambien cambia", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				return (_p.ataque_aereo_ligero_actual() == _p.ataque_lanza_aereo_ligero
+					and _p.ataque_aereo_pesado_actual() == _p.ataque_lanza_aereo_pesado),
+			"un moveset que cambia en el suelo y no en el aire es medio moveset"),
+
+		_chequeo_("y guardada mandan los clavados", 0.3,
+			func() -> void: _l.fsm.cambiar(&"Holstered"),
+			func() -> bool:
+				return (_p.ataque_aereo_ligero_actual() == null
+					and _p.ataque_aereo_pesado_actual() == null),
+			"sin lanza el kit aereo a mano tiene que quedar intacto"),
+
+		_chequeo_("el aereo ligero es preciso y el pesado en area", 0.4,
+			func() -> void: _l.fsm.cambiar(&"Wielded"),
+			func() -> bool:
+				var lig: AttackData = _p.ataque_lanza_aereo_ligero
+				var pes: AttackData = _p.ataque_lanza_aereo_pesado
+				# MISMO eje que en suelo: un moveset que cambia de criterio al
+				# saltar no es un moveset, son dos.
+				return (lig.radio < pes.radio * 0.5
+					and lig.max_objetivos < pes.max_objetivos
+					and lig.frames_windup < pes.frames_windup
+					and lig.arco_grados < pes.arco_grados),
+			"el eje tiene que ser el mismo en el suelo y en el aire"),
+
 		_chequeo_("el ligero de lanza es preciso y el pesado en area", 0.3,
 			func() -> void: pass,
 			func() -> bool:

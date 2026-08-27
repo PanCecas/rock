@@ -38,6 +38,8 @@ extends CharacterBody3D
 @export_group("Ataques de lanza")
 @export var ataque_lanza_ligero: AttackData
 @export var ataque_lanza_pesado: AttackData
+@export var ataque_lanza_aereo_ligero: AttackData
+@export var ataque_lanza_aereo_pesado: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -320,6 +322,24 @@ func impulsar_pertiga() -> void:
 	EventBus.camara_shake.emit(0.4, 0.14)
 	CombatFX.impacto(get_parent(), lanza.global_position,
 		color_de(&"oro_palido"), 1.2)
+
+
+## EL MOVESET AEREO de la lanza. `null` = no hay, y mandan los clavados.
+##
+## En el aire, el kit a mano son los CLAVADOS: rebotar en cabezas y levantar. Son
+## verbos de CONTACTO, y por eso la lanza no puede limitarse a copiarlos: lo que
+## ella mete en el aire es ALCANCE. La estocada llega desde lejos y te mantiene
+## arriba —conectar en el aire repone el dash, `docs/03 §3.3`— y el giro barre
+## todo lo que tengas alrededor.
+##
+## Mismo eje que en el suelo, porque un moveset que cambia de criterio al saltar
+## no es un moveset, son dos.
+func ataque_aereo_ligero_actual() -> AttackData:
+	return ataque_lanza_aereo_ligero if lanza_empunada() else null
+
+
+func ataque_aereo_pesado_actual() -> AttackData:
+	return ataque_lanza_aereo_pesado if lanza_empunada() else null
 
 
 ## TIRAR Y RECUPERAR LA LANZA.
