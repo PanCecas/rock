@@ -41,7 +41,7 @@ dueno_path = NodePath("..")
 
 [node name="FSM" type="Node" parent="."]
 script = ExtResource("fsm")
-estado_inicial = &"Wielded"
+estado_inicial = &"Holstered"
 
 [node name="Holstered" type="Node" parent="FSM"]
 script = ExtResource("e_hol")

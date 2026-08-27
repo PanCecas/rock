@@ -636,3 +636,12 @@ func velocidad_dash() -> float:
 ## Tope de velocidad de ACERCAMIENTO al ancla mientras recoge. Sin el te disparas
 ## hasta el ancla en vez de asentarte en el arco, y llegar es un frenazo.
 @export_range(1.0, 40.0, 0.5) var swing_recogida_max: float = 13.0
+## PERTIGA. Saltar junto a una lanza clavada te impulsa con ella: es
+## plataformeo disfrazado de arma (`docs/03 §4.1`).
+## Radio dentro del cual la lanza sirve de apoyo.
+@export_range(0.5, 8.0, 0.1) var vault_radio: float = 3.2
+## Impulso vertical del apoyo, SUMADO al salto. Un salto normal sube 2.6 m; esto
+## lo lleva a una altura que no se alcanza de ninguna otra forma sin escalar.
+@export_range(0.0, 25.0, 0.5) var vault_impulso: float = 8.5
+## Empujon horizontal en la direccion que pidas, para cruzar y no solo subir.
+@export_range(0.0, 20.0, 0.5) var vault_avance: float = 5.0

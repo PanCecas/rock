@@ -198,6 +198,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
 | **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
+| **Empunar / guardar la lanza** | **Tab** | Back |
+| | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
 | **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
@@ -244,7 +246,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): se clava, es plataforma, el jugador se sube, vuelve por una curva, atraviesa enemigos y el zip te lleva hasta ella conservando momentum. 11 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, intercambio de moveset y pertiga. 30 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
@@ -309,10 +311,11 @@ la **IA acuatica**, documentada en `project.md`.
 se para en seco contra piedra y al clavarse es **plataforma** — tirarla a lo alto
 y subirse encima ya funciona. FSM propia en `src/weapons/`, con el mismo patron
 que la de enemigos. Etapa 2 tambien: **zip** hasta la lanza, con impulso y
-no teletransporte, conservando momentum al llegar. Y **etapas 3 y 4**: el cordon
+no teletransporte, conservando momentum al llegar. **Etapas 3 y 4**: el cordon
 (verlet de paso fijo, **puramente visual**) y el **balanceo**, con restriccion
-analitica y gravedad simetrica propia. Faltan moveset y la interfaz contra
-colosos.
+analitica y gravedad simetrica propia. Y **etapa 5**: el moveset —empunarla con
+Tab cambia los dos ataques, ligero preciso contra pesado en area— mas la
+pertiga. Falta solo la interfaz contra colosos.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

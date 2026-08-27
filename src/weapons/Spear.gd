@@ -99,11 +99,34 @@ func clavada_en_algo() -> bool:
 
 ## Lanza la lanza. Lo llama el jugador; el estado hace el resto.
 func lanzar(desde: Vector3, hacia: Vector3) -> bool:
-	if not en_mano():
+	# Vale tambien GUARDADA: la desenfunda y la tira en un solo gesto. Obligar a
+	# sacarla primero convertiria el lanzamiento en dos pulsaciones, y de eso ya
+	# se quejo el usuario con razon.
+	var n := fsm.nombre_actual()
+	if n != &"Wielded" and n != &"Holstered":
 		return false
 	global_position = desde
 	fsm.cambiar(&"InFlight", {"direccion": hacia})
 	return true
+
+
+## Guarda o saca la lanza. ES el cambio de moveset: empunada manda su set de
+## ataques, guardada mandan los de siempre.
+##
+## Gasta una tecla, si —`swap_weapon`, que ya existia y estaba sin usar— pero es
+## de otra categoria que el resto: tirar y engancharse son cosas que haces
+## CONSTANTEMENTE; decidir con que arma peleas es una decision que tomas y
+## mantienes. Y el caso comun —tirarla— no la necesita: el boton de la lanza la
+## desenfunda solo.
+func alternar_empunada() -> bool:
+	var n := fsm.nombre_actual()
+	if n == &"Wielded":
+		fsm.cambiar(&"Holstered")
+		return true
+	if n == &"Holstered":
+		fsm.cambiar(&"Wielded")
+		return true
+	return false
 
 
 ## Pide que vuelva. Vale desde clavada y desde el suelo.

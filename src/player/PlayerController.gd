@@ -35,6 +35,9 @@ extends CharacterBody3D
 @export var ataque_surf_pesado: AttackData
 ## Contraataque que solo se abre tras un parry perfecto.
 @export var ataque_contra: AttackData
+@export_group("Ataques de lanza")
+@export var ataque_lanza_ligero: AttackData
+@export var ataque_lanza_pesado: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -260,6 +263,65 @@ func _avanzar_relojes(delta: float) -> void:
 
 # --- Servicios para los estados ----------------------------------------------
 
+## ¿Está la lanza EMPUÑADA? Es lo único que decide qué moveset tienes.
+##
+## Y no hay botón de equipar: **tirarla es desequiparla**. Eso convierte cada
+## lanzamiento en una decisión de verdad —posición o alcance— en vez de en un
+## trámite, y no gasta una tecla más en un juego que ya iba justo de teclas.
+func lanza_empunada() -> bool:
+	return lanza != null and is_instance_valid(lanza) and lanza.en_mano()
+
+
+## EL MOVESET ACTIVO, ligero y pesado.
+##
+## Esto es un INTERCAMBIO, no un remapeo, y la diferencia importa: los botones
+## siguen significando lo mismo —ligero es ligero, pesado es pesado— y lo único
+## que cambia es qué `AttackData` sale. Sin lanza, el kit a mano queda intacto y
+## las 130 comprobaciones de la Fase 2 siguen verdes; si se ponen rojas es que
+## alguien remapeó.
+##
+## Vive aquí, en un solo sitio, y no repartido por los grupos de la FSM: dos
+## sitios preguntando "¿tengo la lanza?" es como se llega a que el ligero sea de
+## lanza y el pesado de espada.
+func ataque_ligero_actual() -> AttackData:
+	if lanza_empunada() and ataque_lanza_ligero != null:
+		return ataque_lanza_ligero
+	return ataque_ligero
+
+
+func ataque_pesado_actual() -> AttackData:
+	if lanza_empunada() and ataque_lanza_pesado != null:
+		return ataque_lanza_pesado
+	return ataque_pesado
+
+
+## PERTIGA: ¿hay una lanza clavada lo bastante cerca para apoyarse en ella?
+##
+## `docs/03 §4.1` la llama `spear_vault` y la describe como "una mecánica de
+## plataformas disfrazada de arma", que es exactamente lo que es: no hace daño,
+## no tiene hitbox, y su único trabajo es llevarte donde el salto no llega.
+##
+## Pide la lanza CLAVADA, no en la mano ni volando: te apoyas en algo firme.
+func hay_pertiga() -> bool:
+	if lanza == null or not is_instance_valid(lanza) or not lanza.clavada_en_algo():
+		return false
+	return global_position.distance_to(lanza.global_position) <= tuning.vault_radio
+
+
+## Aplica el impulso de pértiga. Lo llama el salto, que ya ha decidido saltar.
+func impulsar_pertiga() -> void:
+	var subida := tuning.vault_impulso
+	motor.set_vertical(motor.get_vertical() + subida)
+	var entrada := buffer.move_vector()
+	if entrada.length() > 0.2:
+		var hacia := superficie.direccion_movimiento(entrada, camara())
+		# Cruzar, no solo subir: una pértiga sin avance es un trampolín.
+		velocity += hacia.normalized() * tuning.vault_avance
+	EventBus.camara_shake.emit(0.4, 0.14)
+	CombatFX.impacto(get_parent(), lanza.global_position,
+		color_de(&"oro_palido"), 1.2)
+
+
 ## TIRAR Y RECUPERAR LA LANZA.
 ##
 ## Vive aqui y no en los grupos de la FSM a proposito: lanzar NO cambia el estado
@@ -292,6 +354,10 @@ func _input_lanza() -> void:
 	# Sigue existiendo la recuperacion explicita para quien la quiera aparte.
 	if buffer.consume(InputActions.RECALL_SPEAR):
 		lanza.recuperar()
+	# SACAR O GUARDAR: el cambio de moveset. Empunada pega con la lanza; guardada,
+	# con lo de siempre.
+	if buffer.consume(InputActions.SWAP_WEAPON):
+		lanza.alternar_empunada()
 
 
 ## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.

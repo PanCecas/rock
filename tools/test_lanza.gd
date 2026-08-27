@@ -49,14 +49,14 @@ func _ready() -> void:
 
 func _construir() -> void:
 	_guion = [
-		_chequeo_("el jugador tiene LA lanza", 0.3,
+		_chequeo_("el jugador tiene LA lanza, guardada", 0.3,
 			func() -> void: pass,
-			func() -> bool: return _l != null and _l.en_mano(),
-			"el Gym la crea y se la entrega; sin ella no hay nada que probar"),
+			func() -> bool: return _l != null and _l.fsm.nombre_actual() == &"Holstered",
+			"empieza guardada: el kit base es la espada y empunarla es lo que lo cambia"),
 
-		# --- VUELO ------------------------------------------------------------
 		_chequeo_("se clava en un muro", 1.4,
 			func() -> void:
+				_l.fsm.cambiar(&"Wielded")
 				# Frente al muro de la lanza, mirandolo.
 				_p.global_position = Vector3(0.0, 0.05, 33.0)
 				_p.velocity = Vector3.ZERO
@@ -298,6 +298,99 @@ func _construir() -> void:
 			"un enemigo alcanzado recibe dano y la lanza SIGUE"),
 
 		# --- IMANTADO ---------------------------------------------------------
+		# EL INTERCAMBIO DE MOVESET. No es un remapeo: los botones siguen
+		# significando lo mismo y lo unico que cambia es que AttackData sale.
+		_chequeo_("guardada, el moveset es el de siempre", 0.3,
+			func() -> void: _l.fsm.cambiar(&"Holstered"),
+			func() -> bool:
+				return (_p.ataque_ligero_actual() == _p.ataque_ligero
+					and _p.ataque_pesado_actual() == _p.ataque_pesado),
+			"sin lanza empunada no puede salir un ataque de lanza"),
+
+		_chequeo_("empunada, cambia el moveset entero", 0.4,
+			func() -> void:
+				# Por el TOGGLE, no forzando el estado: asi se comprueba tambien
+				# que la tecla de guardar/sacar hace lo que dice.
+				_l.fsm.cambiar(&"Holstered")
+				_l.alternar_empunada(),
+			func() -> bool:
+				return (_p.ataque_ligero_actual() == _p.ataque_lanza_ligero
+					and _p.ataque_pesado_actual() == _p.ataque_lanza_pesado),
+			"empunarla cambia los DOS, no solo uno"),
+
+		_chequeo_("el ligero de lanza es preciso y el pesado en area", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				var lig: AttackData = _p.ataque_lanza_ligero
+				var pes: AttackData = _p.ataque_lanza_pesado
+				# El eje del moveset: rapido y preciso contra lento y en area.
+				return (lig.radio < pes.radio * 0.5
+					and lig.max_objetivos < pes.max_objetivos
+					and lig.frames_windup < pes.frames_windup
+					and lig.arco_grados < pes.arco_grados),
+			"si los dos pegan igual, no hay moveset: hay dos botones para lo mismo"),
+
+		_chequeo_("y tirarla la desempuna", 1.2,
+			func() -> void:
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3(0, 0, -1))
+				_boton_lanza = 3,
+			func() -> bool:
+				return (not _p.lanza_empunada()
+					and _p.ataque_ligero_actual() == _p.ataque_ligero),
+			"tirarla ES desequiparla: por eso lanzar es una decision y no un tramite"),
+
+		# --- VUELO ------------------------------------------------------------
+
+		# PERTIGA. `docs/03 §4.1` la llama "una mecanica de plataformas disfrazada
+		# de arma", y es literal: no hace dano, no tiene hitbox, y su unico trabajo
+		# es llevarte donde el salto no llega.
+		# Colocarse y ASENTARSE primero: `is_on_floor()` refleja el ultimo
+		# `move_and_slide`, asi que recien teletransportado el jugador todavia
+		# cuenta como en el aire y el salto saldria como salto aereo.
+		_chequeo_("colocarse junto a la lanza clavada", 0.5,
+			func() -> void:
+				_l.global_position = Vector3(0.0, 2.0, 30.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(0.0, 0.05, 31.5)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle"),
+			func() -> bool: return _p.is_on_floor() and _p.hay_pertiga(),
+			"sin suelo bajo los pies y lanza al lado no hay pertiga que probar"),
+
+		_chequeo_("saltar junto a la lanza clavada te impulsa", 1.4,
+			func() -> void:
+				_alto_max = -99.0
+				# Mantenida todo el ascenso: este juego tiene jump cut, asi que
+				# soltar mientras subes recorta el salto y la pertiga no se
+				# distinguiria de un salto normal. Se suelta al acabar el paso.
+				_salto = 80,
+			func() -> bool:
+				# Un salto normal sube 2.6 m. Con pertiga tiene que pasar de largo.
+				return _alto_max > 4.5,
+			"con pertiga se llega a una altura que el salto solo no alcanza"),
+
+		_chequeo_("asentarse sin lanza cerca", 0.5,
+			func() -> void:
+				_l.fsm.cambiar(&"Holstered")
+				_p.global_position = Vector3(0.0, 0.05, 31.5)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle"),
+			func() -> bool: return _p.is_on_floor() and not _p.hay_pertiga(),
+			"guardada no sirve de apoyo: te apoyas en algo firme, no en lo que llevas"),
+
+		_chequeo_("y sin lanza cerca el salto es el de siempre", 1.4,
+			func() -> void:
+				_alto_max = -99.0
+				# Mantenida todo el ascenso: este juego tiene jump cut, asi que
+				# soltar mientras subes recorta el salto y la pertiga no se
+				# distinguiria de un salto normal. Se suelta al acabar el paso.
+				_salto = 80,
+			func() -> bool: return _alto_max < 3.6,
+			"si la pertiga saliera siempre, el salto normal dejaria de existir"),
+
 		_chequeo_("el imantado no supera su tope", 0.4,
 			func() -> void: pass,
 			func() -> bool:

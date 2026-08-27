@@ -72,6 +72,15 @@ func shared_update(delta: float) -> void:
 				var dir := sc.direccion_movimiento(buffer.move_vector(), player.camara())
 				fsm.cambiar(&"SideJump", {"direccion": dir})
 				return
+			# PERTIGA: si hay una lanza clavada al lado, el salto se apoya en
+			# ella y sube mucho mas. Va DESPUES del side jump —ese es un
+			# gesto que ya empezaste y no se le quita— y antes del salto
+			# normal, porque teniendo pertiga a mano el salto raso no es lo
+			# que estas pidiendo.
+			if player.hay_pertiga():
+				fsm.cambiar(&"Jump", {"numero": 1}, true)
+				player.impulsar_pertiga()
+				return
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
 
@@ -89,11 +98,15 @@ func shared_update(delta: float) -> void:
 	if fsm.actual != null and fsm.actual.maneja_ataques():
 		return
 
-	if player.ataque_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_ligero, "indice": 1})
+	# El moveset lo decide `PlayerController`, no este grupo: con la lanza
+	# empunada salen sus ataques, sin ella los de siempre. Un solo sitio.
+	var ligero := player.ataque_ligero_actual()
+	if ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
+		fsm.cambiar(&"Attack", {"datos": ligero, "indice": 1})
 		return
-	if player.ataque_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_pesado, "indice": 1})
+	var pesado := player.ataque_pesado_actual()
+	if pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
+		fsm.cambiar(&"Attack", {"datos": pesado, "indice": 1})
 		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()
