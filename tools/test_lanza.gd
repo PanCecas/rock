@@ -22,6 +22,7 @@ var _origen: Vector3 = Vector3.ZERO
 var _zip: int = 0
 var _salto: int = 0
 var _cuerda: int = 0
+var _boton_lanza: int = 0
 var _vel_llegada: float = 0.0
 ## Latches del zip. Se miden MIENTRAS pasa, no al final: cuando termina la
 ## ventana del chequeo el jugador ya ha llegado arriba y ha vuelto a caer.
@@ -97,6 +98,26 @@ func _construir() -> void:
 				var pl := _l.get_node_or_null("Plataforma") as StaticBody3D
 				return pl != null and not pl.get_collision_layer_value(1),
 			"una plataforma que sobrevive a la lanza es un bloque flotante"),
+
+		# UN SOLO BOTON. Eran tres teclas —T tirar, Y recuperar, Z cuerda— y dos de
+		# ellas al otro lado del teclado, sin alcance desde WASD.
+		_chequeo_("el boton de la lanza la TIRA si la llevas", 1.0,
+			func() -> void:
+				_l.fsm.cambiar(&"Wielded")
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3(0, 0, -1))
+				_visto.clear()
+				_boton_lanza = 3,
+			func() -> bool: return not _l.en_mano(),
+			"con la lanza en la mano, el boton la lanza"),
+
+		_chequeo_("y el MISMO boton la recupera", 2.0,
+			func() -> void:
+				_visto.clear()
+				_boton_lanza = 3,
+			func() -> bool: return _visto.has(&"Returning") or _l.en_mano(),
+			"sin ella, el mismo boton la llama de vuelta: son las dos mitades del mismo verbo"),
 
 		# --- CAMBIAR DE POSICION (etapa 2) ------------------------------------
 		_chequeo_("la cuerda te lleva hasta la lanza clavada", 2.2,
@@ -277,6 +298,11 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _boton_lanza > 0:
+		Input.action_press(&"throw_spear")
+		_boton_lanza -= 1
+		if _boton_lanza == 0:
+			Input.action_release(&"throw_spear")
 	if _cuerda > 0:
 		Input.action_press(&"rope")
 		_cuerda -= 1

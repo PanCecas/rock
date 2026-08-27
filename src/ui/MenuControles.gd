@@ -134,6 +134,17 @@ func _secciones() -> Array:
 				"cuando": "área y daño crecen con la altura de caída"},
 		]},
 
+		{"titulo": "LA LANZA", "filas": [
+			{"nombre": "Tirar la lanza · y recuperarla", "acciones": [InputActions.THROW_SPEAR],
+				"cuando": "el mismo botón: si la llevas la tiras, si no vuelve"},
+			{"nombre": "Cuerda — te recoge y te cuelga", "acciones": [InputActions.ROPE],
+				"cuando": "clavada: te lleva y te balanceas · en vuelo: vas tras ella"},
+			{"nombre": "Soltar la cuerda", "acciones": [InputActions.JUMP],
+				"cuando": "conservas la inercia del arco"},
+			{"nombre": "Bombear el balanceo", "acciones": [InputActions.MOVE_FORWARD],
+				"cuando": "el stick empuja a lo largo del arco, como en un columpio"},
+		]},
+
 		{"titulo": "EN EL AGUA", "filas": [
 			{"nombre": "Bucear", "acciones": [InputActions.CROUCH]},
 			{"nombre": "Subir", "acciones": [InputActions.JUMP], "cuando": "mantener"},

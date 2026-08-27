@@ -272,9 +272,24 @@ func _avanzar_relojes(delta: float) -> void:
 func _input_lanza() -> void:
 	if lanza == null or not is_instance_valid(lanza):
 		return
+	# UN SOLO BOTON PARA LA LANZA: si la llevas, la tiras; si no, vuelve.
+	#
+	# Eran dos teclas —T y Y— y ademas al otro lado del teclado: no se alcanzan
+	# sin soltar WASD. Tres teclas para un arma es de lo que se quejo el usuario, y
+	# tenia razon.
+	#
+	# Que un boton haga dos cosas segun el contexto es justo lo que este proyecto
+	# evita, PERO aqui no hay ambiguedad que aprender: o tienes la lanza en la mano
+	# o no la tienes, y eso se ve. No son dos verbos compitiendo por una tecla; son
+	# las dos mitades del mismo.
 	if buffer.consume(InputActions.THROW_SPEAR):
 		if lanza.en_mano():
 			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
+		else:
+			# Tambien vale colgado: recuperarla suelta la cuerda y te la trae, en
+			# un gesto en vez de dos.
+			lanza.recuperar()
+	# Sigue existiendo la recuperacion explicita para quien la quiera aparte.
 	if buffer.consume(InputActions.RECALL_SPEAR):
 		lanza.recuperar()
 
