@@ -4,6 +4,10 @@ Registro vivo de en qué punto está cada cosa. **Esta es la fuente de verdad**:
 una entrada de aquí y un comentario del código se contradicen, gana lo que diga
 el código y se corrige el tablero en el mismo commit.
 
+**Se actualiza en el MISMO commit que el cambio.** Un tablero que se pone al día
+"cuando toque" miente exactamente igual que la tabla de controles que obligó a
+escribir el menú del juego: no se nota que está mal hasta que alguien lo cree.
+
 Cinco estados, y la diferencia entre ellos importa:
 
 | Estado | Qué significa exactamente |
@@ -40,6 +44,20 @@ Cinco estados, y la diferencia entre ellos importa:
 
 Jefe Kuramoto **documentado** en `project.md §5`. Documentar es el entregable; no
 se implementa.
+
+---
+
+## PRUEBAS — el estado de verdad
+
+| Suite | |
+|---|---|
+| `TestFase1` — FSM | **12/12** |
+| `TestFase2` — combate, postura, agua, escalada, paredes | **130/130** |
+| `TestEnemigos` | **17/17** |
+| `TestLanza` | **36/36** |
+| `TestMenu` | **4/4** |
+| `TestVisual` | **11/11** |
+| humo | 0 infracciones |
 
 ---
 

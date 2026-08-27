@@ -19,6 +19,7 @@ plataformas en movimiento.
 | `docs/02_PIPELINE_PERSONAJES_ANIM.md` | Rig, ~205 clips por tiers, concept art, export. |
 | `docs/03_ARQUITECTURA_MECANICAS.md` | **Arquitectura completa. La referencia técnica.** |
 | `docs/04_ROADMAP.md` | Fases, hitos, orden de construcción. |
+| `docs/05_TABLERO.md` | **Qué está listo, en proceso, bugueado y pendiente.** Se actualiza en el MISMO commit que el cambio. |
 
 ## Reglas duras del código
 1. **Ningún número mágico en `.gd`.** Todo valor que se toque para "que se sienta bien" vive en
@@ -199,6 +200,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Apuntar | R | L3 |
 | **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
 | **Empunar / guardar la lanza** | **Tab** | Back |
+| **Carga en viaje** | Click izq. / der. mientras la cuerda te lleva | RB / RT |
+| | *Ligero atraviesa · pesado los manda a volar con tu inercia* | |
 | | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
 | **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
 | Recuperar (aparte) | Y | D-pad izq. |
@@ -246,7 +249,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, intercambio de moveset y pertiga. 30 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga y carga en viaje. 36 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 

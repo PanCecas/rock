@@ -25,10 +25,13 @@ var _largo: float = 0.0
 var _soltado_a_mano: bool = false
 ## ¿Todavía se está recogiendo cuerda? Mientras sí, no hay péndulo: está floja.
 var _recogiendo: bool = false
+## 0 sin carga, 1 ligera (atraviesa), 2 pesada (manda a volar).
+var _carga: int = 0
 
 
 func enter(_msg: Dictionary = {}) -> void:
 	_soltado_a_mano = false
+	_carga = 0
 	player.enderezar()
 	_ancla = _punto_ancla()
 	# El largo es la distancia a la que te enganchaste, no un valor fijo: engancharse
@@ -98,6 +101,16 @@ func physics_update(delta: float) -> void:
 	var hacia_ancla := _ancla - player.global_position
 	var separacion := hacia_ancla.length()
 	_recogiendo = separacion > _largo + 0.1
+
+	# La carga solo existe MIENTRAS TE RECOGE: es lo que convierte la velocidad
+	# del viaje en un golpe. Colgado y girando ya no vas hacia ningun sitio, y ahi
+	# el moveset que toca es el aereo de siempre.
+	if _recogiendo:
+		_leer_carga()
+		if separacion > 0.001:
+			_golpear_carga(hacia_ancla / separacion)
+	else:
+		_carga = 0
 	if _recogiendo and separacion > 0.001:
 		var dir := hacia_ancla / separacion
 		player.velocity += dir * tuning.swing_recogida * delta
@@ -242,6 +255,39 @@ func techo_velocidad() -> float:
 ## suelta a quien se queda a cero —bien para lo que se SOSTIENE con los brazos—,
 ## y el balanceo se sale de esa regla porque ya no participa en ella.
 func resiste_agotamiento() -> bool:
+	return true
+
+
+## CARGA: golpear mientras la cuerda te lleva.
+##
+## Se abre `nuevo_swing()` al empezar para que cada cuerpo se lleve UN golpe por
+## viaje y no uno por frame; y una vez abierta se mantiene hasta el final, porque
+## el gesto es "voy cargando", no "he pulsado".
+##
+##   ligero -> atraviesas: hieres a todo lo que cruzas y NO te paras.
+##   pesado -> los mandas a volar, escalado por la inercia que lleves.
+func _abrir_carga(pesado: bool) -> void:
+	_carga = 2 if pesado else 1
+	player.hitbox.nuevo_swing()
+	EventBus.camara_shake.emit(0.3 if pesado else 0.18, 0.1)
+
+
+func _leer_carga() -> void:
+	if buffer.consume(InputActions.ATTACK_LIGHT):
+		_abrir_carga(false)
+	elif buffer.consume(InputActions.ATTACK_HEAVY):
+		_abrir_carga(true)
+
+
+func _golpear_carga(direccion: Vector3) -> void:
+	if _carga == 0:
+		return
+	player.golpear_en_carga(_carga == 2, direccion)
+
+
+## El estado se queda los ataques: sin esto el grupo los consume ANTES —corre
+## primero— y la carga no llegaria a existir nunca. Regla dura #13.
+func maneja_ataques() -> bool:
 	return true
 
 

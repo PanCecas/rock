@@ -40,6 +40,8 @@ extends CharacterBody3D
 @export var ataque_lanza_pesado: AttackData
 @export var ataque_lanza_aereo_ligero: AttackData
 @export var ataque_lanza_aereo_pesado: AttackData
+@export var ataque_carga_ligera: AttackData
+@export var ataque_carga_pesada: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -340,6 +342,50 @@ func ataque_aereo_ligero_actual() -> AttackData:
 
 func ataque_aereo_pesado_actual() -> AttackData:
 	return ataque_lanza_aereo_pesado if lanza_empunada() else null
+
+
+## CARGA EN VIAJE: golpear mientras la cuerda te lleva hacia la lanza.
+##
+## Convierte la velocidad del viaje en dos cosas distintas, el mismo eje de
+## siempre:
+##
+##   LIGERO -> ATRAVIESAS. Hieres a todo lo que cruzas y NO te paras. El jugador
+##     ya atraviesa a los enemigos fisicamente —su mascara no incluye la capa
+##     ENEMY— asi que atravesar no hay que construirlo: hay que no estropearlo.
+##   PESADO -> LOS MANDAS A VOLAR, con la inercia que lleves.
+##
+## `nuevo_swing()` lo abre quien empieza la carga: eso hace que cada cuerpo se
+## lleve UN golpe por viaje, no uno por frame.
+##
+## Devuelve cuantos ha tocado este frame.
+func golpear_en_carga(pesado: bool, direccion: Vector3) -> int:
+	var datos := ataque_carga_pesada if pesado else ataque_carga_ligera
+	if datos == null or hitbox == null:
+		return 0
+	if pesado:
+		datos = escalar_por_inercia(datos, velocity.length())
+	var n := hitbox.golpear(datos, direccion)
+	if n > 0:
+		CombatFX.impacto(get_parent(), global_position + Vector3.UP * 0.9,
+			color_de(datos.color_vfx), 1.4 if pesado else 0.9)
+	return n
+
+
+## Copia de un `AttackData` con el empuje escalado por la INERCIA que llevas.
+##
+## El pesado del viaje manda a volar "con la inercia que lleves", asi que su
+## fuerza no puede ser un numero fijo: llegar lanzado y llegar despacio tienen que
+## dar resultados distintos, o la mecanica no premia haber cogido velocidad.
+##
+## Se DUPLICA el recurso en vez de tocarlo: un `.tres` es compartido, y
+## escribirle el empuje dejaria el cambio pegado para el resto de la partida.
+func escalar_por_inercia(datos: AttackData, rapidez: float) -> AttackData:
+	var f: float = clampf(rapidez / tuning.carga_inercia_ref,
+		tuning.carga_inercia_min, tuning.carga_inercia_max)
+	var copia: AttackData = datos.duplicate()
+	copia.empuje = datos.empuje * f
+	copia.lanzamiento = datos.lanzamiento * f
+	return copia
 
 
 ## TIRAR Y RECUPERAR LA LANZA.

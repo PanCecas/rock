@@ -20,10 +20,13 @@ extends PlayerState
 
 var _objetivo: Vector3 = Vector3.ZERO
 var _agotado: bool = false
+## 0 sin carga, 1 ligera (atraviesa), 2 pesada (manda a volar).
+var _carga: int = 0
 
 
 func enter(_msg: Dictionary = {}) -> void:
 	_agotado = false
+	_carga = 0
 	player.enderezar()
 	# La cámara y el cuerpo miran hacia donde te tira: sin esto llegas de espaldas.
 	var hacia := _punto() - player.global_position
@@ -35,6 +38,8 @@ func physics_update(delta: float) -> void:
 	if not _valido():
 		_soltar()
 		return
+
+	_leer_carga()
 
 	_objetivo = _punto()
 	var hacia := _objetivo - player.global_position
@@ -51,6 +56,8 @@ func physics_update(delta: float) -> void:
 	# Sin gravedad: durante el tirón manda la cuerda, no el peso.
 	var deseada := hacia.normalized() * tuning.zip_velocidad
 	player.velocity = player.velocity.move_toward(deseada, tuning.zip_aceleracion * delta)
+
+	_golpear_carga(hacia.normalized())
 
 	# ATASCADO. Si hay un muro entre tú y la lanza, `move_and_slide` te para y la
 	# distancia deja de bajar. Sin esto te quedarías empujando piedra hasta que
@@ -107,5 +114,39 @@ func resiste_agotamiento() -> bool:
 	return true
 
 
+## CARGA: golpear mientras la cuerda te lleva.
+##
+## Se abre `nuevo_swing()` al empezar para que cada cuerpo se lleve UN golpe por
+## viaje y no uno por frame; y una vez abierta se mantiene hasta el final, porque
+## el gesto es "voy cargando", no "he pulsado".
+##
+##   ligero -> atraviesas: hieres a todo lo que cruzas y NO te paras.
+##   pesado -> los mandas a volar, escalado por la inercia que lleves.
+func _abrir_carga(pesado: bool) -> void:
+	_carga = 2 if pesado else 1
+	player.hitbox.nuevo_swing()
+	EventBus.camara_shake.emit(0.3 if pesado else 0.18, 0.1)
+
+
+func _leer_carga() -> void:
+	if buffer.consume(InputActions.ATTACK_LIGHT):
+		_abrir_carga(false)
+	elif buffer.consume(InputActions.ATTACK_HEAVY):
+		_abrir_carga(true)
+
+
+func _golpear_carga(direccion: Vector3) -> void:
+	if _carga == 0:
+		return
+	player.golpear_en_carga(_carga == 2, direccion)
+
+
+## El estado se queda los ataques: sin esto el grupo los consume ANTES —corre
+## primero— y la carga no llegaria a existir nunca. Regla dura #13.
+func maneja_ataques() -> bool:
+	return true
+
+
 func debug_line() -> String:
-	return "ZIP  %.1f m" % player.global_position.distance_to(_objetivo)
+	var c: String = ["", "  CARGA", "  CARGA PESADA"][_carga]
+	return "ZIP  %.1f m%s" % [player.global_position.distance_to(_objetivo), c]

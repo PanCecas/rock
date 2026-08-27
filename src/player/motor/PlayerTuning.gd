@@ -645,3 +645,11 @@ func velocidad_dash() -> float:
 @export_range(0.0, 25.0, 0.5) var vault_impulso: float = 8.5
 ## Empujon horizontal en la direccion que pidas, para cruzar y no solo subir.
 @export_range(0.0, 20.0, 0.5) var vault_avance: float = 5.0
+## CARGA EN VIAJE: golpear mientras la cuerda te lleva.
+## Velocidad de referencia para escalar el empuje del golpe pesado. A esta
+## velocidad el empuje sale tal y como esta en su `.tres`.
+@export_range(1.0, 60.0, 0.5) var carga_inercia_ref: float = 18.0
+## Suelo y techo del escalado. El techo es lo que hace que sea MODERADO: llegar
+## lanzado pega mas, pero no convierte a la lanza en un cañon.
+@export_range(0.0, 1.0, 0.05) var carga_inercia_min: float = 0.45
+@export_range(1.0, 4.0, 0.05) var carga_inercia_max: float = 1.55

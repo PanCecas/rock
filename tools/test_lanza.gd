@@ -10,6 +10,7 @@ extends Node
 var _main: Node
 var _p: PlayerController
 var _l: Spear
+var _victima: Enemigo
 var _paso: int = 0
 var _t: float = 0.0
 var _reloj: float = 0.0
@@ -23,6 +24,12 @@ var _zip: int = 0
 var _salto: int = 0
 var _cuerda: int = 0
 var _boton_lanza: int = 0
+var _atk_lig: int = 0
+var _atk_pes: int = 0
+## Latches de la carga en viaje.
+var _enemigo_vy: float = -99.0
+var _enemigo_vida: float = 0.0
+var _cruzo: bool = false
 var _vel_llegada: float = 0.0
 ## Latches del zip. Se miden MIENTRAS pasa, no al final: cuando termina la
 ## ventana del chequeo el jugador ya ha llegado arriba y ha vuelto a caer.
@@ -420,6 +427,45 @@ func _construir() -> void:
 			func() -> bool: return _alto_max < 3.6,
 			"si la pertiga saliera siempre, el salto normal dejaria de existir"),
 
+		# CARGA EN VIAJE. Golpear mientras la cuerda te lleva convierte la velocidad
+		# del viaje en dos cosas distintas: atravesar o impactar.
+		_chequeo_("preparar un enemigo en el camino", 0.6,
+			func() -> void:
+				_l.global_position = Vector3(11.0, 6.0, -20.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(11.0, 0.05, -30.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_preparar_victima(Vector3(11.0, 0.2, -25.0)),
+			func() -> bool: return _victima != null and is_instance_valid(_victima),
+			"sin nadie en medio no hay nada que atravesar ni que mandar a volar"),
+
+		_chequeo_("la carga LIGERA hiere y NO te para", 1.8,
+			func() -> void:
+				_enemigo_vida = _victima.salud.actual
+				_cruzo = false
+				_p.fsm.cambiar(&"Fall")
+				_cuerda = 4
+				_atk_lig = 30,
+			func() -> bool:
+				# Le ha hecho dano Y ha seguido de largo: cruzo su posicion.
+				return _victima.salud.actual < _enemigo_vida and _cruzo,
+			"atravesar es herir sin pararse; si te frena, es un muro y no un enemigo"),
+
+		_chequeo_("la PESADA los manda a volar", 2.0,
+			func() -> void:
+				_p.global_position = Vector3(11.0, 0.05, -30.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_preparar_victima(Vector3(11.0, 0.2, -25.0))
+				_enemigo_vy = -99.0
+				_p.fsm.cambiar(&"Fall")
+				_cuerda = 4
+				_atk_pes = 30,
+			func() -> bool: return _enemigo_vy > 3.0,
+			"con la inercia del viaje, el pesado tiene que levantarlo del suelo"),
+
 		_chequeo_("el imantado no supera su tope", 0.4,
 			func() -> void: pass,
 			func() -> bool:
@@ -442,6 +488,16 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _atk_lig > 0:
+		Input.action_press(&"attack_light")
+		_atk_lig -= 1
+		if _atk_lig == 0:
+			Input.action_release(&"attack_light")
+	if _atk_pes > 0:
+		Input.action_press(&"attack_heavy")
+		_atk_pes -= 1
+		if _atk_pes == 0:
+			Input.action_release(&"attack_heavy")
 	if _boton_lanza > 0:
 		Input.action_press(&"throw_spear")
 		_boton_lanza -= 1
@@ -468,6 +524,11 @@ func _physics_process(delta: float) -> void:
 	if _p.fsm.nombre_actual() == &"SpearZip":
 		_vel_llegada = _p.velocity.length()
 	_alto_max = maxf(_alto_max, _p.global_position.y)
+	if _victima != null and is_instance_valid(_victima):
+		_enemigo_vy = maxf(_enemigo_vy, _victima.velocity.y)
+		# ¿Ha cruzado al enemigo? El viaje va hacia -Z; cruzarlo es pasar de largo.
+		if _p.global_position.z < _victima.global_position.z - 0.6:
+			_cruzo = true
 	if _p.fsm.nombre_actual() == &"SpearSwing":
 		_swing_ymin = minf(_swing_ymin, _p.global_position.y)
 		_swing_ymax = maxf(_swing_ymax, _p.global_position.y)
@@ -510,3 +571,20 @@ func _informe() -> void:
 
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "chequeo": chequeo, "porque": porque}
+
+
+## Un Guardian quieto y pacificado en mitad del camino. Pacificado porque lo que
+## se mide es el golpe DEL JUGADOR: un enemigo que ademas ataca solo mete ruido.
+func _preparar_victima(pos: Vector3) -> void:
+	if _victima != null and is_instance_valid(_victima):
+		_victima.queue_free()
+	var g := load("res://src/enemies/Guardian.tscn").instantiate() as Enemigo
+	g.palette = GameState.palette
+	# CON AttackData aunque no vaya a atacar: su estado Recuperar lo lee al
+	# recibir un golpe, y sin el revienta.
+	g.ataque = load("res://content/data/attacks/guardian_lancero.tres")
+	_main.add_child(g)
+	g.global_position = pos
+	g.vista = 0.0
+	g.fsm.cambiar(&"Dormido")
+	_victima = g
