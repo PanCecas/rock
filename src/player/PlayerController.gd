@@ -35,6 +35,13 @@ extends CharacterBody3D
 @export var ataque_surf_pesado: AttackData
 ## Contraataque que solo se abre tras un parry perfecto.
 @export var ataque_contra: AttackData
+@export_group("Ataques de lanza")
+@export var ataque_lanza_ligero: AttackData
+@export var ataque_lanza_pesado: AttackData
+@export var ataque_lanza_aereo_ligero: AttackData
+@export var ataque_lanza_aereo_pesado: AttackData
+@export var ataque_carga_ligera: AttackData
+@export var ataque_carga_pesada: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -49,6 +56,10 @@ extends CharacterBody3D
 @onready var salud: HealthComponent = $Salud
 @onready var poise: PoiseComponent = $Poise
 @onready var targeting: TargetingSystem = $Targeting
+
+## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
+## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
+var lanza: Spear = null
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -104,6 +115,10 @@ var cd_slide_kick: float = 0.0
 ## Espera entre clavados. Mismo motivo y mismo patron que la patada deslizante:
 ## un ataque de movilidad que se puede repetir sin pausa deja de ser una decision.
 var cd_dive: float = 0.0
+## HANG TIME: segundos con gravedad CERO. Lo arma el rebote del clavado pesado y lo
+## consulta `LocomotionMotor.aplicar_gravedad`, asi que vale para Fall, Jump y
+## Glide sin que ninguno tenga que saber que existe.
+var hangtime: float = 0.0
 var _giro_visual_restante: float = 0.0
 
 
@@ -147,6 +162,7 @@ func _physics_process(delta: float) -> void:
 	var frente := direccion_frontal()
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
+	_input_lanza()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -192,6 +208,18 @@ func _configurar_cuerpo() -> void:
 	wall_min_slide_angle = deg_to_rad(12.0)
 	safe_margin = 0.02
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
+	# ACARREO DE PLATAFORMA: SOLO desde mundo estatico.
+	#
+	# Estas dos propiedades no se tocaban, y por defecto valen TODAS LAS CAPAS.
+	# Eso significaba que `move_and_slide` acarreaba al jugador desde cualquier
+	# cuerpo que se moviera... incluido el coloso escalable, que ademas ya te
+	# arrastra por su cuenta via `SurfaceContext.arrastrar()`. El movimiento se
+	# aplicaba DOS VECES, y por eso montarse encima era un caos.
+	#
+	# El marco movil de un coloso es trabajo de `SurfaceContext` —regla dura #3—,
+	# no del acarreo del motor. Un solo mecanismo, y es el nuestro.
+	platform_floor_layers = Layers.WORLD
+	platform_wall_layers = Layers.WORLD
 	up_direction = superficie.up
 
 
@@ -224,6 +252,7 @@ func _avanzar_relojes(delta: float) -> void:
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
 	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
 	cd_dive = maxf(0.0, cd_dive - delta)
+	hangtime = maxf(0.0, hangtime - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
@@ -238,6 +267,177 @@ func _avanzar_relojes(delta: float) -> void:
 
 # --- Servicios para los estados ----------------------------------------------
 
+## ¿Está la lanza EMPUÑADA? Es lo único que decide qué moveset tienes.
+##
+## Y no hay botón de equipar: **tirarla es desequiparla**. Eso convierte cada
+## lanzamiento en una decisión de verdad —posición o alcance— en vez de en un
+## trámite, y no gasta una tecla más en un juego que ya iba justo de teclas.
+func lanza_empunada() -> bool:
+	return lanza != null and is_instance_valid(lanza) and lanza.en_mano()
+
+
+## EL MOVESET ACTIVO, ligero y pesado.
+##
+## Esto es un INTERCAMBIO, no un remapeo, y la diferencia importa: los botones
+## siguen significando lo mismo —ligero es ligero, pesado es pesado— y lo único
+## que cambia es qué `AttackData` sale. Sin lanza, el kit a mano queda intacto y
+## las 130 comprobaciones de la Fase 2 siguen verdes; si se ponen rojas es que
+## alguien remapeó.
+##
+## Vive aquí, en un solo sitio, y no repartido por los grupos de la FSM: dos
+## sitios preguntando "¿tengo la lanza?" es como se llega a que el ligero sea de
+## lanza y el pesado de espada.
+func ataque_ligero_actual() -> AttackData:
+	if lanza_empunada() and ataque_lanza_ligero != null:
+		return ataque_lanza_ligero
+	return ataque_ligero
+
+
+func ataque_pesado_actual() -> AttackData:
+	if lanza_empunada() and ataque_lanza_pesado != null:
+		return ataque_lanza_pesado
+	return ataque_pesado
+
+
+## PERTIGA: ¿hay una lanza clavada lo bastante cerca para apoyarse en ella?
+##
+## `docs/03 §4.1` la llama `spear_vault` y la describe como "una mecánica de
+## plataformas disfrazada de arma", que es exactamente lo que es: no hace daño,
+## no tiene hitbox, y su único trabajo es llevarte donde el salto no llega.
+##
+## Pide la lanza CLAVADA, no en la mano ni volando: te apoyas en algo firme.
+func hay_pertiga() -> bool:
+	if lanza == null or not is_instance_valid(lanza) or not lanza.clavada_en_algo():
+		return false
+	return global_position.distance_to(lanza.global_position) <= tuning.vault_radio
+
+
+## Aplica el impulso de pértiga. Lo llama el salto, que ya ha decidido saltar.
+func impulsar_pertiga() -> void:
+	var subida := tuning.vault_impulso
+	motor.set_vertical(motor.get_vertical() + subida)
+	var entrada := buffer.move_vector()
+	if entrada.length() > 0.2:
+		var hacia := superficie.direccion_movimiento(entrada, camara())
+		# Cruzar, no solo subir: una pértiga sin avance es un trampolín.
+		velocity += hacia.normalized() * tuning.vault_avance
+	EventBus.camara_shake.emit(0.4, 0.14)
+	CombatFX.impacto(get_parent(), lanza.global_position,
+		color_de(&"oro_palido"), 1.2)
+
+
+## EL MOVESET AEREO de la lanza. `null` = no hay, y mandan los clavados.
+##
+## En el aire, el kit a mano son los CLAVADOS: rebotar en cabezas y levantar. Son
+## verbos de CONTACTO, y por eso la lanza no puede limitarse a copiarlos: lo que
+## ella mete en el aire es ALCANCE. La estocada llega desde lejos y te mantiene
+## arriba —conectar en el aire repone el dash, `docs/03 §3.3`— y el giro barre
+## todo lo que tengas alrededor.
+##
+## Mismo eje que en el suelo, porque un moveset que cambia de criterio al saltar
+## no es un moveset, son dos.
+func ataque_aereo_ligero_actual() -> AttackData:
+	return ataque_lanza_aereo_ligero if lanza_empunada() else null
+
+
+func ataque_aereo_pesado_actual() -> AttackData:
+	return ataque_lanza_aereo_pesado if lanza_empunada() else null
+
+
+## CARGA EN VIAJE: golpear mientras la cuerda te lleva hacia la lanza.
+##
+## Convierte la velocidad del viaje en dos cosas distintas, el mismo eje de
+## siempre:
+##
+##   LIGERO -> ATRAVIESAS. Hieres a todo lo que cruzas y NO te paras. El jugador
+##     ya atraviesa a los enemigos fisicamente —su mascara no incluye la capa
+##     ENEMY— asi que atravesar no hay que construirlo: hay que no estropearlo.
+##   PESADO -> LOS MANDAS A VOLAR, con la inercia que lleves.
+##
+## `nuevo_swing()` lo abre quien empieza la carga: eso hace que cada cuerpo se
+## lleve UN golpe por viaje, no uno por frame.
+##
+## Devuelve cuantos ha tocado este frame.
+func golpear_en_carga(pesado: bool, direccion: Vector3) -> int:
+	var datos := ataque_carga_pesada if pesado else ataque_carga_ligera
+	if datos == null or hitbox == null:
+		return 0
+	if pesado:
+		datos = escalar_por_inercia(datos, velocity.length())
+	var n := hitbox.golpear(datos, direccion)
+	if n > 0:
+		CombatFX.impacto(get_parent(), global_position + Vector3.UP * 0.9,
+			color_de(datos.color_vfx), 1.4 if pesado else 0.9)
+	return n
+
+
+## Copia de un `AttackData` con el empuje escalado por la INERCIA que llevas.
+##
+## El pesado del viaje manda a volar "con la inercia que lleves", asi que su
+## fuerza no puede ser un numero fijo: llegar lanzado y llegar despacio tienen que
+## dar resultados distintos, o la mecanica no premia haber cogido velocidad.
+##
+## Se DUPLICA el recurso en vez de tocarlo: un `.tres` es compartido, y
+## escribirle el empuje dejaria el cambio pegado para el resto de la partida.
+func escalar_por_inercia(datos: AttackData, rapidez: float) -> AttackData:
+	var f: float = clampf(rapidez / tuning.carga_inercia_ref,
+		tuning.carga_inercia_min, tuning.carga_inercia_max)
+	var copia: AttackData = datos.duplicate()
+	copia.empuje = datos.empuje * f
+	copia.lanzamiento = datos.lanzamiento * f
+	return copia
+
+
+## TIRAR Y RECUPERAR LA LANZA.
+##
+## Vive aqui y no en los grupos de la FSM a proposito: lanzar NO cambia el estado
+## del jugador —se tira corriendo, saltando o cayendo, y sigues haciendo lo que
+## hacias—, asi que no es una transicion y no le corresponde a la maquina de
+## estados. Meterlo en los grupos obligaria a repetirlo en los cinco, que es
+## justo la clase de duplicado que la regla dura #13 acaba castigando.
+##
+## El input sale del `InputBuffer` como todo lo demas (regla dura #4).
+func _input_lanza() -> void:
+	if lanza == null or not is_instance_valid(lanza):
+		return
+	# UN SOLO BOTON PARA LA LANZA: si la llevas, la tiras; si no, vuelve.
+	#
+	# Eran dos teclas —T y Y— y ademas al otro lado del teclado: no se alcanzan
+	# sin soltar WASD. Tres teclas para un arma es de lo que se quejo el usuario, y
+	# tenia razon.
+	#
+	# Que un boton haga dos cosas segun el contexto es justo lo que este proyecto
+	# evita, PERO aqui no hay ambiguedad que aprender: o tienes la lanza en la mano
+	# o no la tienes, y eso se ve. No son dos verbos compitiendo por una tecla; son
+	# las dos mitades del mismo.
+	if buffer.consume(InputActions.THROW_SPEAR):
+		if lanza.en_mano():
+			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
+		else:
+			# Tambien vale colgado: recuperarla suelta la cuerda y te la trae, en
+			# un gesto en vez de dos.
+			lanza.recuperar()
+	# Sigue existiendo la recuperacion explicita para quien la quiera aparte.
+	if buffer.consume(InputActions.RECALL_SPEAR):
+		lanza.recuperar()
+	# SACAR O GUARDAR: el cambio de moveset. Empunada pega con la lanza; guardada,
+	# con lo de siempre.
+	if buffer.consume(InputActions.SWAP_WEAPON):
+		lanza.alternar_empunada()
+
+
+## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
+##
+## Es lo que espera cualquiera que haya tirado algo en un juego en tercera
+## persona: apuntas mirando. El cuerpo va por detras girando, y usar su frente
+## haria que la lanza saliera hacia donde estabas mirando hace medio segundo.
+func _direccion_de_tiro() -> Vector3:
+	var cam := camara()
+	if cam != null:
+		return -cam.global_basis.z
+	return direccion_frontal()
+
+
 ## CLAMP DURO de la velocidad horizontal, en el último punto antes de mover.
 ##
 ## El juego premia encadenar momentum, pero encadenar sin techo termina sacando al
@@ -246,8 +446,16 @@ func _avanzar_relojes(delta: float) -> void:
 func _limitar_velocidad() -> void:
 	var plano := superficie.plano(velocity)
 	var rapidez := plano.length()
-	if rapidez > tuning.velocidad_maxima:
-		velocity = plano * (tuning.velocidad_maxima / rapidez) + superficie.up * superficie.vertical(velocity)
+	# El techo lo puede DECLARAR el estado activo. Sigue habiendo un solo sitio
+	# donde se recorta —este— pero no todos los verbos tienen el mismo limite: un
+	# pendulo es un sistema cerrado y su pico lo fija la altura de caida.
+	var techo := tuning.velocidad_maxima
+	if fsm != null and fsm.actual != null:
+		var propio := fsm.actual.techo_velocidad()
+		if propio > 0.0:
+			techo = propio
+	if rapidez > techo:
+		velocity = plano * (techo / rapidez) + superficie.up * superficie.vertical(velocity)
 
 
 ## PUERTA ÚNICA DEL SALTO. Todos los saltos pasan por aquí, sin excepción.
@@ -267,6 +475,11 @@ func consumir_salto() -> bool:
 
 
 ## Recarga lo que se recupera al tocar suelo o al hacer wall-jump.
+## Suspende la gravedad unos instantes. La usa el rebote del clavado pesado.
+func iniciar_hangtime(segundos: float) -> void:
+	hangtime = maxf(hangtime, segundos)
+
+
 func recargar_aire() -> void:
 	dash_cargas = tuning.dash_cargas_aire
 	saltos_aereos = tuning.saltos_aereos
@@ -549,17 +762,48 @@ func _actualizar_adherencia(delta: float) -> void:
 	if not pared.hay_pared or stamina.vacia():
 		tiempo_contra_pared = 0.0
 		return
-	var entrada := buffer.move_vector()
-	if entrada.length() < 0.5:
+	if buffer.move_vector().length() < 0.5:
 		tiempo_contra_pared = 0.0
 		return
-	var deseada := superficie.direccion_movimiento(entrada, camara())
-	var normal := superficie.plano(pared.normal).normalized()
-	# Empujar CONTRA la pared, no pasar rozando.
-	if deseada.dot(-normal) < 0.65:
+	# EL MISMO numero que usan el wall-run y el wall-slide. Antes esto media la
+	# direccion de INPUT DESEADA con su propio umbral (dot >= 0.65, o sea 49.5
+	# grados) mientras el wall-run media la direccion de MOVIMIENTO REAL con otro
+	# (55 grados). Dos vectores distintos decidiendo lo mismo: con momentum
+	# divergen, las dos condiciones podian ser ciertas A LA VEZ, y encima quedaba
+	# un hueco muerto entre 49.5 y 55 donde no saltaba ninguna.
+	if angulo_contra_pared() >= tuning.pared_umbral_frontal:
 		tiempo_contra_pared = 0.0
 		return
 	tiempo_contra_pared += delta
+
+
+## ANGULO entre tu avance y la pared, en grados. 0 = de frente, 90 = rozando.
+##
+## **Un solo numero decide TODOS los verbos de pared**, y `pared_umbral_frontal`
+## lo parte en dos mitades sin hueco ni solape:
+##
+##   por debajo -> vas DE FRENTE  -> escalar (si insistes) o wall-slide
+##   por encima -> vas ROZANDO    -> wall-run
+##
+## Es el mismo tipo de arreglo que la regla dura #15 hizo con las superficies:
+## dos criterios distintos para la misma pared es como se llega a que sea
+## "demasiado de frente para correr" y "demasiado oblicua para escalar" a la vez.
+##
+## El avance sale del MOVIMIENTO cuando lo hay, y del input cuando estas casi
+## parado —pegado a un muro la velocidad plana es ruido— pero es UNA sola
+## decision, tomada aqui, y no dos criterios en dos archivos.
+func angulo_contra_pared() -> float:
+	if not pared.hay_pared:
+		return 180.0
+	var normal := superficie.plano(pared.normal).normalized()
+	if normal.is_zero_approx():
+		return 180.0
+	var avance := motor.direccion_plana()
+	if motor.rapidez_plana() < tuning.pared_avance_minimo:
+		avance = superficie.direccion_movimiento(buffer.move_vector(), camara())
+	if avance.is_zero_approx():
+		return 180.0
+	return rad_to_deg(avance.normalized().angle_to(-normal))
 
 
 func adherencia_lista() -> bool:
@@ -769,5 +1013,7 @@ func _debug() -> void:
 		salud.fraccion() * 100.0, poise.fraccion() * 100.0,
 		"  QUEBRADA" if poise.rota else ""])
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
+	if lanza != null and is_instance_valid(lanza):
+		DebugOverlay.set_line("lanza", lanza.debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])

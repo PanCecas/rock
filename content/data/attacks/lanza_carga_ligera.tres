@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Carga ligera"
+frames_windup = 0
+frames_activo = 240
+frames_recuperacion = 0
+dano = 14.0
+dano_poise = 18.0
+empuje = Vector3(0, 1, 3)
+stagger = 0.15
+fuerza_muerte = 12.0
+alcance = 1.0
+radio = 0.9
+altura = 0.9
+arco_grados = 140.0
+max_objetivos = 5
+avance = 0.0
+movilidad = 0.0
+autoencarar = false
+hitstop = 0.025
+shake = 0.3
+color_vfx = &"caliza_sol"
+frame_cadena = 999

@@ -14,6 +14,10 @@ extends Node
 ## Peso relativo del ángulo frente a la distancia al puntuar candidatos.
 @export_range(0.0, 1.0, 0.05) var peso_angulo: float = 0.65
 @export var equipo: int = 0
+## Altura desde la que se apunta, sobre el origen del jugador.
+@export_range(0.0, 3.0, 0.05) var altura_ojos: float = 1.0
+## Altura del punto al que se apunta, sobre el origen del enemigo.
+@export_range(0.0, 4.0, 0.05) var altura_objetivo: float = 0.9
 
 ## Objetivo bloqueado a mano con `lock_on`. Null = solo hay sugerencia.
 var fijado: Node3D = null
@@ -45,7 +49,14 @@ func objetivo() -> Node3D:
 	return sugerido
 
 
-## Dirección hacia el objetivo, plana. ZERO si no hay ninguno.
+## Dirección hacia el objetivo, PLANA. ZERO si no hay ninguno.
+##
+## Se queda plana a propósito, y no es un descuido: sus tres consumidores
+## —`StateAttack`, `StateAirAttack` y `StateParry`— la usan para ENCARAR y para
+## `motor.impulso()`. Darles componente vertical lanzaría al jugador hacia arriba
+## al pegarle a algo que vuela, que no es apuntar: es despegar.
+##
+## Para apuntar de verdad en tres dimensiones está `direccion_3d()`.
 func direccion_a_objetivo() -> Vector3:
 	var o := objetivo()
 	if o == null or _dueno == null:
@@ -53,6 +64,35 @@ func direccion_a_objetivo() -> Vector3:
 	var d := o.global_position - _dueno.global_position
 	d.y = 0.0
 	return d.normalized() if not d.is_zero_approx() else Vector3.ZERO
+
+
+## Dirección hacia el objetivo SIN aplastar la Y: la que hace falta para
+## perseguir a algo por el aire.
+##
+## Sale del pecho y no de los pies, que es de donde salen los golpes. Contra un
+## enemigo a 4.5 m de altura y 2 de distancia, medir desde los pies mete casi
+## nueve grados de error hacia arriba.
+func direccion_3d() -> Vector3:
+	var o := objetivo()
+	if o == null or _dueno == null:
+		return Vector3.ZERO
+	var d := _punto_de_mira(o) - (_dueno.global_position + Vector3.UP * altura_ojos)
+	return d.normalized() if not d.is_zero_approx() else Vector3.ZERO
+
+
+## Distancia real al objetivo, en 3D. ZERO si no hay.
+func distancia_3d() -> float:
+	var o := objetivo()
+	if o == null or _dueno == null:
+		return 0.0
+	return (_punto_de_mira(o) - (_dueno.global_position + Vector3.UP * altura_ojos)).length()
+
+
+## A dónde se apunta de un cuerpo: a su centro, no a sus pies. El origen de un
+## `CharacterBody3D` está en el suelo, así que apuntar a `global_position` es
+## apuntarle a los tobillos.
+func _punto_de_mira(o: Node3D) -> Vector3:
+	return o.global_position + Vector3.UP * altura_objetivo
 
 
 ## Corrige una dirección hacia el objetivo si está dentro de `grados`.
@@ -80,11 +120,17 @@ func _buscar(referencia: Vector3) -> Node3D:
 	params.collide_with_areas = true
 	params.collide_with_bodies = false
 
-	var ref := Vector3(referencia.x, 0.0, referencia.z)
+	# La referencia llega ya en 3D —es el frente de la camara— y se usa TAL CUAL.
+	# Antes se aplastaba a la horizontal aqui mismo, tirando informacion que el
+	# llamante ya daba, y eso tenia una consecuencia peor que perder precision:
+	# un enemigo justo encima daba vector plano CERO, caia en el `continue` de
+	# abajo y era literalmente INSELECCIONABLE. El volador vive ahi.
+	var ref := referencia
 	if ref.is_zero_approx():
 		ref = -_dueno.global_basis.z
 	ref = ref.normalized()
 
+	var ojos := _dueno.global_position + Vector3.UP * altura_ojos
 	var mejor: Node3D = null
 	var mejor_puntos := -INF
 
@@ -92,11 +138,15 @@ func _buscar(referencia: Vector3) -> Node3D:
 		var hb := r.collider as Hurtbox
 		if hb == null or hb.equipo == equipo or not _valido(hb.dueno as Node3D):
 			continue
-		var hacia := hb.global_position - _dueno.global_position
+		var duenyo := hb.dueno as Node3D
+		var hacia := _punto_de_mira(duenyo) - ojos
 		var dist := hacia.length()
-		hacia.y = 0.0
 		if hacia.is_zero_approx():
 			continue
+		# El cono se mide en 3D contra el frente de la camara. En juego normal
+		# —camara horizontal, enemigos a ras de suelo— el angulo sale igual que
+		# antes; la diferencia solo aparece cuando miras hacia arriba, que es
+		# justo cuando hace falta.
 		var angulo := rad_to_deg(ref.angle_to(hacia.normalized()))
 		if angulo > cono_grados:
 			continue
@@ -106,7 +156,7 @@ func _buscar(referencia: Vector3) -> Node3D:
 		var puntos := p_ang * peso_angulo + p_dist * (1.0 - peso_angulo)
 		if puntos > mejor_puntos:
 			mejor_puntos = puntos
-			mejor = hb.dueno as Node3D
+			mejor = duenyo
 
 	return mejor
 

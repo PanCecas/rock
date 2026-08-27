@@ -24,6 +24,9 @@ func _ready() -> void:
 	_main = load("res://content/levels/Main.tscn").instantiate()
 	add_child(_main)
 	_p = _main.get_node("Player") as PlayerController
+	# Antes de la primera comprobacion: la Arena y el corral se pueblan solos en
+	# su `_ready`, asi que para cuando arranca el guion ya hay enemigos despiertos.
+	_pacificar()
 	EventBus.player_jumped.connect(func(_n: int) -> void: _saltos_contados += 1)
 	EventBus.player_state_changed.connect(
 		func(a: StringName, n: StringName) -> void:
@@ -50,7 +53,9 @@ func _construir_guion() -> void:
 		# La cadena solo encadena DENTRO del ataque, pasado `frame_cadena`. Pulsar
 		# cuando L1 ya termino no encadena: empieza un L1 nuevo. Por eso los pasos
 		# son cortos y encajan con las ventanas reales del .tres.
-		_paso_("abrir cadena", 0.16, func() -> void:
+		# 0.10 s = 6 frames. La cadena se acorto en la 3.01 —L1 dura ahora 14 frames
+		# en vez de 19— y con 0.16 s el golpe ya habia terminado antes de pulsar.
+		_paso_("abrir cadena", 0.10, func() -> void:
 			_soltar_todo()
 			_reponer()
 			_colocar(2.0)
@@ -63,7 +68,7 @@ func _construir_guion() -> void:
 				_pulsar(&"attack_light"),
 			func() -> bool: return _indice_ataque() >= 2,
 			"pulsar dentro de la ventana debe encadenar al segundo golpe"),
-		_paso_("esperar ventana", 0.16, func() -> void: _soltar_todo(), &"Attack"),
+		_paso_("esperar ventana", 0.08, func() -> void: _soltar_todo(), &"Attack"),
 		_chequeo_("encadena a L3", 0.10,
 			func() -> void: _pulsar(&"attack_light"),
 			func() -> bool: return _indice_ataque() >= 3,
@@ -167,7 +172,7 @@ func _construir_guion() -> void:
 				_aux = _g.velocity.y,
 			func() -> bool: return (_aux < 1.5
 				and _g.estado == Guardian.Estado.ATURDIDO
-				and is_equal_approx(_g._stagger, _p.ataque_pesado.stagger)),
+				and is_equal_approx(_g.stagger, _p.ataque_pesado.stagger)),
 			"el pesado debe dejar knockback terrestre y stagger, no lanzamiento"),
 
 		# --- Correccion 2.2: movilidad en combo -------------------------------
@@ -546,7 +551,9 @@ func _construir_guion() -> void:
 			func() -> void:
 				_soltar_todo()
 				_reponer()
-				_p.global_position = Vector3(0.0, 10.0, 0.0)
+				# Alto de sobra: el ligero ahora sale a -17 m/s de vertical y con
+				# 10 m aterrizaba antes de que la medida llegara a tomarse.
+				_p.global_position = Vector3(0.0, 26.0, 0.0)
 				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Fall")
 				_esperar_ataque = 3,
@@ -980,8 +987,9 @@ func _construir_guion() -> void:
 		# CLAVADO PESADO CON REBOTE. Golpear desde arriba devuelve al aire.
 		_paso_("repoblar para el rebote", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("el clavado pesado rebota en el enemigo", 0.8,
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
+		_chequeo_("el clavado LIGERO rebota en el enemigo", 0.8,
 			func() -> void:
 				_soltar_todo()
 				_lancero()
@@ -995,15 +1003,18 @@ func _construir_guion() -> void:
 				# El clavado pesado es una DIAGONAL de 25 m/s, no una caida: desde
 				# 5 m de altura recorre casi seis metros antes de llegar abajo.
 				# Colocarse encima del enemigo lo sobrevuela entero.
-				_p.global_position = Vector3(0.0, 5.0, 5.8)
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
 				_p.velocity = Vector3.ZERO
 				_p.orientar_a(Vector3(0, 0, -1))
 				_mirar_a(180.0)
 				_p.fsm.cambiar(&"Fall")
 				_vy_max = -99.0
-				_esperar_pesado = 2,
+				_esperar_ataque = 2,
 			func() -> bool: return _vy_max > 6.0,
-			"clavarse sobre un enemigo debe pisarle la cabeza y devolverte al aire"),
+			"el ligero debe pisarle la cabeza al enemigo y devolverte al aire"),
 
 		# GROUND POUND: el picado vertical no se pierde, se muda a agachado + pesado.
 		_chequeo_("agachado + pesado sigue siendo picado", 0.4,
@@ -1041,7 +1052,8 @@ func _construir_guion() -> void:
 		# cambia entre los dos pasos es desde donde te tiraste.
 		_paso_("repoblar para el picado", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("picado bajo: dano de base", 1.0,
 			func() -> void:
 				_soltar_todo()
@@ -1072,11 +1084,135 @@ func _construir_guion() -> void:
 			func() -> bool: return _g.estado == Guardian.Estado.DERRIBADO,
 			"pasada la altura de derribo el enemigo no se tambalea: se cae"),
 
+		# --- Parche 3.01 -------------------------------------------------------
+
+		# LOS DOS CLAVADOS TIENEN QUE SER DISTINTOS. Antes salian casi iguales: la
+		# misma parabola tendida, y el jugador no tenia forma de diferenciarlos
+		# jugando. El ligero cae a plomo hacia delante; el pesado es el que viaja.
+		_chequeo_("el clavado ligero cae mas que avanza", 0.35,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 30.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(1, 0, 0))
+				_pos_antes = _p.global_position
+				_p.fsm.cambiar(&"Dive", {"direccion": Vector3(1, 0, 0)}),
+			func() -> bool:
+				_aux = _distancia_plana(_pos_antes)
+				return (_pos_antes.y - _p.global_position.y) > _aux,
+			"el ligero es un clavado: tiene que bajar mas de lo que avanza"),
+		_chequeo_("el clavado pesado avanza mas que el ligero", 0.35,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 30.0, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(1, 0, 0))
+				_pos_antes = _p.global_position
+				_p.fsm.cambiar(&"Dive", {"direccion": Vector3(1, 0, 0), "pesado": true}),
+			func() -> bool: return _distancia_plana(_pos_antes) > _aux * 1.4,
+			"el pesado es el que viaja: tiene que recorrer bastante mas que el ligero"),
+
+		# REBOTE: hang time SI, doble salto NO. Reponer el salto aereo convertiria la
+		# cadena en vuelo infinito; sin el, cada rebote es un compromiso.
+		_paso_("repoblar para el rebote 3.01", 0.35, func() -> void:
+			_soltar_todo()
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
+		_chequeo_("el rebote del ligero NO devuelve el doble salto", 0.8,
+			func() -> void:
+				_soltar_todo()
+				_lancero()
+				_reponer()
+				_plantar_guardian()
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(0, 0, -1))
+				_mirar_a(180.0)
+				_p.fsm.cambiar(&"Fall")
+				# Gastado a proposito: si el rebote lo repusiera, aqui volveria a 1.
+				_p.saltos_aereos = 0
+				_vy_max = -99.0
+				_latch_hangtime = false
+				_esperar_ataque = 2,
+			func() -> bool: return _vy_max > 6.0 and _p.saltos_aereos == 0,
+			"el rebote tiene que empujar hacia arriba SIN devolver el salto aereo"),
+		_chequeo_("y abre una ventana de gravedad cero", 0.05,
+			func() -> void: pass,
+			func() -> bool: return _latch_hangtime,
+			"sin hang time el rebote es un empujon; con el, una pausa para decidir"),
+
+		# EL PESADO NO REBOTA: LEVANTA. Es la otra mitad del par —uno sube al enemigo,
+		# el otro te mantiene a ti arriba—, y si los dos rebotaran volverian a ser el
+		# mismo clavado con distinto nombre.
+		_paso_("repoblar para el lanzamiento", 0.35, func() -> void:
+			_soltar_todo()
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
+		_chequeo_("el clavado pesado levanta al enemigo", 0.9,
+			func() -> void:
+				_soltar_todo()
+				_lancero()
+				_reponer()
+				_plantar_guardian()
+				_aux = _g.global_position.y
+				# 3.0 m y no 5.8: a 5.8 el clavado NO llega, y estos chequeos pasaban porque
+				# el Guardian CAMINABA hasta meterse debajo. Dependian de la IA sin
+				# decirlo, que es lo mismo que hacia la suite intermitente.
+				_p.global_position = Vector3(0.0, 4.2, 3.0)
+				_p.velocity = Vector3.ZERO
+				_p.orientar_a(Vector3(0, 0, -1))
+				_mirar_a(180.0)
+				_p.fsm.cambiar(&"Fall")
+				_alto_enemigo = -99.0
+				_esperar_pesado = 2,
+			func() -> bool: return _alto_enemigo > _aux + 1.5,
+			"el pesado tiene que mandar al enemigo por los aires, no rebotar en el"),
+
 		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
 		# anteriores pueden haber dejado al Guardian muerto y liberado.
+		# LOS VERBOS DE PARED NO SE PISAN. Un solo numero —el angulo entre tu avance
+		# y la normal— parte el rango en dos mitades: por debajo del umbral vas de
+		# frente y escalas o resbalas, por encima vas rozando y corres.
+		#
+		# Antes eran DOS criterios sobre DOS vectores distintos: la adherencia media
+		# el input deseado (49.5 grados) y el wall-run el movimiento real (55). Con
+		# momentum divergen, asi que las dos condiciones podian ser ciertas a la vez
+		# —de ahi que se sintiera que "quiere hacer todo a la vez"— y entre 49.5 y 55
+		# no saltaba ninguna.
+		_chequeo_("los verbos de pared no se pisan ni dejan hueco", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer(),
+			func() -> bool:
+				var umbral: float = _p.tuning.pared_umbral_frontal
+				# Cara interior del muro de wall-run en x=+1.8, grosor 1.
+				for g in [0, 15, 30, 40, 49, 52, 55, 58, 65, 80, 90]:
+					var a := deg_to_rad(float(g))
+					_p.global_position = Vector3(0.95, 3.0, -34.0)
+					_p.velocity = Vector3(cos(a), 0.0, sin(a)) * 9.0
+					_p.pared.sondear(_p.velocity.normalized())
+					if not _p.pared.hay_pared:
+						return false
+					var medido: float = _p.angulo_contra_pared()
+					var frontal := medido < umbral
+					var rozando := medido >= umbral
+					# EXACTAMENTE uno. Ni los dos (solape) ni ninguno (hueco).
+					if frontal == rozando:
+						return false
+					if absf(medido - float(g)) > 1.5:
+						return false
+				return true,
+			"dos criterios sobre dos vectores es como se llega a que la pared quiera hacer todo a la vez"),
+
 		_paso_("repoblar arena", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
 		_chequeo_("pesado mata con ragdoll", 0.4,
 			func() -> void:
 				_lancero()
@@ -1115,6 +1251,12 @@ var _latch_climb: bool = false
 ## Velocidad vertical MAXIMA vista durante la plantada del side jump. Si el
 ## frenado y el salto ocurrieran a la vez, aqui apareceria el impulso.
 var _vy_sidejump: float = -99.0
+## ¿Se ha visto gravedad cero en algun momento del paso? El hang time dura tres
+## decimas: comprobarlo solo en el frame final mediria el reloj, no la mecanica.
+var _latch_hangtime: bool = false
+## Altura MAXIMA que alcanza el Guardian durante el paso. El lanzamiento sube y
+## baja: comprobarlo en el frame final mediria la caida, no el golpe.
+var _alto_enemigo: float = -99.0
 
 
 ## Coloca al jugador delante de la rampa de `angulo` del Gym, pidiendo agarre.
@@ -1169,7 +1311,7 @@ func _ante_rampa(angulo: float) -> Callable:
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 190.0:
+	if _reloj > 220.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -1221,6 +1363,10 @@ func _physics_process(delta: float) -> void:
 		_latch_climb = true
 	if _p.fsm.nombre_actual() == &"SideJump":
 		_vy_sidejump = maxf(_vy_sidejump, _p.motor.get_vertical())
+	if _p.hangtime > 0.0:
+		_latch_hangtime = true
+	if is_instance_valid(_g):
+		_alto_enemigo = maxf(_alto_enemigo, _g.global_position.y)
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())
@@ -1339,6 +1485,36 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Deja a TODOS los enemigos incapaces de empezar un ataque por su cuenta.
+##
+## No es hacerle trampas al test: es lo que el test YA hacia a mano. Los dos
+## chequeos que miden dano lo ENTREGAN ellos —`_p.recibir_golpe(Golpe.new(...))`—
+## y llevan este comentario al lado: "orquestar la IA para que ataque en el frame
+## exacto haria el test fragil sin probar mas". Un enemigo que ademas ataca por
+## su cuenta no prueba nada; solo estropea la medicion de otro.
+##
+## Y eso era EL FLAKE: la suite fallaba 1 de cada 4 veces, siempre con la misma
+## firma —`AirAttack>Hitstun`, `Dive>Hitstun`—. Le pegaban al jugador en mitad de
+## un ataque aereo y el ataque que se iba a medir no llegaba a ejecutarse.
+##
+## `_plantar_guardian()` y `_colocar()` ya ponian al Guardian en DORMIDO, pero
+## **`Dormido` es un estado que se DESPIERTA**: ve al jugador delante y sale a por
+## el. Y solo tocaban a uno de los tres. Aqui se les quita la VISTA, que es lo
+## unico que consulta `EnemyDormido` para despertar, y se aplica a todos los
+## enemigos del arbol —incluidos los del corral del Gym, que el jugador cruza
+## durante el guion y cuyo volador dispara a 22 m—.
+##
+## `ataque` se deja intacto: el chequeo del parry construye el Golpe a partir de el.
+func _pacificar() -> void:
+	for e in get_tree().get_nodes_in_group(&"enemigos"):
+		if not (e is Enemigo) or e.is_queued_for_deletion():
+			continue
+		var en := e as Enemigo
+		en.vista = 0.0
+		if en.fsm != null and en.fsm.nombre_actual() != &"Muerto":
+			en.fsm.cambiar(&"Dormido")
 
 
 ## Planta al Guardian en el origen, quieto y entero. Las dos medidas del picado

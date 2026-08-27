@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Carga pesada"
+frames_windup = 0
+frames_activo = 240
+frames_recuperacion = 0
+dano = 21.0
+dano_poise = 42.0
+empuje = Vector3(0, 2, 8)
+lanzamiento = 8.0
+stagger = 0.8
+fuerza_muerte = 22.0
+torque_muerte = 14.0
+rompe_guardia = true
+alcance = 1.0
+radio = 1.1
+altura = 0.9
+arco_grados = 140.0
+max_objetivos = 3
+avance = 0.0
+movilidad = 0.0
+autoencarar = false
+hitstop = 0.09
+shake = 0.7
+color_vfx = &"oro_palido"
+frame_cadena = 999

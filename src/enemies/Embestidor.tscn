@@ -1,0 +1,100 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" path="res://src/enemies/Embestidor.gd" id="g"]
+[ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="hp"]
+[ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="po"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
+[ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyDormido.gd" id="e_dormido"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyAcercarse.gd" id="e_acercarse"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyAnticipar.gd" id="e_anticipar"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyEmbestir.gd" id="e_embestir"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyEstrellado.gd" id="e_estrellado"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyAturdido.gd" id="e_aturdido"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyDerribado.gd" id="e_derribado"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyQuebrado.gd" id="e_quebrado"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyMuerto.gd" id="e_muerto"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyStateMachine.gd" id="fsm"]
+
+[sub_resource type="CapsuleShape3D" id="cap"]
+radius = 0.55
+height = 2.20
+
+[sub_resource type="CapsuleMesh" id="malla"]
+radius = 0.55
+height = 2.20
+
+[sub_resource type="BoxMesh" id="marca"]
+size = Vector3(0.3, 0.3, 0.12)
+
+[node name="Embestidor" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("g")
+vista = 16.0
+alcance_ataque = 7.0
+cadencia = 1.6
+
+[node name="Collider" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("cap")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Cuerpo" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("malla")
+
+[node name="Marca" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.60, -0.61)
+mesh = SubResource("marca")
+
+[node name="Salud" type="Node" parent="."]
+script = ExtResource("hp")
+
+[node name="Poise" type="Node" parent="."]
+script = ExtResource("po")
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("hb")
+equipo = 1
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 64
+collision_mask = 0
+script = ExtResource("hu")
+equipo = 1
+
+[node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("cap")
+
+[node name="FSM" type="Node" parent="."]
+script = ExtResource("fsm")
+
+[node name="Dormido" type="Node" parent="FSM"]
+script = ExtResource("e_dormido")
+
+[node name="Acercarse" type="Node" parent="FSM"]
+script = ExtResource("e_acercarse")
+
+[node name="Anticipar" type="Node" parent="FSM"]
+script = ExtResource("e_anticipar")
+
+[node name="Embestir" type="Node" parent="FSM"]
+script = ExtResource("e_embestir")
+
+[node name="Estrellado" type="Node" parent="FSM"]
+script = ExtResource("e_estrellado")
+
+[node name="Aturdido" type="Node" parent="FSM"]
+script = ExtResource("e_aturdido")
+
+[node name="Derribado" type="Node" parent="FSM"]
+script = ExtResource("e_derribado")
+
+[node name="Quebrado" type="Node" parent="FSM"]
+script = ExtResource("e_quebrado")
+
+[node name="Muerto" type="Node" parent="FSM"]
+script = ExtResource("e_muerto")

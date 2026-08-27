@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "lanza_vuelo"
+dano = 34.0
+dano_poise = 55.0
+alcance = 0.9
+radio = 0.5
+altura = 0.0
+; ARCO COMPLETO a proposito. `Hitbox` aplasta la Y al medir el arco, asi que
+; contra una lanza que vuela hacia arriba el filtro daria resultados falsos.
+; Con 180 el filtro es un no-op y manda el radio de la consulta, que si es 3D.
+arco_grados = 180.0
+max_objetivos = 4
+frames_windup = 0
+frames_activo = 240
+frames_recuperacion = 0
+empuje = Vector3(0, 1, 6)
+stagger = 0.5
+hitstop = 0.05
+shake = 0.3
+color_vfx = &"oro_palido"
+movilidad = 0.0
+autoencarar = false
+frame_cadena = 999

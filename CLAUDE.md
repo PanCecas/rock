@@ -19,6 +19,7 @@ plataformas en movimiento.
 | `docs/02_PIPELINE_PERSONAJES_ANIM.md` | Rig, ~205 clips por tiers, concept art, export. |
 | `docs/03_ARQUITECTURA_MECANICAS.md` | **Arquitectura completa. La referencia técnica.** |
 | `docs/04_ROADMAP.md` | Fases, hitos, orden de construcción. |
+| `docs/05_TABLERO.md` | **Qué está listo, en proceso, bugueado y pendiente.** Se actualiza en el MISMO commit que el cambio. |
 
 ## Reglas duras del código
 1. **Ningún número mágico en `.gd`.** Todo valor que se toque para "que se sienta bien" vive en
@@ -71,24 +72,101 @@ plataformas en movimiento.
 	el de pared, la escalada y el `floor_max_angle` del cuerpo. Dos criterios
 	distintos para la misma rampa es como se llega a que sea "demasiado empinada
 	para andar" y "demasiado tumbada para escalar" a la vez.
-16. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
+16. **La gravedad del juego es ASIMETRICA** (-38 cayendo, -22 subiendo) y eso es
+	medio game feel gratis en un salto —flotas al subir, caes con peso—, pero
+	**rompe cualquier cosa que tenga que conservar energia**. Un pendulo con
+	gravedad asimetrica sube mas alto de lo que cayo: medido, el balanceo salia
+	6 m por encima de donde empezaba. Todo lo que sea un sistema cerrado usa su
+	propia gravedad simetrica, no `motor.aplicar_gravedad()`.
+17. **La orientacion del visual la escribe UN solo sitio** (`PlayerController`).
 	El nado y la escalada escriben pitch y roll; la logica de tierra solo escribe
 	yaw. Todo estado que incline el cuerpo tiene que llamar a `enderezar()` al
 	salir, o el personaje se queda torcido para siempre. Y se hace en la
 	TRANSICION, nunca como guardia por frame: un reset cada frame se pelearia con
 	el dash, el agachado y el planeo.
-17. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
-	sin agarre, el angulo entre tu avance y la normal decide wall-jump (de frente)
-	o wall-run (rozando). Nunca por `pared.lado`: eso es del sensor, no del jugador.
+18. **EL SCREENSHOT TEST SE CORRE SIEMPRE.** No es opcional, no se salta "porque
+	este cambio no toca lo visual", y no se da por bueno sin ejecutarlo. Los tres
+	tests van juntos en cada entrega: funcional, de estados y **visual**.
+	**Y no se hace trampa:** regenerar una baseline con `-- actualizar` para que
+	pase es convertir el test en un sello de goma. Una referencia solo se
+	regenera cuando el cambio visual era EL QUE SE BUSCABA, y solo despues de
+	mirar el mapa de diff en `user://visual/` y comprobar que lo que ha cambiado
+	es lo que tenia que cambiar. Si el diff muestra algo que no esperabas, eso no
+	es una baseline vieja: es un bug.
+19. **UN SOLO mecanismo mueve al jugador con una superficie movil, y es
+	`SurfaceContext`.** El acarreo de `move_and_slide` esta acotado a `WORLD`
+	(`platform_floor_layers` / `platform_wall_layers`), y un cuerpo solo arrastra
+	si se declara en el grupo `marcos_moviles` —lista blanca, hoy vacia—. Los dos
+	defaults de Godot son "todas las capas", asi que el coloso escalable acababa
+	moviendo al jugador DOS VECES: una por el motor y otra por `arrastrar()`.
+	Montarse encima era un caos y costo dos rondas encontrarlo, porque `velocity`
+	marcaba 0.00 mientras el cuerpo se desplazaba metros.
+20. **Prioridad en las paredes:** agarre > angulo. Mantener agarre SIEMPRE escala;
+	sin agarre, **UN SOLO numero** decide —`player.angulo_contra_pared()`, entre tu
+	avance y la normal— y `pared_umbral_frontal` lo parte en dos mitades sin hueco
+	ni solape: de frente escalas o resbalas, rozando corres. Nunca por
+	`pared.lado`: eso es del sensor, no del jugador.
+	Estuvo roto de la misma forma que las superficies antes de la regla #15: la
+	adherencia media el input DESEADO (49.5°) y el wall-run el movimiento REAL
+	(55°). Dos vectores decidiendo lo mismo divergen con momentum, asi que las dos
+	condiciones podian ser ciertas a la vez —"quiere hacer todo a la vez"— y entre
+	49.5 y 55 no saltaba ninguna.
 
 ## Autoloads
-`EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`. Nada más.
+Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `MenuControles`.
+De plugins: `PhantomCameraManager`, `Dialogic`, `CyclopsAutoload`.
+
+Los tres de plugin los registra el editor al activarlos. Estan escritos a mano en
+`project.godot` porque los plugins se instalaron por linea de comandos y
+`_enable_plugin()` no llego a ejecutarse: si algun dia se desactiva un plugin desde
+el editor, hay que quitar su autoload tambien a mano.
+
+## Plugins (`addons/`)
+
+**Solo se activa lo que se USA.** Los cinco estan instalados, pero en
+`[editor_plugins]` solo queda `proton_scatter`. Los demas se activan cuando se
+integren y no antes, por dos razones medidas:
+
+1. **Ensucian la consola con bugs suyos.** Cyclops y Phantom Camera tienen
+   teardown incondicional —`_exit_tree()` libera cosas que su `_enter_tree()` no
+   llego a crear— y sueltan tres errores en cada arranque del editor. Reproducido
+   en un proyecto VACIO con solo esos dos: no es culpa de este proyecto.
+2. **Cyclops MODIFICA las escenas abiertas.** Con el plugin activo, abrir
+   `Main.tscn` en el editor le inyecta nodos `CyclopsBlock` y sube el formato de
+   escena de 3 a 4. Si despues se desactiva el plugin, la escena queda con
+   referencias colgando y **deja de cargar el entorno**. Paso de verdad, y solo lo
+   cazo el screenshot test: los 131 funcionales seguian en verde.
+
+| Plugin | Version | Para que |
+|---|---|---|
+| `phantom_camera` | v0.11.0.3 | Camaras estilo Cinemachine. **Sin integrar todavia**: el `CameraRig` propio sigue mandando. |
+| `proton_scatter` | 4.2.0 (`main`) | Dispersion procedural de props. **Desde `main`, NO desde la Asset Library**: la version publicada alli es de 2023 y no compila en 4.7. |
+| `cyclops_level_builder` | v1.5.0_dev_2 | Blockout en el viewport. Para el MUNDO real; las salas de prueba se siguen generando por codigo. |
+| `dialogic` | 2.0-alpha-20 | Dialogos. Sin usar todavia. |
+| `inventory-system` | addon-2.13.0 | GDExtension en C++. Registra `Inventory`, `ItemDefinition`… |
+
+**Los binarios del inventario estan RECORTADOS A WINDOWS.** El release trae 125 MB
+de `.dll`/`.so` para seis plataformas; en el repo solo quedan los 19 MB de Windows,
+que es donde se desarrolla. Para exportar a Linux, Android, web, macOS o iOS hay
+que recuperar `addons/inventory-system/bin/<plataforma>/` del release
+`addon-2.13.0`.
+
+**Regla:** un addon es codigo que no controlas metido en tu repo, y las reglas
+duras de este documento NO le aplican. No modifiques nada dentro de `addons/`:
+cualquier cambio se pierde al actualizar. Si hace falta adaptar algo, se envuelve
+desde `src/`.
 
 ## Estructura
 Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistema),
 `content/` (assets y datos), `tools/` (Gym, ColossusTestRoom), `docs/`.
 
 ## Controles
+
+**La fuente de verdad es el menu del juego (Escape), no esta tabla.** El menu lee las
+teclas del InputMap en vivo, asi que no puede mentir; esta tabla es papel y ya se
+desincronizo una vez —siguio anunciando la embestida en primera persona semanas
+despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige aqui.
+
 
 | Accion | Teclado / raton | Mando |
 |---|---|---|
@@ -102,8 +180,10 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Slide kick | C con velocidad + click izq. (con espera) | |
 | Long jump | Shift + C + Espacio | |
 | Patada baja (derriba) | C + click | |
-| **Clavado (Dive)** | **Click izq. en el aire** (siempre) | RB |
-| **Clavado pesado (rebota en cabezas)** | **Click der. en el aire** | RT |
+| **Clavado ligero (rebota en cabezas)** | **Click izq. en el aire** (siempre) | RB |
+| | *Rebotar da gravedad cero un instante, pero NO devuelve el doble salto* | |
+| **Clavado pesado (LEVANTA al enemigo)** | **Click der. en el aire** | RT |
+| | *No rebota: se planta. Manda al enemigo por los aires unos segundos* | |
 | Picado vertical (ground pound) | C + click der. en el aire | |
 | | *Su area y su dano crecen con la altura desde la que caes* | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
@@ -118,6 +198,14 @@ Ver `docs/03_ARQUITECTURA_MECANICAS.md §0`. Resumen: `src/` (código por sistem
 | Parry | Q | LT |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
+| **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
+| **Empunar / guardar la lanza** | **Tab** | Back |
+| **Carga en viaje** | Click izq. / der. mientras la cuerda te lleva | RB / RT |
+| | *Ligero atraviesa · pesado los manda a volar con tu inercia* | |
+| | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
+| **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
+| Recuperar (aparte) | Y | D-pad izq. |
+| **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
 
 **El planeo esta separado del salto a proposito.** Compartir tecla obligaba a
@@ -156,14 +244,33 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
-| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 7 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
+| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 11 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
-| `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua y escalada. 122 comprobaciones. |
+| `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga y carga en viaje. 36 comprobaciones. |
+| `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
+
+**Un test no puede depender de la IA.** `TestFase2` fue intermitente durante un
+tiempo —fallaba 1 de cada 4 veces— por dos causas de la misma familia: los
+enemigos atacaban al jugador en mitad de una medicion, y tres comprobaciones del
+clavado pasaban solo porque el Guardian CAMINABA hasta meterse debajo. Ahora la
+suite pacifica a todos los enemigos (`_pacificar()`) y coloca al jugador donde el
+ataque llega de verdad. Si una comprobacion necesita un golpe enemigo, se entrega
+a mano con `recibir_golpe()`; orquestar la IA para que ataque en el frame exacto
+hace el test fragil sin probar nada mas.
+
+**Un test que fuerza el estado no prueba que se pueda LLEGAR a el.** El balanceo
+tuvo cuatro comprobaciones en verde mientras el usuario reportaba que no se
+balanceaba, porque el test hacia `fsm.cambiar(&"SpearSwing")` en vez de pulsar la
+tecla: media la fisica del pendulo y no la ENTRADA. Todo verbo nuevo se prueba por
+su camino de entrada real —`Input.action_press()` y el `InputBuffer`— aunque
+ademas se mida su fisica aparte.
 
 **Los tres tests son complementarios y ninguno sustituye a otro:** el funcional
 comprueba que la FSM llega a un estado, el de medicion cronometra como se siente,
@@ -190,11 +297,37 @@ baseline actualizada a ciegas convierte el test en un sello de goma.
   parry normal y perfecto, poise con GuardBreak, soft-lock y 3 Guardianes.
   **El jugador se mueve mientras ataca** (`AttackData.movilidad`) y al morir los
   enemigos salen despedidos como cadaver fisico (`Ragdoll`).
+- **Enemigos con FSM propia.** `Enemigo` (cuerpo) + `EnemyMotor` (fisica) +
+  `EnemyStateMachine`/`EnemyState`, el mismo patron que el jugador. Cada enemigo
+  declara SUS estados en su `.tscn`, asi que anadir uno no toca a los demas: el
+  volador no comparte una linea de IA con el guardian terrestre, y su unica
+  diferencia de fisica es `vuela = true`. Hoy son seis: los 3 Guardianes
+  (Lancero/Escudo/Vigia), el **Embestidor**, el **Volador** y el
+  **ColosoMediano** escalable. Viven en `Gym._corral()`, nunca en la Arena.
 
 Ademas: agachado con side hop, escalada BotW con wall lunge, Dive y DiveAttack,
 aterrizajes agachado (slide con velocidad, recepcion en cuclillas sin ella) y el
 agua completa: nado en superficie, buceo, clavado y combate acuatico. Falta solo
 la **IA acuatica**, documentada en `project.md`.
 
-Siguiente paso: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
+**Fase 3 en marcha.** Etapa 1 hecha: la lanza existe, vuela atravesando cuerpos,
+se para en seco contra piedra y al clavarse es **plataforma** — tirarla a lo alto
+y subirse encima ya funciona. FSM propia en `src/weapons/`, con el mismo patron
+que la de enemigos. Etapa 2 tambien: **zip** hasta la lanza, con impulso y
+no teletransporte, conservando momentum al llegar. **Etapas 3 y 4**: el cordon
+(verlet de paso fijo, **puramente visual**) y el **balanceo**, con restriccion
+analitica y gravedad simetrica propia. Y **etapa 5**: el moveset —empunarla con
+Tab cambia los dos ataques, ligero preciso contra pesado en area— mas la
+pertiga. Falta solo la interfaz contra colosos.
+
+Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
+
+Pendiente de la lista del parche 3.03: **la camara cinematografica**.
+`src/camera/CameraTuning.gd` (valores / influencias / curvas), `PhantomDirector.gd`
+y `PhantomRig.tscn` estan escritos pero **sin cablear** —`Main.tscn` sigue con
+`CameraRig.tscn`—. El obstaculo esta medido: Phantom Camera se queda con el
+`transform` de la camara, y **todo el movimiento deduce la direccion de
+`player.camara()`**, asi que cablearlo tal cual pone 18 tests en rojo. Migrar
+significa darle a Phantom el rig y dejar que `player.camara()` siga leyendo un
+`Camera3D` valido, no colgar el plugin al lado del propio.
