@@ -11,8 +11,8 @@ frames_activo = 120
 frames_recuperacion = 0
 dano = 24.0
 dano_poise = 40.0
-empuje = Vector3(0, -6, 8)
-stagger = 0.7
+empuje = Vector3(0, 0, 3)
+stagger = 1.6
 fuerza_muerte = 30.0
 torque_muerte = 16.0
 rompe_guardia = true
@@ -26,3 +26,5 @@ hitstop = 0.11
 shake = 1.1
 color_vfx = &"oro_palido"
 frame_cadena = 999
+; LEVANTA al enemigo: es la mecanica del clavado pesado.
+lanzamiento = 20.0

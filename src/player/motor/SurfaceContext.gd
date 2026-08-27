@@ -23,11 +23,33 @@ var _xform_anterior: Transform3D = Transform3D.IDENTITY
 var _frame_valido: bool = false
 
 
+## Cuerpos que se DECLARAN marco móvil. Solo estos arrastran al jugador.
+##
+## Es una lista blanca y hoy está vacía a propósito. Antes cualquier cosa a la
+## que te agarraras pasaba a ser tu marco de referencia —`StateClimb` adopta la
+## pared que toques—, y sobre un enemigo que gira eso significaba que
+## `arrastrar()` te movía con él... **encima** del acarreo que `move_and_slide`
+## ya hacía por su cuenta. El movimiento se aplicaba dos veces y montarse en el
+## coloso era un caos.
+##
+## Que sea opt-in y no opt-out es la diferencia entre "esto arrastra salvo que
+## alguien se acuerde de impedirlo" y "esto arrastra solo si alguien lo pidió".
+## La Fase 4 apuntará el coloso de verdad a este grupo cuando el marco móvil
+## esté terminado; hasta entonces nada arrastra a nadie, que es exactamente el
+## comportamiento que se quiere.
+const GRUPO_MARCO_MOVIL := &"marcos_moviles"
+
+
 ## Cambia el marco de referencia. Devuelve true si de verdad cambió.
+##
+## Un cuerpo que no se declara marco móvil se acepta como marco ESTÁTICO: sigue
+## sirviendo para orientar —`up`, el plano de movimiento— pero no arrastra.
 func set_frame(nuevo: Node3D) -> bool:
 	if nuevo == frame:
 		return false
 	frame = nuevo
+	if frame != null and not frame.is_in_group(GRUPO_MARCO_MOVIL):
+		frame = null
 	_frame_valido = frame != null and is_instance_valid(frame)
 	_xform_anterior = frame.global_transform if _frame_valido else Transform3D.IDENTITY
 	EventBus.surface_frame_changed.emit(frame)

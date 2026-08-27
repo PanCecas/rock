@@ -34,6 +34,12 @@ extends Node3D
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
 
+const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
+const VOLADOR := preload("res://src/enemies/Volador.tscn")
+const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
+const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
+const LANZA := preload("res://src/weapons/Spear.tscn")
+
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
 var _mat_piedra: StandardMaterial3D
@@ -67,6 +73,8 @@ func construir() -> void:
 	_pared_escalable()
 	_rampas_escalada()
 	_domo()
+	_corral()
+	_muro_lanza()
 	_tunel()
 	_piscina()
 
@@ -290,6 +298,100 @@ func _domo() -> void:
 	_raiz.add_child(anillo)
 
 	_etiqueta("DOMO — el anillo es el limite (%d°)" % int(limite), centro + Vector3(0, 0.06, r + 2.0))
+
+
+## CORRAL DE ENEMIGOS. Los tres del parche 3.03, cada uno en su sitio y lejos de
+## los demas.
+##
+## Aparte de la Arena a proposito: la Arena es el patio de combate de los tres
+## Guardianes y **su poblacion es load-bearing** para los tests de la Fase 2.
+## Anadir tres enemigos alli hacia que alguno alcanzara al jugador en mitad de la
+## prueba de la cadena de golpes. Un banco de pruebas no puede alterar otro.
+##
+## Y separados entre si porque cada uno ensena una cosa distinta: mezclarlos
+## convierte el corral en un caos donde no se puede estudiar ninguno.
+## MURO DE LA LANZA: un paredón liso y alto contra el que probar el bucle
+## completo —tirarla, que se clave, subirse encima—. Liso a proposito: sin
+## salientes que confundan "me subi a la lanza" con "me subi a una repisa".
+##
+## Y aqui es donde nace LA lanza, una sola, atada al jugador (`docs/03 §4`).
+func _muro_lanza() -> void:
+	# Sitio elegido MIRANDO el resto del Gym, no a ojo. Los dos intentos previos
+	# fallaron por eso: (-9,0,-20) asomaba por detras de las rampas y contaminaba
+	# las tomas de escalada, y (-26,0,20) caia DENTRO de la base de la torre
+	# —x -28.5..-19.5, z 17.5..26.5— asi que la lanza se clavaba en la torre a
+	# ochenta centimetros de salir.
+	#
+	# Al fondo del +Z, DETRAS de la camara de `gym_general` —que esta en
+	# (14, 9, 22) mirando al origen—, lejos del domo (28,0,30) y CON SUELO debajo
+	# —el Gym mide 70x70 centrado en el origen, asi que pasado z=35 no hay nada—. Los dos intentos
+	# previos fallaron por no mirar el resto del Gym: (-26,0,20) caia DENTRO de la
+	# base de la torre y (6,0,16) se plantaba en mitad del espacio de juego,
+	# tapando medio encuadre general con un paredon de 12x9.
+	#
+	# Y mide 7x5, no 12x9: para tirarle una lanza no hace falta mas, y cuanto
+	# menos ocupa menos estorba.
+	var centro := Vector3(0.0, 0.0, 26.0)
+	_etiqueta("MURO DE LA LANZA — tirala, clavala, subete", centro + Vector3(0, 0.06, 4.0))
+	_bloque("MuroLanza", Vector3(7.0, 5.0, 1.0), centro + Vector3(0, 2.5, 0), _mat_piedra_osc)
+
+	# En el editor no hay jugador ni autoloads listos: el muro se dibuja para
+	# poder colocarlo, pero la lanza es cosa del juego corriendo.
+	if LANZA == null or Engine.is_editor_hint():
+		return
+	# El jugador puede no existir todavia: quien construye primero depende del
+	# orden en `Main.tscn`, y eso no es algo sobre lo que se deba apostar.
+	if GameState.player != null:
+		_dar_lanza(GameState.player)
+	elif not EventBus.player_spawned.is_connected(_dar_lanza):
+		EventBus.player_spawned.connect(_dar_lanza, CONNECT_ONE_SHOT)
+
+
+## Crea LA lanza y se la entrega al jugador. Una sola en todo el juego.
+func _dar_lanza(jugador: Node3D) -> void:
+	if jugador == null or _raiz == null or not is_instance_valid(_raiz):
+		return
+	if jugador.get("lanza") != null:
+		return
+	var l := LANZA.instantiate() as Spear
+	l.name = "Lanza"
+	l.palette = palette
+	l.ataque = load("res://content/data/attacks/lanza_vuelo.tres")
+	_raiz.add_child(l)
+	l.dueno = jugador
+	l.global_position = jugador.global_position + Vector3.UP
+	jugador.set("lanza", l)
+
+
+func _corral() -> void:
+	var centro := Vector3(11.0, 0.0, -32.0)
+	_etiqueta("CORRAL — embestidor · volador · coloso", centro + Vector3(0, 0.06, 5.0))
+
+	# Un muro corto detras del embestidor: sin algo contra lo que estrellarse, su
+	# carga fallida no tiene consecuencia y la mecanica no se entiende.
+	_bloque("Corral_Muro", Vector3(9.0, 3.0, 0.8), centro + Vector3(0, 1.5, -6.0), _mat_piedra_osc)
+
+	for datos in [
+		{"escena": EMBESTIDOR, "nombre": "Embestidor", "pos": Vector3(-4.0, 0.2, 0.0),
+			"ataque": "res://content/data/attacks/embestida.tres"},
+		{"escena": VOLADOR, "nombre": "Volador", "pos": Vector3(4.0, 5.0, 0.0),
+			"ataque": "res://content/data/attacks/volador_disparo.tres"},
+		# El coloso NO lleva ataque: su unico trabajo es dejarse escalar.
+		{"escena": COLOSO, "nombre": "ColosoMediano", "pos": Vector3(0.0, 3.6, 3.5), "ataque": ""},
+	]:
+		var escena: PackedScene = datos["escena"]
+		if escena == null:
+			continue
+		var e := escena.instantiate() as Enemigo
+		e.name = datos["nombre"]
+		e.palette = palette
+		var ruta: String = datos["ataque"]
+		if not ruta.is_empty():
+			e.ataque = load(ruta)
+		if e is Volador:
+			(e as Volador).proyectil = PROYECTIL
+		_raiz.add_child(e)
+		e.global_position = centro + (datos["pos"] as Vector3)
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza

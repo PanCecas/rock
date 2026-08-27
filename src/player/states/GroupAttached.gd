@@ -7,8 +7,10 @@ extends PlayerStateGroup
 
 
 func shared_update(_delta: float) -> void:
-	# Sin stamina te resbalas. No mata: la muerte es la caída larga que venga después.
-	if player.stamina.vacia():
+	# Sin stamina te resbalas. No mata: la muerte es la caída larga que venga
+	# después. Salvo para los estados que ya pagaron su coste de golpe al entrar:
+	# a esos cancelarlos por agotamiento es cobrarles dos veces.
+	if player.stamina.vacia() and not (fsm.actual != null and fsm.actual.resiste_agotamiento()):
 		fsm.cambiar(&"Fall", {"resbalon": true})
 		return
 

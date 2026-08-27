@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Giro aereo de lanza"
+frames_windup = 15
+frames_activo = 7
+frames_recuperacion = 26
+dano = 23.0
+dano_poise = 40.0
+empuje = Vector3(0, 3, 6)
+stagger = 0.8
+fuerza_muerte = 18.0
+torque_muerte = 12.0
+rompe_guardia = true
+alcance = 2.5
+radio = 1.6
+altura = 0.9
+arco_grados = 180.0
+max_objetivos = 6
+avance = 1.2
+movilidad = 0.25
+hitstop = 0.11
+shake = 0.8
+color_vfx = &"oro_palido"
+frame_cadena = 999

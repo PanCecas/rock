@@ -13,6 +13,11 @@ var punto: Vector3
 ## Dirección del golpe en el mundo, del atacante hacia la víctima.
 var direccion: Vector3
 var resultado: int = Resultado.IMPACTO
+## Multiplicador de dano. Lo pone quien recibe, no quien pega: un punto debil
+## sabe cuanto vale golpearle ahi, y el arma no tiene por que enterarse.
+var multiplicador: float = 1.0
+## ¿Ha sido critico? Lo consulta la presentacion y el remate.
+var critico: bool = false
 
 
 func _init(quien: Node3D, que: AttackData, donde: Vector3, hacia: Vector3) -> void:
@@ -23,11 +28,11 @@ func _init(quien: Node3D, que: AttackData, donde: Vector3, hacia: Vector3) -> vo
 
 
 func dano() -> float:
-	return datos.dano if datos != null else 0.0
+	return (datos.dano * multiplicador) if datos != null else 0.0
 
 
 func poise() -> float:
-	return datos.dano_poise if datos != null else 0.0
+	return (datos.dano_poise * multiplicador) if datos != null else 0.0
 
 
 ## Empuje en espacio de mundo, con la Z local del AttackData girada hacia la víctima.

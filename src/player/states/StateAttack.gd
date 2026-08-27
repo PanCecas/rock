@@ -15,7 +15,7 @@ var _desde_surf: bool = false
 
 
 func enter(msg: Dictionary = {}) -> void:
-	_datos = msg.get("datos", player.ataque_ligero)
+	_datos = msg.get("datos", player.ataque_ligero_actual())
 	_indice = int(msg.get("indice", 1))
 	_desde_surf = bool(msg.get("desde_surf", false))
 	_frame = 0

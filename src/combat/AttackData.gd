@@ -44,6 +44,13 @@ const FPS := 60.0
 ## Ignora la guardia frontal del Escudo.
 @export var rompe_guardia: bool = false
 
+## QUE ES este ataque, en etiquetas. `&"perforante"`, `&"contundente"`…
+##
+## Existe para que un `WeakPoint` pueda decir QUE LO ABRE sin nombrar un arma.
+## La alternativa —`if arma is Lanza`— obliga a tocar el coloso cada vez que se
+## anade un arma, y el coloso es lo ultimo que uno quiere tocar.
+@export var etiquetas: Array[StringName] = []
+
 @export_group("Hitbox")
 ## Alcance desde el centro del atacante, en metros.
 @export var alcance: float = 2.0
@@ -138,3 +145,9 @@ func avance_en(progreso: float) -> float:
 		return curva_avance.sample_baked(clampf(progreso, 0.0, 1.0))
 	# Sin curva: casi todo el empuje al principio, como un paso adelante.
 	return maxf(0.0, 1.0 - progreso * 2.2)
+
+
+## ¿Lleva esta etiqueta? Un ataque sin etiquetas no abre ningun punto debil, que
+## es el defecto correcto: abrir un punto debil es un privilegio, no lo normal.
+func tiene(etiqueta: StringName) -> bool:
+	return etiquetas.has(etiqueta)
