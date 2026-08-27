@@ -28,6 +28,7 @@ var _pos: Vector3 = Vector3.ZERO
 ## Latches: un estado que dura tres decimas no se puede comprobar solo al final.
 var _visto: Dictionary = {}
 var _proyectiles_max: int = 0
+var _remate: bool = false
 
 
 func _ready() -> void:
@@ -205,6 +206,50 @@ func _construir() -> void:
 			func() -> bool: return _p.superficie.frame == null,
 			"un marco movil arrastra; hoy nadie declara serlo y eso es lo correcto"),
 
+		# --- PUNTO DEBIL: la interfaz contra colosos (Fase 3, etapa 6) ---------
+		# Declara QUE LO ABRE, no QUIEN. El coloso no conoce la lanza: conoce una
+		# etiqueta, y la lanza la trae. Anadir un arma nueva es escribirle
+		# `etiquetas` en su `.tres`; el coloso no se toca.
+		_chequeo_("tiene un punto debil", 0.3,
+			func() -> void: pass,
+			func() -> bool: return _punto_debil() != null,
+			"sin punto debil un coloso es un saco de vida y no un nivel"),
+
+		_chequeo_("un ataque SIN la llave apenas le hace nada", 0.6,
+			func() -> void:
+				var wp := _punto_debil()
+				wp.reiniciar()
+				_e.salud.actual = _e.salud.maxima
+				# El pesado de la espada: contundente, no perforante.
+				_golpear_punto_debil(_p.ataque_pesado),
+			func() -> bool:
+				var perdida: float = _e.salud.maxima - _e.salud.actual
+				return perdida > 0.0 and perdida < _p.ataque_pesado.dano,
+			"cero lo haria inmune y eso se lee como un bug; poco se lee como una defensa"),
+
+		_chequeo_("y CON la llave le hace mucho mas", 0.6,
+			func() -> void:
+				var wp := _punto_debil()
+				wp.reiniciar()
+				_e.salud.actual = _e.salud.maxima
+				_golpear_punto_debil(_p.ataque_lanza_ligero),
+			func() -> bool:
+				var perdida: float = _e.salud.maxima - _e.salud.actual
+				return perdida > _p.ataque_lanza_ligero.dano * 2.0,
+			"la lanza es la herramienta indispensable POR LO QUE DECLARA, no porque el coloso la conozca"),
+
+		_chequeo_("y a la tercera queda abierto al remate", 1.0,
+			func() -> void:
+				var wp := _punto_debil()
+				wp.reiniciar()
+				_e.salud.actual = _e.salud.maxima
+				_remate = false
+				wp.remate_disponible.connect(func() -> void: _remate = true, CONNECT_ONE_SHOT)
+				for i in wp.golpes_para_abrir:
+					_golpear_punto_debil(_p.ataque_lanza_ligero),
+			func() -> bool: return _remate and _punto_debil().abierto,
+			"uno solo haria el remate un accidente; varios lo convierten en algo que se busca"),
+
 		_chequeo_("el jugador se agarra a el", 1.6,
 			func() -> void:
 				_p.global_position = _e.global_position + Vector3(0, -1.5, 2.6)
@@ -286,3 +331,19 @@ func _contar_proyectiles() -> int:
 		if hijo is Proyectil:
 			n += 1
 	return n
+
+
+func _punto_debil() -> WeakPoint:
+	if _e == null or not is_instance_valid(_e):
+		return null
+	return _e.get_node_or_null("PuntoDebil") as WeakPoint
+
+
+## Entrega un golpe A MANO en el punto debil. Igual que hace `TestFase2` con los
+## golpes enemigos: orquestar al jugador para que acierte en el frame exacto hace
+## el test fragil sin probar nada mas. Lo que se mide es la INTERFAZ.
+func _golpear_punto_debil(datos: AttackData) -> void:
+	var wp := _punto_debil()
+	if wp == null or datos == null:
+		return
+	wp.recibir(Golpe.new(_p, datos, wp.global_position, Vector3.FORWARD))

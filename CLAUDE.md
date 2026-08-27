@@ -248,7 +248,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
-| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D y las cuatro invariantes del arrastre. 17 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil. 21 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga y carga en viaje. 36 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
@@ -318,7 +318,8 @@ no teletransporte, conservando momentum al llegar. **Etapas 3 y 4**: el cordon
 (verlet de paso fijo, **puramente visual**) y el **balanceo**, con restriccion
 analitica y gravedad simetrica propia. Y **etapa 5**: el moveset —empunarla con
 Tab cambia los dos ataques, ligero preciso contra pesado en area— mas la
-pertiga. Falta solo la interfaz contra colosos.
+pertiga. Y **etapa 6**: `WeakPoint`, la interfaz
+contra colosos. **Fase 3 CERRADA.**
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

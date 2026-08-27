@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_s")
+etiquetas = Array[StringName]([&"perforante"])
 nombre = "Carga ligera"
 frames_windup = 0
 frames_activo = 240

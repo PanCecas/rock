@@ -1,10 +1,11 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://src/enemies/ColosoMediano.gd" id="g"]
 [ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="hp"]
 [ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="po"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
+[ext_resource type="Script" path="res://src/colossus/WeakPoint.gd" id="wp"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyDormido.gd" id="e_dormido"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAcercarse.gd" id="e_acercarse"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAturdido.gd" id="e_aturdido"]
@@ -20,6 +21,9 @@ height = 7.00
 [sub_resource type="CapsuleMesh" id="malla"]
 radius = 2.20
 height = 7.00
+
+[sub_resource type="SphereShape3D" id="debil"]
+radius = 0.75
 
 [sub_resource type="BoxMesh" id="marca"]
 size = Vector3(0.3, 0.3, 0.12)
@@ -86,3 +90,14 @@ script = ExtResource("e_quebrado")
 
 [node name="Muerto" type="Node" parent="FSM"]
 script = ExtResource("e_muerto")
+
+[node name="PuntoDebil" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.2, -1.9)
+collision_layer = 64
+collision_mask = 0
+script = ExtResource("wp")
+equipo = 1
+dueno_path = NodePath("..")
+
+[node name="Forma" type="CollisionShape3D" parent="PuntoDebil"]
+shape = SubResource("debil")

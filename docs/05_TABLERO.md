@@ -53,7 +53,7 @@ se implementa.
 |---|---|
 | `TestFase1` — FSM | **12/12** |
 | `TestFase2` — combate, postura, agua, escalada, paredes | **130/130** |
-| `TestEnemigos` | **17/17** |
+| `TestEnemigos` | **21/21** |
 | `TestLanza` | **36/36** |
 | `TestMenu` | **4/4** |
 | `TestVisual` | **11/11** |
@@ -63,11 +63,7 @@ se implementa.
 
 ## EN PROCESO
 
-- **Fase 3 — la lanza.** Etapa 0 (Escape abre el menú) y **etapa 1** hechas: la
-  lanza vuela, atraviesa cuerpos, se clava en piedra y es plataforma. **Etapa 2**
-  hecha: el zip te lleva hasta ella —impulso, no teletransporte— conservando
-  momentum. **Etapa 3**: el cordón, verlet de paso fijo y puramente visual.
-  Quedan balanceo, moveset y la interfaz contra colosos.
+*Vacío.* **La Fase 3 está cerrada.**
 
 ---
 
@@ -109,7 +105,6 @@ Ordenados por lo que más estorba para jugar.
   recalculando cada frame y un cuarto que estampa. **Desbloqueado**: el apuntado
   en 3D ya existe. Ojo con `velocidad_maxima = 22`, que recorta en silencio, y
   con `cd_dive`, que estrangula la cadena.
-- Fase 3: lanza y lazo.
 - `SquadDirector` — grupos de enemigos.
 - IA acuática.
 - Fase 4: el coloso.
