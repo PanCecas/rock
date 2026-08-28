@@ -71,6 +71,15 @@ func _physics_process(delta: float) -> void:
 	if HitstopManager.global_activo():
 		return
 	fsm.physics_update(delta)
+
+
+## El cordon se tiende en `_process`, a ritmo de RENDER, y no con la fisica.
+##
+## Sus dos extremos cuelgan de cosas que la interpolacion de fisica dibuja suaves
+## —la mano del jugador y el asta—. Tendiendolo a 60 Hz, la cuerda daba saltos
+## contra un personaje que iba fluido: el defecto se veia justo donde mas duele,
+## enganchado y a toda velocidad.
+func _process(_delta: float) -> void:
 	_tender_cordon()
 
 
@@ -83,7 +92,22 @@ func _tender_cordon() -> void:
 	if cordon == null:
 		return
 	var fuera := not en_mano() and fsm.nombre_actual() != &"Holstered"
-	cordon.tender(punto_de_mano(), global_position, fuera and dueno != null)
+	cordon.tender(_mano_dibujada(), get_global_transform_interpolated().origin,
+		fuera and dueno != null)
+
+
+## La mano TAL Y COMO SE DIBUJA este frame, no en el ultimo tick de fisica.
+##
+## Misma razon que en `CameraRig._punto_objetivo()`: con la interpolacion activada
+## `global_position` es un valor escalonado a 60 Hz y lo que se ve del personaje
+## va a ritmo de render. La version de fisica —`punto_de_mano()`— se queda como
+## esta porque la usan `Wielded` y `Returning`, que corren en fisica y tienen que
+## hablar en la misma moneda que el resto del movimiento.
+func _mano_dibujada() -> Vector3:
+	if dueno == null or not is_instance_valid(dueno):
+		return global_position
+	var t := dueno.get_global_transform_interpolated()
+	return t.origin + Vector3.UP * 0.95 + t.basis.x * 0.45
 
 
 # --- Servicios para los estados -----------------------------------------------
@@ -91,6 +115,24 @@ func _tender_cordon() -> void:
 ## ¿Está disponible para lanzarla?
 func en_mano() -> bool:
 	return fsm.nombre_actual() == &"Wielded"
+
+
+## ¿Está la lanza AHÍ FUERA, en un sitio del mundo al que se pueda ir?
+##
+## **Es la pregunta que hay que hacer antes de tirar de la cuerda**, y no
+## `not en_mano()`. `en_mano()` solo es cierto en `Wielded`, así que con la lanza
+## GUARDADA —que es como empieza la partida— su negación daba `true` y la cuerda
+## se enganchaba a una lanza invisible.
+##
+## Y `Holstered` no actualiza su posición: la lanza guardada se queda con la
+## transformada de la última vez, que al arrancar es el punto de spawn. Con eso,
+## pulsar Z en lo alto del coloso te lanzaba de vuelta al centro del mapa. El
+## usuario lo reportó como *"un bug raro al subirse a la cima del gigante, y con
+## la Z sin tener equipada la lanza"*: son el mismo fallo visto desde arriba, que
+## es donde el viaje se nota.
+func esta_fuera() -> bool:
+	var n := fsm.nombre_actual()
+	return n == &"InFlight" or n == &"Embedded" or n == &"Grounded"
 
 
 func clavada_en_algo() -> bool:
@@ -106,6 +148,9 @@ func lanzar(desde: Vector3, hacia: Vector3) -> bool:
 	if n != &"Wielded" and n != &"Holstered":
 		return false
 	global_position = desde
+	# Un teletransporte no se interpola: sin esto la lanza se dibuja barriendo
+	# desde donde estuviera guardada hasta la mano en un solo frame.
+	reset_physics_interpolation()
 	fsm.cambiar(&"InFlight", {"direccion": hacia})
 	return true
 

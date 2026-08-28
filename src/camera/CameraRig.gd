@@ -38,9 +38,27 @@ var _yaw_objetivo: float = 0.0
 var _realinea: float = 0.0
 var _shake: float = 0.0
 var _shake_decaimiento: float = 1.0
+## Reloj del ruido de sacudida. Avanza con `camara_shake_frecuencia`, no con el
+## frame: asi la sacudida se siente igual a 60 fps que a 144.
+var _shake_t: float = 0.0
+var _ruido := FastNoiseLite.new()
+## Look ahead ya suavizado. Se guarda entre frames porque su gracia es ir por
+## DETRAS de la velocidad, no seguirla.
+var _adelanto_suave: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
+	# LA CAMARA SE QUEDA FUERA DE LA INTERPOLACION DE FISICA, y es obligatorio.
+	#
+	# El proyecto la tiene activada globalmente (`physics/common/physics_interpolation`)
+	# porque la fisica va a 60 Hz y la pantalla a 144: sin ella, dos de cada tres
+	# frames repetian la posicion del personaje. Pero la interpolacion es para lo
+	# que mueve la FISICA, y este rig se mueve por CODIGO en `_process`, a ritmo de
+	# render. Dejarlo dentro lo interpolaria una segunda vez —suavizado sobre
+	# suavizado— y el resultado es una camara que va medio frame por detras de si
+	# misma: exactamente el mareo que se intentaba quitar.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
 	objetivo = get_node_or_null(objetivo_path) as Node3D
 	_jugador = objetivo as PlayerController
 	if objetivo == null:
@@ -56,6 +74,8 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	brazo.collision_mask = Layers.CAMARA
 	brazo.margin = 0.35
+	_ruido.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	_ruido.frequency = 0.08
 	if objetivo != null:
 		_pos_suave = objetivo.global_position
 
@@ -92,31 +112,117 @@ func _process(delta: float) -> void:
 	_pitch = clampf(_pitch, float(_p["pitch_min"]), tuning.camara_pitch_max)
 
 	# Seguimiento amortiguado e independiente del framerate.
-	var deseado := objetivo.global_position + Vector3.UP * (tuning.camara_altura_objetivo * float(_p["altura"]))
+	#
+	# Se sigue la posicion INTERPOLADA, no `global_position`. Con la interpolacion
+	# de fisica activada, `global_position` sigue siendo la del ultimo tick de 60 Hz
+	# —o sea, un valor escalonado— mientras que lo que se DIBUJA del personaje ya
+	# va interpolado. Perseguir el valor escalonado dejaria a la camara persiguiendo
+	# una cosa distinta de la que se ve, y el personaje volveria a temblar en
+	# pantalla aunque el cuerpo fuera suave.
+	var deseado := _punto_objetivo() + Vector3.UP * (tuning.camara_altura_objetivo * float(_p["altura"]))
+	deseado += _adelanto(delta)
 	var suavizado: float = maxf(tuning.camara_suavizado * float(_p["suave"]), 0.001)
 	_pos_suave = _pos_suave.lerp(deseado, 1.0 - exp(-delta / suavizado))
 
 	global_position = _pos_suave
 	rotation_degrees = Vector3(0.0, _yaw, 0.0)
-	# La sacudida se suma DESPUES del encuadre y solo a la rotacion: mover la
-	# posicion de la camara atraviesa geometria y marea mas de lo que aporta.
-	var s_x := 0.0
-	var s_y := 0.0
-	if _shake > 0.0:
-		_shake = maxf(0.0, _shake - _shake_decaimiento * delta)
-		var a := randf() * TAU
-		s_x = cos(a) * _shake
-		s_y = sin(a) * _shake
-	brazo.rotation_degrees = Vector3(_pitch + s_x, s_y, 0.0)
+	_sacudir_encuadre(delta)
 	brazo.spring_length = tuning.camara_distancia * float(_p["dist"])
 
-	# Un punto de FOV por cada 4 m/s por encima de la carrera. Es sutil a propósito:
-	# el objetivo es notar la velocidad, no marear.
+	_actualizar_fov(delta)
+
+
+## DÓNDE ESTÁ EL OBJETIVO **ESTE FRAME**, no en el último tick de física.
+##
+## Con `physics/common/physics_interpolation` activado, `global_position` sigue
+## dando la posición del último tick de 60 Hz —un valor escalonado— mientras que
+## lo que se DIBUJA del personaje ya va interpolado a ritmo de render. Perseguir
+## el valor escalonado dejaría a la cámara siguiendo una cosa distinta de la que
+## se ve, y el personaje seguiría temblando en pantalla aunque su cuerpo fuera
+## perfectamente suave. `get_global_transform_interpolated()` da lo que se dibuja.
+func _punto_objetivo() -> Vector3:
+	return objetivo.get_global_transform_interpolated().origin
+
+
+## LOOK AHEAD: la cámara se adelanta hacia donde vas.
+##
+## Es lo que hace que un disparo de resortera se vea venir en vez de descubrirse
+## al llegar: encuadras el destino, no la nuca del personaje.
+##
+## Dos decisiones que lo hacen usable:
+##
+##   · **desplaza el PUNTO SEGUIDO, nunca el yaw.** Girar la cámara sola le quita
+##     el control al jugador y es la forma más rápida de que un look-ahead se
+##     sienta mal. Aquí el ratón sigue mandando en la dirección; el adelanto solo
+##     mueve el centro del encuadre.
+##   · **va deliberadamente LENTO** (`camara_adelanto_respuesta`). Un adelanto que
+##     se pega a la velocidad instantánea oscila con cada corrección del stick.
+##     Arrastrándose por detrás, acompaña el movimiento sostenido e ignora el
+##     temblor.
+func _adelanto(delta: float) -> Vector3:
+	var destino := Vector3.ZERO
+	if _jugador != null and tuning.camara_adelanto > 0.0:
+		var v := _jugador.velocity
+		var plana := Vector3(v.x, 0.0, v.z)
+		var f: float = clampf(plana.length() / maxf(tuning.camara_adelanto_ref, 0.001), 0.0, 1.0)
+		if not plana.is_zero_approx():
+			destino = plana.normalized() * (tuning.camara_adelanto * f)
+		# La componente vertical va aparte: la resortera te sube y te baja
+		# disparado, y eso no lo encuadra un adelanto horizontal.
+		var fv: float = clampf(v.y / maxf(tuning.camara_adelanto_ref, 0.001), -1.0, 1.0)
+		destino += Vector3.UP * (tuning.camara_adelanto * tuning.camara_adelanto_vertical * fv)
+	_adelanto_suave = _adelanto_suave.lerp(
+		destino, 1.0 - exp(-tuning.camara_adelanto_respuesta * delta))
+	return _adelanto_suave
+
+
+## FOV DINÁMICO, y **asimétrico a propósito**.
+##
+## Abre rápido y cierra despacio. Un FOV que hace las dos cosas al mismo ritmo se
+## lee como un parpadeo; abriendo de golpe con el impulso y cerrando con calma, el
+## disparo deja resaca y se siente potente. Es el mismo truco que la gravedad
+## asimétrica del salto, aplicado a la lente.
+func _actualizar_fov(delta: float) -> void:
 	var exceso := 0.0
 	if _jugador != null and _jugador.motor != null:
-		exceso = maxf(0.0, _jugador.motor.rapidez_plana() - tuning.velocidad_correr)
-	_fov_extra = lerpf(_fov_extra, minf(exceso * 0.25, 9.0), 1.0 - exp(-3.0 * delta))
+		# La rapidez TOTAL, no la plana: la resortera te dispara en diagonal y con
+		# solo la plana el tiro más vertical —que es el más espectacular— no abría
+		# nada de FOV.
+		exceso = maxf(0.0, _jugador.velocity.length() - tuning.velocidad_correr)
+	var objetivo_fov: float = minf(exceso * tuning.camara_fov_por_ms, tuning.camara_fov_extra_max)
+	var tasa: float = (tuning.camara_fov_abre if objetivo_fov > _fov_extra
+		else tuning.camara_fov_cierra)
+	_fov_extra = lerpf(_fov_extra, objetivo_fov, 1.0 - exp(-tasa * delta))
 	camara.fov = tuning.camara_fov * float(_p["fov"]) + _fov_extra
+
+
+## SACUDIDA por ruido, en el ENCUADRE y no en la posición.
+##
+## `h_offset`/`v_offset` desplazan el frustum de la cámara sin moverla de sitio:
+## la imagen se sacude y la cámara no atraviesa geometría ni orbita alrededor del
+## jugador. Rotar el brazo —que es lo que hacía antes— hace las dos cosas malas.
+##
+## El ruido va con `FastNoiseLite` y no con `randf()` porque un valor aleatorio
+## por frame da vibración blanca, que a 144 Hz se ve como un borrón sucio. El
+## ruido es continuo: sacude, pero la imagen sigue siendo legible.
+func _sacudir_encuadre(delta: float) -> void:
+	if _shake <= 0.0:
+		camara.h_offset = 0.0
+		camara.v_offset = 0.0
+		brazo.rotation_degrees = Vector3(_pitch, 0.0, 0.0)
+		return
+
+	_shake = maxf(0.0, _shake - _shake_decaimiento * delta)
+	_shake_t += delta * tuning.camara_shake_frecuencia
+	# Dos cortes del mismo ruido bien separados en Y: usar el mismo eje para las
+	# dos componentes daría una sacudida en diagonal perfecta, que se lee a ojo.
+	var nx := _ruido.get_noise_2d(_shake_t, 0.0)
+	var ny := _ruido.get_noise_2d(0.0, _shake_t + 137.0)
+	camara.h_offset = nx * _shake * tuning.camara_shake_offset
+	camara.v_offset = ny * _shake * tuning.camara_shake_offset
+	# Un pelín de giro además del desplazamiento: vende el impacto sin marear.
+	var g := tuning.camara_shake_giro * _shake
+	brazo.rotation_degrees = Vector3(_pitch + ny * g, nx * g, 0.0)
 
 
 ## Pide que la cámara se coloque detrás de una dirección de mundo.

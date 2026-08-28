@@ -60,6 +60,30 @@ extends CharacterBody3D
 ## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
 ## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
 var lanza: Spear = null
+## LAS DAGAS. **Una lista, no dos campos**, y esa es la decisión.
+##
+## `anclaje_a` / `anclaje_b` es exactamente cómo se llega a que uno de los dos se
+## quede sin arreglar: cada guardia hay que escribirlo dos veces y basta olvidar
+## uno. Con lista, todo lo que pregunta por las dagas recorre lo mismo.
+##
+## **Son DOS a propósito, y no contradice que la lanza sea UNA.** El argumento de
+## escasez de `Spear.gd` es específico de ella: colocarla es un compromiso que
+## mantienes. Una daga pequeña que vuelve sola es lo contrario —un ritmo— y dos
+## son creíbles donde dos lanzas no lo serían.
+##
+##   La lanza es UNA porque colocarla es una decisión.
+##   Las dagas son DOS porque tirarlas es un compás.
+var dagas: Array[Anclaje] = []
+
+## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`.
+##
+## Lo escribe la resortera al disparar. Existe porque el clamp global se aplica en
+## un solo sitio (regla dura #12) y solo al plano: un disparo de 42 m/s se
+## recortaria a 22 en el mismo frame, EN SILENCIO, y ademas solo en horizontal, o
+## sea que disparar hacia arriba se sentiria bien y disparar de lado se sentiria
+## roto sin que nada avisara. Es la misma trampa que obligo a dejar
+## `zip_velocidad` en 21, resuelta esta vez en vez de esquivada.
+var momentum_libre: float = 0.0
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -163,6 +187,7 @@ func _physics_process(delta: float) -> void:
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	_input_lanza()
+	_input_anclaje()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -257,6 +282,7 @@ func _avanzar_relojes(delta: float) -> void:
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
 	surf_pendiente = maxf(0.0, surf_pendiente - delta)
+	momentum_libre = maxf(0.0, momentum_libre - delta)
 	if is_on_floor():
 		_coyote = tuning.coyote_time
 		tiempo_en_aire = 0.0
@@ -411,12 +437,26 @@ func _input_lanza() -> void:
 	# o no la tienes, y eso se ve. No son dos verbos compitiendo por una tecla; son
 	# las dos mitades del mismo.
 	if buffer.consume(InputActions.THROW_SPEAR):
-		if lanza.en_mano():
-			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
-		else:
+		# LA PREGUNTA ES SI ESTA FUERA, no si la llevas empuñada.
+		#
+		# Aqui ponia `lanza.en_mano()`, que solo es cierto en `Wielded`. Con la
+		# lanza GUARDADA —que es como EMPIEZA la partida— caia en la rama del
+		# `else` y llamaba a `recuperar()`, que se niega porque `Holstered` no
+		# esta entre los estados recuperables. Resultado: **al arrancar el juego,
+		# el boton de la lanza no hacia nada** hasta pulsar Tab primero.
+		#
+		# Y `Spear.lanzar()` acepta guardada a proposito, con este comentario al
+		# lado: *"la desenfunda y la tira en un solo gesto. Obligar a sacarla
+		# primero convertiria el lanzamiento en dos pulsaciones, y de eso ya se
+		# quejo el usuario con razon"*. O sea que la intencion estaba escrita y el
+		# guardia la contradecia. Mismo fallo que el de la Z, misma familia:
+		# preguntar `en_mano()` cuando lo que importa es donde ESTA.
+		if lanza.esta_fuera():
 			# Tambien vale colgado: recuperarla suelta la cuerda y te la trae, en
 			# un gesto en vez de dos.
 			lanza.recuperar()
+		else:
+			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
 	# Sigue existiendo la recuperacion explicita para quien la quiera aparte.
 	if buffer.consume(InputActions.RECALL_SPEAR):
 		lanza.recuperar()
@@ -424,6 +464,29 @@ func _input_lanza() -> void:
 	# con lo de siempre.
 	if buffer.consume(InputActions.SWAP_WEAPON):
 		lanza.alternar_empunada()
+
+
+## EL ANCLAJE, la segunda cuerda. Un solo boton, igual que la lanza y por lo
+## mismo: o esta puesto o no lo esta, y eso se ve desde el primer segundo.
+##
+## Vive aqui al lado de `_input_lanza()` y fuera de la FSM por la misma razon que
+## aquel: tirar el anclaje NO cambia el estado del jugador. Sigues corriendo,
+## cayendo o escalando mientras sale volando.
+func _input_anclaje() -> void:
+	if dagas.is_empty() or not buffer.consume(InputActions.THROW_ANCHOR):
+		return
+	# UNA POR PULSACIÓN. Se tira la primera guardada que haya; si no queda
+	# ninguna, la pulsación RECOGE la primera que esté puesta. Así el mismo botón
+	# reparte las dos sin necesitar una tecla por daga, y el orden se ve: sale la
+	# que tienes, vuelve la que tiraste.
+	for d in dagas:
+		if is_instance_valid(d) and d.guardado():
+			d.lanzar(d.punto_de_mano(), _direccion_de_tiro())
+			return
+	for d in dagas:
+		if is_instance_valid(d) and not d.guardado():
+			d.recuperar()
+			return
 
 
 ## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
@@ -454,6 +517,12 @@ func _limitar_velocidad() -> void:
 		var propio := fsm.actual.techo_velocidad()
 		if propio > 0.0:
 			techo = propio
+	# Y el permiso temporal de la resortera, que sobrevive al cambio de estado: el
+	# disparo se paga en `Slingshot` pero se VUELA en `Fall`, y si el techo muriera
+	# con el estado no habria disparo que valiera. Sigue habiendo un solo sitio
+	# donde se recorta —este—, que es lo que pide la regla dura #12.
+	if momentum_libre > 0.0:
+		techo = maxf(techo, tuning.resortera_velocidad_max)
 	if rapidez > techo:
 		velocity = plano * (techo / rapidez) + superficie.up * superficie.vertical(velocity)
 
@@ -984,6 +1053,11 @@ func _reset_si_cae() -> void:
 	stamina.llenar()
 	buffer.clear()
 	fsm.cambiar(&"Fall")
+	# UN TELETRANSPORTE NO SE INTERPOLA. Con la interpolacion de fisica activada,
+	# saltar de golpe de un sitio a otro se dibuja como un BARRIDO entre los dos
+	# durante un frame: al reaparecer, el personaje cruzaba el mapa entero de una
+	# pasada. Esto le dice al motor "aqui no hay movimiento que suavizar".
+	reset_physics_interpolation()
 
 
 func _on_tuning_reloaded() -> void:
@@ -993,6 +1067,7 @@ func _on_tuning_reloaded() -> void:
 
 
 func _debug() -> void:
+	_dibujar_gizmos()
 	DebugOverlay.set_line("estado", fsm.debug_line())
 	DebugOverlay.set_line("vel", "%.1f m/s   vy %.1f" % [motor.rapidez_plana(), motor.get_vertical()])
 	DebugOverlay.set_line("stamina", "%s %.0f%%" % ["█".repeat(int(stamina.fraccion() * 12.0)).rpad(12, "░"), stamina.fraccion() * 100.0])
@@ -1015,5 +1090,86 @@ func _debug() -> void:
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	if lanza != null and is_instance_valid(lanza):
 		DebugOverlay.set_line("lanza", lanza.debug_line())
+	for i in dagas.size():
+		if is_instance_valid(dagas[i]):
+			DebugOverlay.set_line("daga%d" % i, dagas[i].debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
+
+
+## GIZMOS DEL JUGADOR (F7).
+##
+## Se dibuja lo que el jugador USA para decidir y no se ve por ningun lado: la
+## normal del suelo, la de la pared, hacia donde apunta el movimiento, y las
+## cuerdas con su radio de restriccion. Todo eso ya sale en texto en el panel F3,
+## pero un vector en texto —"n=0.0,0.7,0.7"— no dice nada hasta que lo dibujas.
+func _dibujar_gizmos() -> void:
+	if not DebugDraw.activo or tuning == null:
+		return
+	var p := GameState.palette
+	if p == null:
+		return
+	var centro := global_position + Vector3.UP * 0.9
+
+	# SUELO: la normal y su clasificacion en color. Es EL numero de la regla dura
+	# #15 —<45 camina · 45-110 escala · >110 nada— hecho visible: si una rampa se
+	# comporta raro, aqui se ve de que color es antes de medir nada.
+	if suelo.hay_suelo:
+		var grados := rad_to_deg(suelo.normal.angle_to(Vector3.UP))
+		var c := p.pasto_sol
+		match tuning.clasificar(grados):
+			PlayerTuning.Superficie.ESCALABLE: c = p.oro_palido
+			PlayerTuning.Superficie.INVALIDA: c = p.carmesi
+		DebugDraw.rayo(global_position, suelo.normal, 1.6, c)
+
+	# PARED: la normal, y el angulo contra ella. La reparticion de los verbos de
+	# pared (regla dura #20) sale de UN numero, y este es.
+	if pared.hay_pared:
+		DebugDraw.rayo(centro, pared.normal, 1.4, p.lavanda_gris)
+
+	# A DONDE VA: velocidad real en verde, intencion del stick en crema. Cuando
+	# las dos divergen es cuando el control se siente raro, y verlas juntas es la
+	# forma mas rapida de saberlo.
+	if motor.rapidez_plana() > 0.4:
+		DebugDraw.rayo(centro, superficie.plano(velocity), motor.rapidez_plana() * 0.25, p.pasto_sol)
+
+	# LAS CUERDAS. El balanceo y la resortera son restricciones INVISIBLES: se
+	# siente que tiran pero no se ve de donde ni hasta donde. Dibujar el ancla y
+	# el radio de reposo convierte "esto va raro" en una lectura.
+	if lanza != null and is_instance_valid(lanza) and lanza.clavada_en_algo():
+		DebugDraw.linea(centro, lanza.global_position, p.oro_palido)
+		DebugDraw.punto(lanza.global_position, 0.5, p.oro_palido)
+	for d in dagas:
+		if not is_instance_valid(d) or not d.clavado():
+			continue
+		# Azul = clavada en mundo (punto de resortera). Carmesi = clavada en carne
+		# (de eso se tira para zarandear). El color dice QUE se puede hacer con ella.
+		var cd: Color = p.carmesi if d.en_carne() else p.azul_claro
+		DebugDraw.linea(centro, d.global_position, cd)
+		DebugDraw.punto(d.global_position, 0.5, cd)
+
+	# El radio de reposo del estado colgado, si lo declara. Un solo numero, pero
+	# es el que explica por que el arco pasa por donde pasa.
+	if fsm != null and fsm.actual != null:
+		var largo: Variant = fsm.actual.get("_largo")
+		if largo is float and float(largo) > 0.0 and lanza != null and is_instance_valid(lanza):
+			DebugDraw.esfera(lanza.global_position, float(largo), p.crema_medio)
+
+
+## LA PRIMERA DAGA CLAVADA EN **MUNDO**, o null. Es el segundo punto fijo de la
+## resortera: una daga clavada en carne NO vale, porque un ancla que anda rompe la
+## conservación de energía del elástico.
+func daga_en_mundo() -> Anclaje:
+	for d in dagas:
+		if is_instance_valid(d) and d.clavado() and not d.en_carne():
+			return d
+	return null
+
+
+## LA PRIMERA DAGA CLAVADA EN UN ENEMIGO AGARRABLE, o null. Es de lo que se tira
+## para zarandear.
+func daga_en_carne() -> Anclaje:
+	for d in dagas:
+		if is_instance_valid(d) and d.clavado() and d.en_carne():
+			return d
+	return null
