@@ -20,6 +20,8 @@ plataformas en movimiento.
 | `docs/03_ARQUITECTURA_MECANICAS.md` | **Arquitectura completa. La referencia técnica.** |
 | `docs/04_ROADMAP.md` | Fases, hitos, orden de construcción. |
 | `docs/05_TABLERO.md` | **Qué está listo, en proceso, bugueado y pendiente.** Se actualiza en el MISMO commit que el cambio. |
+| `docs/07_SHADERS.md` | **Como se construye el look**: shader de bandas con sombra tintada, niebla, post-proceso, hierba. Con la API verificada y fuentes. |
+| `docs/06_INTEGRACION_3D.md` | **Llevar todo esto a modelos, animaciones y escenarios de Blender.** Export, AnimationTree, IK, navmesh. **Se usa DESPUES de cerrar los tweaks.** |
 
 ## Reglas duras del código
 1. **Ningún número mágico en `.gd`.** Todo valor que se toque para "que se sienta bien" vive en
@@ -111,9 +113,43 @@ plataformas en movimiento.
 	(55°). Dos vectores decidiendo lo mismo divergen con momentum, asi que las dos
 	condiciones podian ser ciertas a la vez —"quiere hacer todo a la vez"— y entre
 	49.5 y 55 no saltaba ninguna.
+21. **CADA BANDO TIENE SU FRENTE, Y ES UNO SOLO.** El jugador mira a **+Z** en su
+	nodo `Visual`; los enemigos miran a **−Z** en su cuerpo. Los dos convenios son
+	correctos, conviven a proposito y **no hay que unificarlos**: lo prohibido es
+	un TERCER criterio dentro de uno de los dos.
+	Eso fue el bug de la 3.08. `Enemigo.encarar()` usaba `atan2(d.x, d.z)`, que
+	deja `+basis.z` mirando al objetivo —medido—, mientras los cinco lectores del
+	bando enemigo y los cuatro marcadores `Marca` de las escenas leian `−basis.z`.
+	El embestidor te detectaba solo por la espalda y **cargaba huyendo**; el
+	guardian empujaba al jugador HACIA si mismo. Un signo, cinco sintomas que no
+	se parecian entre si.
+	Por eso el signo se escribe en UN sitio —`Enemigo.frente()`— y nadie mas pone
+	`-global_basis.z` a mano. Y el test lo comprueba dejando correr `encarar()`
+	antes de mirar: fijar `rotation.y` a mano y despues preguntar por el cono de
+	vision pasa igual de verde con el bug puesto.
+21bis. **LA INTERPOLACION DE FISICA ESTA ENCENDIDA** (`physics/common/physics_interpolation`),
+	porque la fisica va a 60 Hz y la pantalla a 144: sin ella, **el 63.5% de los
+	frames dibujaban al personaje congelado** y eso es todo el "se ve borroso"
+	que se reporto. Medido con `tools/MedirJitter.tscn`, A/B en la misma pasada.
+	Tres consecuencias que hay que respetar o se rompe:
+	· **Lo que se mueve por CODIGO en `_process` va FUERA**
+	  (`physics_interpolation_mode = OFF`): el `CameraRig` y el `Cordon`. Dentro
+	  se interpolarian dos veces.
+	· **Quien siga a un cuerpo desde `_process` usa
+	  `get_global_transform_interpolated()`**, no `global_position`. La segunda
+	  sigue siendo la del ultimo tick —escalonada— y perseguirla deja a la camara
+	  siguiendo algo distinto de lo que se ve.
+	· **Todo teletransporte llama a `reset_physics_interpolation()`.** Sin eso, un
+	  respawn se dibuja como un barrido cruzando el mapa entero en un frame.
+22. **Un valor absoluto no distingue "va hacia ti" de "se va de ti".** El chequeo
+	de la carga del embestidor midio `absf(position.z)` durante dos parches y
+	estuvo en verde todo ese tiempo con la carga saliendo al reves: la fuga
+	tambien recorre metros. Cuando lo que se prueba es un SENTIDO —perseguir,
+	huir, acercarse, empujar—, se mide con signo o comparando distancias antes y
+	despues. Nunca con un modulo.
 
 ## Autoloads
-Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `MenuControles`.
+Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
 De plugins: `PhantomCameraManager`, `Dialogic`, `CyclopsAutoload`.
 
 Los tres de plugin los registra el editor al activarlos. Estan escritos a mano en
@@ -192,6 +228,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Landing slide | Aterrizar con velocidad manteniendo C | |
 | Agarrar / escalar | F (tambien desde el suelo) | Y |
 | Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
+| **Combo pesado** | Click der. **otra vez** durante el giro | RT |
+| | *Giro (2 impactos, en area) -> remate descendente (1, con empuje)* | |
 | Ataque de dash (estocada) | Click izq. durante dash | RB |
 | Estocada de surf | **Shift** + click izq. | LB + RB |
 | Frenazo de surf | **Shift** + click der. | LB + RT |
@@ -204,9 +242,15 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *Ligero atraviesa · pesado los manda a volar con tu inercia* | |
 | | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
 | **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
+| **Dagas: tirar / recoger** (son DOS) | **X** | *sin asignar* |
+| | *tira mientras te quede una guardada · recoge cuando no queda ninguna* | |
+| **Zarandear** — daga clavada en un enemigo + **Z** | **Z** | D-pad der. |
+| | *el stick lo hace girar · **click der.** lo estampa con dano en area* | |
+| **Resortera** — con lanza Y anclaje puestos, la misma **Z** tensa | **Z** (mantener) | D-pad der. |
+| | *Tira hacia atras con el stick y SUELTA: sales catapultado* | |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
-| Debug | F3 panel · F5 tuning · F6 paleta · F4 respawn arena | |
+| Debug | F3 panel · **F7 gizmos 3D** · F5 tuning · F6 paleta · F4 respawn arena | |
 
 **El planeo esta separado del salto a proposito.** Compartir tecla obligaba a
 negociar cada pulsacion entre doble salto y capa, y resultaba incomodo. Ahora
@@ -247,11 +291,13 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 11 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada y la particion de los verbos de pared. 130 comprobaciones. |
-| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil. 21 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga y carga en viaje. 36 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada, la particion de los verbos de pared y el combo pesado. 135 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, que una lanza clavada viaja con el cuerpo y el ZARANDEO de enemigos. 35 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA y las DOS dagas. 52 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
+| `src/core/DebugDraw.gd` | **Gizmos 3D en el mundo (F7).** Modo inmediato: `DebugDraw.esfera(...)`, `.cono(...)`, `.linea(...)`, `.rayo(...)`, `.caja(...)`, `.punto(...)`. Dibuja la hitbox que se consulta, el cono de vision y la ruta de cada enemigo, y las cuerdas con su radio. **Cuesta cero apagado**: toda entrada sale por `if not activo: return`. |
+| `tools/MedirJitter.tscn` | **Mide el jitter**, no lo supone. Corre las dos condiciones —interpolacion si/no— en la MISMA pasada y cuenta que fraccion de frames dibuja al personaje congelado. Necesita GPU: `godot --path . --resolution 960x540 tools/MedirJitter.tscn` |
 
 Tras crear o renombrar una clase con `class_name`, corre
 `godot --headless --path . --import` o el proyecto no la encontrará.
@@ -320,6 +366,25 @@ analitica y gravedad simetrica propia. Y **etapa 5**: el moveset —empunarla co
 Tab cambia los dos ataques, ligero preciso contra pesado en area— mas la
 pertiga. Y **etapa 6**: `WeakPoint`, la interfaz
 contra colosos. **Fase 3 CERRADA.**
+
+**Parche 3.08 — tres correcciones.**
+
+- **La resortera.** Una SEGUNDA cuerda (`Anclaje`, `src/weapons/`) que no es una
+  segunda lanza: no hace dano, no es plataforma y no se empuna, solo es un punto
+  fijo. Con los dos puestos, la misma **Z** deja de dar pendulo y da **elastico**:
+  mantienes para tensar y sueltas para salir catapultado. No hay tecla nueva ni
+  menu —lo que decide es cuantas cuerdas hay puestas, y eso se ve—.
+  Un pendulo CONSERVA energia y una resortera la ALMACENA, asi que son dos
+  estados distintos y no un numero: `StateSlingshot` trata cada cuerda como un
+  muelle y dispara por la SUMA de las dos, no por la bisectriz.
+  El disparo medido es de **33 m/s**, y por eso existe `momentum_libre`: el clamp
+  global (22) se lo comia entero, en silencio y solo en horizontal.
+- **El frente de los enemigos estaba invertido.** Ver regla dura #21. Un signo en
+  `encarar()`, cinco sintomas: el embestidor cargaba HUYENDO.
+- **Combo pesado.** Giro de **dos impactos con un solo gesto** (`AttackData.golpes`)
+  encadenado al **remate descendente** con el propio boton pesado
+  (`AttackData.boton_cadena`), para que los dos botones sigan significando lo
+  mismo dentro de un combo y fuera de el.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
