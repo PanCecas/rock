@@ -53,3 +53,18 @@ extends Resource
 @export_group("Presentacion")
 @export_range(0.2, 4.0, 0.05) var largo: float = 1.9
 @export_range(0.01, 0.5, 0.01) var grosor: float = 0.07
+
+@export_group("Anclaje")
+## Numeros del ANCLAJE, la segunda cuerda. Viven aqui y no en un Resource propio
+## porque son cuatro y describen lo mismo —algo que se tira y se clava—: un
+## tercer archivo de tuning para cuatro numeros hace mas dificil encontrarlos, no
+## mas facil.
+##
+## Vuela mas rapido que la lanza y llega menos lejos, y las dos cosas van juntas:
+## el anclaje no es informacion —no hay que verlo viajar para leer a donde va—,
+## es la segunda mitad de un gesto que ya has empezado.
+@export_range(5.0, 140.0, 0.5) var anclaje_velocidad: float = 46.0
+@export_range(5.0, 200.0, 1.0) var anclaje_alcance: float = 32.0
+## Segundos que vuela antes de rendirse y volver.
+@export_range(0.5, 20.0, 0.1) var anclaje_vida: float = 2.5
+@export_range(0.05, 1.0, 0.01) var anclaje_radio: float = 0.16

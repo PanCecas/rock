@@ -17,12 +17,18 @@ extends Enemigo
 ## El cono de visión es la otra mitad: se le puede flanquear. Un enemigo que te ve
 ## a 360 grados no premia acercarse por detrás.
 
+@export_group("Deteccion")
 ## Semiángulo del cono de visión, en grados. 45 = un cono frontal de 90.
+##
+## El RADIO de detección y el de olvido son de la clase base (`vista` y
+## `radio_olvido`, en el grupo "Comportamiento"): son de todos los enemigos, no de
+## este. Repetirlos aquí daría dos números para lo mismo, que es exactamente el
+## fallo que la regla dura #15 prohíbe para las superficies.
 @export_range(5.0, 180.0, 1.0) var cono_grados: float = 45.0
 ## Altura desde la que sale el rayo que confirma la visión.
 @export_range(0.0, 3.0, 0.05) var altura_ojos: float = 1.2
 
-@export_group("Carga")
+@export_group("Embestida")
 ## Lo que dura la anticipación. Es la ventana en la que el jugador decide, así que
 ## es el número más importante de este enemigo: corto, es injusto; largo, es
 ## inofensivo.
@@ -32,6 +38,18 @@ extends Enemigo
 @export_range(0.5, 10.0, 0.1) var duracion_carga: float = 1.6
 ## Lo que queda abierto tras estrellarse. Largo a propósito: es el premio.
 @export_range(0.5, 8.0, 0.1) var aturdido_muro: float = 2.4
+## Grados por segundo que puede CORREGIR el rumbo mientras carga.
+##
+## **Cero por defecto, y ese cero es la mecánica**, no una casilla sin marcar.
+## Una carga que persigue es un misil teledirigido: la única respuesta posible
+## pasa a ser correr, y apartarse —que es el gesto que este enemigo existe para
+## enseñar— deja de funcionar.
+##
+## Es un número y no una constante porque un pelín de corrección (10–25°/s) sirve
+## para castigar al que se aparta demasiado pronto sin llegar a perseguir. Por
+## encima de eso se pierde la esquiva, y el test lo comprueba: con `giro_en_carga`
+## a 0 la carga tiene que seguir recta aunque el jugador se mueva.
+@export_range(0.0, 180.0, 1.0) var giro_en_carga: float = 0.0
 
 
 func _ready() -> void:
@@ -62,20 +80,16 @@ func detecta(j: Node3D) -> bool:
 	if dist > vista or dist < 0.01:
 		return false
 
-	var frente := -global_basis.z
-	frente.y = 0.0
-	if frente.is_zero_approx():
-		return false
-	if rad_to_deg(frente.normalized().angle_to(hacia.normalized())) > cono_grados:
+	if rad_to_deg(frente().angle_to(hacia.normalized())) > cono_grados:
 		return false
 
 	# Línea de visión de verdad: sin esto ve a través de las paredes.
-	var espacio := get_world_3d().direct_space_state
-	var desde := global_position + Vector3.UP * altura_ojos
-	var hasta := j.global_position + Vector3.UP * altura_ojos
-	var q := PhysicsRayQueryParameters3D.create(desde, hasta, Layers.WORLD)
-	q.exclude = [get_rid()]
-	return espacio.intersect_ray(q).is_empty()
+	#
+	# El rayo vive en `Enemigo.hay_linea_de_vision()` y no aquí porque hacen falta
+	# dos cosas distintas con él —detectar, y decidir si el arquetipo a distancia
+	# tiene ángulo para disparar—. Dos copias del mismo rayo es como se llega a que
+	# una vea la pared y la otra no.
+	return hay_linea_de_vision(j, altura_ojos)
 
 
 func estado_al_despertar() -> StringName:

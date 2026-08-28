@@ -72,7 +72,7 @@ func bloquea(golpe: Golpe) -> bool:
 		return false
 	if golpe.datos != null and golpe.datos.rompe_guardia:
 		return false
-	var frente := -global_basis.z
+	var frente := frente()
 	var desde := -golpe.direccion
 	desde.y = 0.0
 	if desde.is_zero_approx():
@@ -89,3 +89,10 @@ func avance_al_golpear() -> float:
 ## estado: acercarse y alejarse son el mismo problema con el signo cambiado.
 func distancia_minima() -> float:
 	return alcance_ataque * 0.6 if tipo == Tipo.VIGIA else 0.0
+
+
+## El VIGIA es el arquetipo a distancia: dispara, asi que la cobertura tiene que
+## servirle de algo al jugador. Los otros dos pegan de cerca y ya tienen que
+## llegar hasta ti.
+func necesita_linea_de_vision() -> bool:
+	return tipo == Tipo.VIGIA

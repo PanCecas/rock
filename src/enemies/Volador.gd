@@ -56,6 +56,12 @@ func distancia_minima() -> float:
 	return alcance_ataque * 0.75
 
 
+## Dispara proyectiles: sin linea de vision no tira. Volando, ademas, es el que
+## mas facil la tiene —basta con subir— asi que la restriccion le sale barata.
+func necesita_linea_de_vision() -> bool:
+	return true
+
+
 func estado_de_ataque() -> StringName:
 	return &"Rafaga"
 

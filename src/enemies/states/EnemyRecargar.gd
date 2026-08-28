@@ -54,7 +54,7 @@ func _siguiente_tramo() -> void:
 	var huida := enemigo.global_position - enemigo.objetivo.global_position
 	huida.y = 0.0
 	if huida.is_zero_approx():
-		huida = -enemigo.global_basis.z
+		huida = enemigo.frente()
 	huida = huida.normalized().rotated(Vector3.UP, deg_to_rad(enemigo.apertura_zigzag) * _lado)
 	_lado = -_lado
 	_destino = enemigo.global_position + huida * enemigo.distancia_tramo

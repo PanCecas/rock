@@ -41,10 +41,35 @@ func shared_update(_delta: float) -> void:
 ## cancelar una transicion de terreno.
 func intentar_cuerda() -> bool:
 	var l: Spear = player.lanza
-	if l == null or not is_instance_valid(l) or l.en_mano():
+	# HACE FALTA QUE LA LANZA ESTE AHI FUERA, no solo que no la lleves en la mano.
+	# Aqui ponia `l.en_mano()`, que solo es cierto en `Wielded`: con la lanza
+	# GUARDADA la negacion daba true y la cuerda tiraba de ti hacia una lanza
+	# invisible parada en el punto de spawn. Ver `Spear.esta_fuera()`.
+	if l == null or not is_instance_valid(l) or not l.esta_fuera():
 		return false
 	if not buffer.consume(InputActions.ROPE):
 		return false
+
+	# DOS PUNTOS MANDAN SOBRE UNO. Con la lanza y el anclaje puestos, el mismo
+	# boton da la resortera en vez del balanceo, y no hay que aprender nada nuevo:
+	# el numero de cuerdas que hay puestas se VE, y decide.
+	#
+	#   un punto  -> pendulo. Caes en arco y bombeas.
+	#   dos puntos-> elastico. Tiras hacia atras y sales disparado.
+	#
+	# Que no haya un tercer boton es la mitad del diseño: quien quiera balancearse
+	# teniendo los dos puestos recupera uno, y eso ya es una decision de posicion.
+	# CARNE ANTES QUE MUNDO. Una daga clavada en un bicho agarrable no admite otra
+	# lectura: lo que quieres es zarandearlo. Va delante de la resortera y del
+	# balanceo porque los dos son verbos de traversal y este es de combate, y
+	# porque el enemigo se te escapa mientras dudas.
+	if player.daga_en_carne() != null:
+		fsm.cambiar(&"Whirl", {}, true)
+		return true
+
+	if _resortera_lista():
+		fsm.cambiar(&"Slingshot", {}, true)
+		return true
 
 	if l.clavada_en_algo():
 		fsm.cambiar(&"SpearSwing", {}, true)
@@ -54,6 +79,18 @@ func intentar_cuerda() -> bool:
 		return false
 	fsm.cambiar(&"SpearZip", {}, true)
 	return true
+
+
+## ¿Estan los DOS puntos puestos? Es lo unico que separa la resortera del
+## balanceo, y por eso se pregunta en un solo sitio.
+func _resortera_lista() -> bool:
+	var l: Spear = player.lanza
+	if l == null or not is_instance_valid(l) or not l.clavada_en_algo():
+		return false
+	# LA DAGA TIENE QUE ESTAR EN MUNDO, no en carne. Un enemigo se mueve, y un
+	# ancla que anda rompe la conservacion de energia del elastico: la resortera
+	# ALMACENA energia y la devuelve, asi que sus dos puntos tienen que ser fijos.
+	return player.daga_en_mundo() != null
 
 
 ## Al entrar en cualquier hoja de este grupo.

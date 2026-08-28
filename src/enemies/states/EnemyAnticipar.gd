@@ -24,9 +24,11 @@ func physics_update(delta: float) -> void:
 	enemigo.encarar(enemigo.hacia_objetivo())
 
 	if t >= enemigo.anticipacion:
-		var rumbo := -enemigo.global_basis.z
-		rumbo.y = 0.0
-		fsm.cambiar(&"Embestir", {"rumbo": rumbo.normalized()})
+		# El rumbo sale del FRENTE, y el frente lo da una sola funcion (`frente()`).
+		# Aqui habia un `-global_basis.z` escrito a mano que, con el `encarar()`
+		# invertido, fijaba el rumbo justo al reves: la carga salia HUYENDO del
+		# jugador. Se veia como un bicho que se asusta y se va, no como un toro.
+		fsm.cambiar(&"Embestir", {"rumbo": enemigo.frente()})
 
 
 func debug_line() -> String:

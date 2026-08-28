@@ -29,6 +29,13 @@ var _pos: Vector3 = Vector3.ZERO
 var _visto: Dictionary = {}
 var _proyectiles_max: int = 0
 var _remate: bool = false
+## Mueve al jugador a un lado durante la carga: sin eso, "no persigue" no se puede
+## comprobar —una carga contra un objetivo quieto va recta pase lo que pase—.
+var _apartar: bool = false
+## Pulsaciones simuladas. La regla dura #4 dice que el input va por el buffer, y
+## esta es la forma de simular una pulsacion desde un test.
+var _cuerda: int = 0
+var _atk_pes: int = 0
 
 
 func _ready() -> void:
@@ -61,21 +68,223 @@ func _construir() -> void:
 			func() -> bool: return _e.fsm.nombre_actual() != &"Dormido",
 			"dentro del cono y sin pared en medio tiene que detectarte"),
 
-		# --- EMBESTIDOR: la carga NO persigue --------------------------------
-		# Es LA propiedad que la hace esquivable. Si corrigiera el rumbo seria un
-		# misil teledirigido y la unica respuesta posible seria correr.
-		_chequeo_("la carga fija el rumbo", 2.2,
+		# --- EMBESTIDOR: la carga va HACIA TI ---------------------------------
+		# EL BUG DE LA 3.08, y el que el usuario describio como "la logica esta
+		# invertida". `encarar()` dejaba `+basis.z` mirando al objetivo mientras
+		# TODO lo demas leia `-basis.z` como el morro: el bicho te daba la espalda
+		# y cargaba HUYENDO.
+		#
+		# Este chequeo existia y estaba en verde con el bug, porque medía
+		# `absf(position.z)` —el modulo— y la fuga tambien recorre metros en Z. Un
+		# valor absoluto no distingue "va hacia ti" de "se va de ti", y esa es
+		# justo la unica diferencia que habia. Ahora se mide con SIGNO: se compara
+		# la distancia al punto donde estaba el jugador antes y despues.
+		_chequeo_("la carga va HACIA el jugador", 2.2,
 			func() -> void:
-				_p.global_position = Vector3(0, 0.05, 6.0)
-				_e.global_position = Vector3(0, 0.2, 0)
+				# Enemigo NUEVO. Reusar el anterior lo dejaba a media anticipacion
+				# —`cambiar` al mismo estado no reinicia el reloj— y fijaba el
+				# rumbo con el giro sin terminar, o sea de lado.
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres")
+				_e.rotation.y = 0.0
+				_p.global_position = Vector3(0, 0.05, 8.0)
 				_e.objetivo = _p
 				_e.fsm.cambiar(&"Anticipar")
-				_visto.clear()
+				_pos = _p.global_position
 				_aux = 0.0,
 			func() -> bool:
-				# Se aparto el jugador en pleno anticipar y aun asi carga recto.
-				return _visto.has(&"Embestir") and _aux > 3.0,
-			"la carga debe recorrer camino en linea recta aunque el jugador se aparte"),
+				# Ha llegado a menos de la mitad de donde apuntaba.
+				return _visto.has(&"Embestir") and _e.global_position.distance_to(_pos) < 4.0,
+			"tiene que CERRAR distancia contra el sitio al que apunto, no alejarse de el"),
+
+		# --- EMBESTIDOR: y NO persigue ---------------------------------------
+		# Es LA propiedad que la hace esquivable. Si corrigiera el rumbo seria un
+		# misil teledirigido y la unica respuesta posible seria correr.
+		#
+		# Se mide con el jugador APARTANDOSE de verdad (lo mueve `_apartar`): que
+		# la carga siga recta con el objetivo quieto no prueba nada.
+		_chequeo_("y NO persigue: el rumbo queda fijo", 2.4,
+			func() -> void:
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres")
+				_e.rotation.y = 0.0
+				_p.global_position = Vector3(0, 0.05, 8.0)
+				_e.objetivo = _p
+				_e.fsm.cambiar(&"Anticipar")
+				_apartar = true
+				_aux = 0.0,
+			func() -> bool:
+				_apartar = false
+				# Se aparto 10 m en X y la carga no se ha desviado ni 1.5.
+				return _visto.has(&"Embestir") and absf(_e.global_position.x) < 1.5,
+			"con `giro_en_carga` a 0 la carga no puede corregir hacia el jugador"),
+
+		# --- PATRULLA (3.09) --------------------------------------------------
+		# Sin ruta, DORMIDO. Es el comportamiento historico de los seis enemigos y
+		# tiene que seguir siendo el defecto: un componente nuevo que cambia lo que
+		# ya funcionaba sin que nadie lo pida no es una mejora.
+		_chequeo_("sin ruta se queda quieto, como siempre", 0.6,
+			func() -> void:
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres")
+				_e.rotation.y = 0.0
+				_e.ruta = PackedVector3Array()
+				_p.global_position = Vector3(0, 0.05, 40.0)
+				_pos = _e.global_position,
+			func() -> bool: return (_e.fsm.nombre_actual() == &"Dormido"
+				and _e.global_position.distance_to(_pos) < 0.5),
+			"la patrulla es opcional: sin ruta, nada cambia"),
+
+		_chequeo_("con ruta, RONDA", 2.5,
+			func() -> void:
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres")
+				_e.rotation.y = 0.0
+				_e.espera_en_punto = 0.0
+				_e.ruta = PackedVector3Array([
+					Vector3(0, 0.2, 0), Vector3(8.0, 0.2, 0), Vector3(8.0, 0.2, 8.0)])
+				# Lejisimos: lo que se mide es que RONDA, no que persiga.
+				_p.global_position = Vector3(0, 0.05, 60.0)
+				_pos = _e.global_position,
+			func() -> bool: return (_visto.has(&"Patrulla")
+				and _e.global_position.distance_to(_pos) > 2.0),
+			"un enemigo parado es un obstaculo; uno que ronda es un habitante"),
+
+		# Y SIGUE VIGILANDO MIENTRAS ANDA. Una patrulla que no detecta es un
+		# salvapantallas: la mitad del valor de la ronda es que te obliga a
+		# cronometrar por donde pasas.
+		_chequeo_("y deja la ronda al verte", 1.2,
+			func() -> void:
+				_visto.clear()
+				# DELANTE DE SU CARA, y su cara mira a donde CAMINA: patrullando ya no
+				# esta en rotation.y = 0. Colocar al jugador en -Z a ciegas lo dejaba
+				# fuera del cono y el test medía que no le veia, que es otra cosa.
+				var delante: Vector3 = _e.global_position + _e.frente() * 5.0
+				_p.global_position = Vector3(delante.x, 0.05, delante.z),
+			func() -> bool: return _e.fsm.nombre_actual() != &"Patrulla",
+			"patrullar no puede apagar la deteccion"),
+
+		# --- ARQUETIPO A DISTANCIA --------------------------------------------
+		# Es la mitad que lo separa del cuerpo a cuerpo: sin linea de vision NO
+		# dispara. Un enemigo a distancia que atraviesa columnas convierte la
+		# cobertura en decorado.
+		_chequeo_("el arquetipo a distancia declara que necesita verte", 0.3,
+			func() -> void:
+				_crear(VOLADOR, Vector3(0, 6.0, 0), "res://content/data/attacks/volador_disparo.tres")
+				(_e as Volador).proyectil = PROYECTIL,
+			func() -> bool: return _e.necesita_linea_de_vision(),
+			"el volador dispara: la cobertura tiene que servirle de algo al jugador"),
+
+		_chequeo_("y el cuerpo a cuerpo NO", 0.3,
+			func() -> void:
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres"),
+			func() -> bool: return not _e.necesita_linea_de_vision(),
+			"quien pega de cerca ya tiene que llegar hasta ti: exigirle ademas un rayo limpio lo deja clavado en cualquier saliente"),
+
+		# NAVEGACION: sin agente ni navmesh, LINEA RECTA. Es el fallback, y es lo
+		# que hace que el componente pueda ser opcional de verdad.
+		_chequeo_("sin agente de navegacion, rumbo recto", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				var destino := _e.global_position + Vector3(10.0, 0.0, 4.0)
+				var r: Vector3 = _e.rumbo_hacia(destino)
+				return _e.nav == null and r.normalized().is_equal_approx(
+					Vector3(10.0, 0.0, 4.0).normalized()),
+			"la navegacion es una MEJORA opcional: sin ella se va recto, como hasta ahora"),
+
+		# --- LA LANZA CLAVADA VIAJA CON EL CUERPO (3.10) ----------------------
+		# Reportado: "la daga y la lanza no se adhieren al enemigo cuando se mueve,
+		# se quedan flotando en el espacio". Pasa con el ColosoMediano, que esta en
+		# `COLOSSUS_SURFACE` —capa clavable— y se mueve.
+		#
+		# `SpearEmbedded` decia literalmente "se queda quieta en el mundo y NO se
+		# reparenta a nada; colgarla de un cuerpo que se mueve es trabajo de la
+		# Fase 4". El aplazamiento vencio en cuanto el coloso existio.
+		_chequeo_("la lanza clavada se mueve CON el coloso", 1.2,
+			func() -> void:
+				_crear(COLOSO, Vector3(0, 3.6, 0), "")
+				var l: Spear = _p.lanza
+				l.global_position = _e.global_position + Vector3(0, 0.5, 2.0)
+				l.fsm.cambiar(&"Embedded", {
+					"punto": l.global_position, "normal": Vector3.BACK, "cuerpo": _e})
+				# Se anota la separacion: es lo que tiene que MANTENERSE.
+				_aux = l.global_position.distance_to(_e.global_position)
+				_pos = _e.global_position,
+			func() -> bool:
+				var l: Spear = _p.lanza
+				# El coloso se ha movido de verdad...
+				if _e.global_position.distance_to(_pos) < 0.5:
+					_e.global_position += Vector3(3.0, 0.0, 0.0)
+					return false
+				# ...y la lanza conserva su sitio RELATIVO a el.
+				return absf(l.global_position.distance_to(_e.global_position) - _aux) < 0.5,
+			"una lanza clavada en algo que anda tiene que andar con ello, no quedarse flotando"),
+
+		# --- AGARRAR Y ZARANDEAR (3.11) ---------------------------------------
+		# El defecto NO cambia: un enemigo que no declara `agarrable` no se
+		# engancha. Igual que `WeakPoint.llave`, quien se deja agarrar lo dice el
+		# enemigo, y el coloso dice que no.
+		_chequeo_("el coloso NO es agarrable", 0.3,
+			func() -> void: _crear(COLOSO, Vector3(0, 3.6, 0), ""),
+			func() -> bool: return not _e.agarrable,
+			"zarandear algo de siete metros no es creible: el punto debil ya tiene su verbo"),
+
+		_chequeo_("el embestidor SI", 0.3,
+			func() -> void:
+				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres"),
+			func() -> bool: return _e.agarrable,
+			"los bichos pequenos son la presa: es lo que hace del zarandeo una respuesta"),
+
+		# LA DAGA SE CLAVA EN CARNE. Es lo que separa la daga de la lanza: la lanza
+		# atraviesa los cuerpos a proposito y se para contra la piedra.
+		_chequeo_("la daga se clava en el enemigo y la lanza NO", 0.4,
+			func() -> void:
+				var d: Anclaje = _p.dagas[0]
+				d.estado = Anclaje.Estado.GUARDADO
+				d.global_position = _e.global_position
+				d.cuerpo_clavado = _e
+				d.estado = Anclaje.Estado.CLAVADO,
+			func() -> bool:
+				var d: Anclaje = _p.dagas[0]
+				# En carne SI, y por tanto NO cuenta como punto de resortera: un
+				# ancla que anda rompe la conservacion de energia del elastico.
+				return d.en_carne() and _p.daga_en_mundo() == null and _p.daga_en_carne() == d,
+			"la lanza es del MUNDO y la daga de la CARNE: ese es el reparto"),
+
+		# EL CAMINO DE ENTRADA REAL: pulsando la tecla, no con `fsm.cambiar()`.
+		# Leccion ya escrita en CLAUDE.md — un test que fuerza el estado no prueba
+		# que se pueda LLEGAR a el, y por eso el balanceo estuvo verde sin
+		# funcionar.
+		_chequeo_("con la daga en carne, la Z zarandea", 1.0,
+			func() -> void:
+				_p.global_position = _e.global_position + Vector3(0, 0.05, 3.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_p.fsm.cambiar(&"Idle")
+				_visto.clear()
+				_cuerda = 3,
+			func() -> bool:
+				return (_visto.has(&"Whirl")
+					and _e.fsm.nombre_actual() == &"Agarrado"),
+			"una daga clavada en un bicho agarrable no admite otra lectura"),
+
+		# EL CUERPO MANTIENE LA DISTANCIA. Es la restriccion analitica, la misma
+		# del balanceo con los papeles invertidos.
+		_chequeo_("y el cuerpo se queda a su radio", 0.9,
+			func() -> void: _aux = 0.0,
+			func() -> bool:
+				var dist := _p.global_position.distance_to(_e.global_position)
+				# El radio se acota entre `zarandeo_largo_min` y `_max`; basta con
+				# que no se escape ni se meta dentro del jugador.
+				return dist > 0.5 and dist < _p.tuning.zarandeo_largo_max + 1.5,
+			"si el cuerpo se aleja sin limite no cuelga de nada: es la restriccion"),
+
+		# ESTAMPAR. El pesado lo manda contra el suelo, y al llegar hace dano en
+		# area escalado por la velocidad que traia.
+		_chequeo_("el pesado lo estampa", 1.6,
+			func() -> void:
+				_visto.clear()
+				_atk_pes = 3,
+			func() -> bool:
+				return (_visto.has(&"Estampado")
+					and _p.fsm.nombre_actual() != &"Whirl"),
+			"girar antes de estampar tiene que servir de algo, y ese algo es el impacto"),
 
 		# --- VOLADOR ----------------------------------------------------------
 		_chequeo_("el volador no cae", 0.6,
@@ -273,11 +482,28 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
+	if _cuerda > 0:
+		Input.action_press(&"rope")
+		_cuerda -= 1
+		if _cuerda == 0:
+			Input.action_release(&"rope")
+	if _atk_pes > 0:
+		Input.action_press(&"attack_heavy")
+		_atk_pes -= 1
+		if _atk_pes == 0:
+			Input.action_release(&"attack_heavy")
+	_visto[_p.fsm.nombre_actual()] = true
+
 	# Latches, antes de nada.
 	if _e != null and is_instance_valid(_e):
 		_visto[_e.fsm.nombre_actual()] = true
 		if _e.fsm.nombre_actual() == &"Embestir":
-			_aux = maxf(_aux, absf(_e.global_position.z))
+			_aux = maxf(_aux, _e.global_position.length())
+			# EL JUGADOR SE APARTA DE VERDAD. Un test de "no persigue" con el
+			# objetivo quieto no prueba nada: la carga iria recta igual.
+			if _apartar:
+				_p.global_position = _p.global_position.move_toward(
+					Vector3(10.0, 0.05, 8.0), 14.0 * delta)
 	_proyectiles_max = maxi(_proyectiles_max, _contar_proyectiles())
 
 	var actual: Dictionary = _guion[_paso]

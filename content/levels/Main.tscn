@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://csjccrhj5wnx7" path="res://addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd" id="8_kk0tq"]
 [ext_resource type="Script" uid="uid://8umksf8e80fw" path="res://addons/phantom_camera/scripts/resources/tween_resource.gd" id="9_w43ei"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_c1i3f"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kk0tq"]
 sky_top_color = Color(0.81058824, 0.7780392, 0.7529412, 1)
 sky_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
 sky_curve = 0.18
@@ -20,12 +20,12 @@ ground_curve = 0.04
 sun_angle_max = 25.0
 sun_curve = 0.12
 
-[sub_resource type="Sky" id="Sky_jo2k7"]
-sky_material = SubResource("ProceduralSkyMaterial_c1i3f")
+[sub_resource type="Sky" id="Sky_w43ei"]
+sky_material = SubResource("ProceduralSkyMaterial_kk0tq")
 
-[sub_resource type="Environment" id="Environment_iho8k"]
+[sub_resource type="Environment" id="Environment_c1i3f"]
 background_mode = 2
-sky = SubResource("Sky_jo2k7")
+sky = SubResource("Sky_w43ei")
 ambient_light_source = 3
 ambient_light_color = Color(0.7207843, 0.7356863, 0.76235294, 1)
 ambient_light_sky_contribution = 0.75
@@ -75,7 +75,7 @@ directional_shadow_blend_splits = true
 directional_shadow_max_distance = 220.0
 
 [node name="WorldMood" type="WorldEnvironment" parent="." unique_id=939690339]
-environment = SubResource("Environment_iho8k")
+environment = SubResource("Environment_c1i3f")
 script = ExtResource("1_mood")
 palette = ExtResource("2_palette")
 

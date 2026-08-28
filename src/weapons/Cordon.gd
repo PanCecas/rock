@@ -45,6 +45,19 @@ var _acumulado: float = 0.0
 
 
 func _ready() -> void:
+	# EL CORDON SE QUEDA FUERA DE LA INTERPOLACION DE FISICA.
+	#
+	# Sus nudos viven en coordenadas de MUNDO y `_dibujar()` los pasa a local con
+	# `to_local()`, que usa la transformada de fisica. Si ademas el nodo se
+	# interpolara al dibujar, los vertices se calcularian contra una transformada
+	# y se pintarian con otra: la cuerda entera se desplazaria el delta de la
+	# interpolacion —hasta medio metro a 33 m/s— y se separaria de la mano.
+	#
+	# Quedandose fuera, `to_local()` y el render usan la MISMA transformada. La
+	# suavidad del cordon no la da la interpolacion: la dan sus extremos, que se
+	# tienden ya interpolados desde `Spear._process`.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
 	if palette == null:
 		palette = GameState.palette
 	_malla = ImmediateMesh.new()

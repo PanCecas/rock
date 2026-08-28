@@ -34,11 +34,13 @@ extends Node3D
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
 
+const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
 const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
 const VOLADOR := preload("res://src/enemies/Volador.tscn")
 const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
 const LANZA := preload("res://src/weapons/Spear.tscn")
+const ANCLAJE := preload("res://src/weapons/Anclaje.tscn")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -74,6 +76,7 @@ func construir() -> void:
 	_rampas_escalada()
 	_domo()
 	_corral()
+	_patrulla()
 	_muro_lanza()
 	_tunel()
 	_piscina()
@@ -362,6 +365,21 @@ func _dar_lanza(jugador: Node3D) -> void:
 	l.global_position = jugador.global_position + Vector3.UP
 	jugador.set("lanza", l)
 
+	# Y LAS DOS DAGAS. Dos y no una: la resortera necesita lanza + daga en mundo,
+	# y zarandear necesita una daga en carne. Con una sola, tener las dos cosas a
+	# la vez seria imposible y media mecanica quedaria inalcanzable desde el Gym,
+	# que es donde se prueba el feel.
+	var dagas: Array[Anclaje] = []
+	for i in 2:
+		var a := ANCLAJE.instantiate() as Anclaje
+		a.name = "Daga%d" % i
+		a.palette = palette
+		a.dueno = jugador
+		_raiz.add_child(a)
+		a.global_position = jugador.global_position + Vector3.UP
+		dagas.append(a)
+	jugador.set("dagas", dagas)
+
 
 func _corral() -> void:
 	var centro := Vector3(11.0, 0.0, -32.0)
@@ -392,6 +410,48 @@ func _corral() -> void:
 			(e as Volador).proyectil = PROYECTIL
 		_raiz.add_child(e)
 		e.global_position = centro + (datos["pos"] as Vector3)
+
+
+## PUESTO DE PATRULLA. Un guardián rondando cuatro puntos, con dos columnas en
+## medio.
+##
+## Va LEJOS del corral a propósito. El corral sale en la toma `corral_enemigos`
+## del screenshot test, y un enemigo que se mueve dentro del encuadre haría esa
+## referencia distinta en cada pasada: sería exactamente el flake que costó
+## arreglar en `TestFase2` y en la toma `cordon`.
+##
+## **Y lejos de las rampas de calibración de escalada.** La primera versión se
+## puso en (-13, 0, -32), que cae justo encima de ellas: las rampas van de x = -33
+## a x = -5.8 en z = -30, así que las dos columnas aterrizaron sobre la de 90° y
+## el guardián patrullaba por dentro. Se vio con `escalada_muro_90` al **22%** de
+## píxeles distintos —el tope es 0.40%—, y no lo habría cazado ningún test
+## funcional: los 28 de enemigos seguían en verde.
+##
+## Las columnas no son decoración: son lo que hace visible la mitad del arquetipo
+## a distancia. Sin nada que interponer, "no dispara si no te ve" no se puede ver.
+func _patrulla() -> void:
+	var centro := Vector3(-30.0, 0.0, 6.0)
+	_etiqueta("PATRULLA — ronda, y no dispara si no te ve", centro + Vector3(0, 0.06, 6.0))
+
+	for i in 2:
+		var lado := -1.0 if i == 0 else 1.0
+		_bloque("Patrulla_Columna_%d" % i, Vector3(1.4, 4.0, 1.4),
+			centro + Vector3(lado * 2.0, 2.0, 0.0), _mat_piedra_osc)
+
+	var g := GUARDIAN.instantiate() as Enemigo
+	g.name = "GuardianPatrulla"
+	g.palette = palette
+	g.ataque = load("res://content/data/attacks/guardian_lancero.tres")
+	# La ronda: un rectángulo alrededor de las dos columnas, para que el jugador
+	# pueda perderse de vista y recuperarla.
+	g.ruta = PackedVector3Array([
+		centro + Vector3(-4.0, 0.2, -4.0),
+		centro + Vector3(4.0, 0.2, -4.0),
+		centro + Vector3(4.0, 0.2, 4.0),
+		centro + Vector3(-4.0, 0.2, 4.0),
+	])
+	_raiz.add_child(g)
+	g.global_position = g.ruta[0]
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza

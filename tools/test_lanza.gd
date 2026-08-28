@@ -43,6 +43,19 @@ var _swing_y0: float = 0.0
 ## Mayor salto de velocidad entre frames colgado. ES la medida de lo clunky.
 var _swing_tiron: float = 0.0
 var _v_ant: float = 0.0
+## --- Resortera (3.08) ---
+var _an: Anclaje
+## Mantiene la cuerda pulsada hasta que se baje a mano. La resortera se TENSA
+## mientras aguantas y DISPARA al soltar, asi que un contador de frames no vale:
+## soltaria el tiro cuando le tocara, no cuando lo pida el chequeo.
+var _cuerda_fija: bool = false
+## Flanco de bajada de `_cuerda_fija`: la tecla se suelta UNA vez, no cada frame.
+var _cuerda_suelta: bool = true
+var _anclaje_boton: int = 0
+var _tension_max: float = 0.0
+## Velocidad maxima vista DESPUES de salir de la resortera. Es el disparo.
+var _disparo_vel: float = 0.0
+var _midiendo_disparo: bool = false
 
 
 func _ready() -> void:
@@ -51,6 +64,7 @@ func _ready() -> void:
 	_p = _main.get_node("Player") as PlayerController
 	await get_tree().physics_frame
 	_l = _p.lanza
+	_an = _p.dagas[0] if not _p.dagas.is_empty() else null
 	_construir()
 
 
@@ -163,6 +177,66 @@ func _construir() -> void:
 				_zip = 2,
 			func() -> bool: return not _visto.has(&"SpearZip"),
 			"con la lanza en la mano no hay a donde tirar"),
+
+		# EL BUG DE LA Z CON LA LANZA GUARDADA (3.10). Reportado como "un bug raro
+		# al subirse a la cima del gigante, y con la Z sin tener equipada la
+		# lanza". Son el mismo fallo: `intentar_cuerda()` solo descartaba
+		# `en_mano()`, que es cierto SOLO en `Wielded`, asi que con la lanza
+		# GUARDADA la negacion daba true y el zip tiraba del jugador hacia una
+		# lanza invisible parada donde estuviera — al arrancar, el spawn.
+		#
+		# Desde lo alto del coloso eso es un viaje cruzando el mapa entero, que es
+		# donde se nota. A ras de suelo pasaba desapercibido.
+		_chequeo_("con la lanza GUARDADA, la Z no hace nada", 0.9,
+			func() -> void:
+				_l.fsm.cambiar(&"Holstered")
+				# Lanza "fantasma" lejos, que es justo el estado que causaba el
+				# bug: guardada y con la transformada rancia de otro sitio.
+				_l.global_position = Vector3(0.0, 1.0, 0.0)
+				_p.global_position = Vector3(11.0, 0.05, -32.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_aux = _p.stamina.actual
+				_origen = _p.global_position
+				_visto.clear()
+				_cuerda = 3,
+			func() -> bool:
+				# Ni cambia de estado, ni gasta stamina, ni se mueve del sitio.
+				return (not _visto.has(&"SpearZip")
+					and not _visto.has(&"SpearSwing")
+					and is_equal_approx(_p.stamina.actual, _aux)
+					and _p.global_position.distance_to(_origen) < 2.0),
+			"guardada no es un destino: `en_mano()` no basta, hace falta `esta_fuera()`"),
+
+		# Y EL MISMO FALLO EN EL BOTON DE LA LANZA. `_input_lanza()` preguntaba
+		# `en_mano()` para decidir entre tirar y recuperar, asi que con la lanza
+		# GUARDADA caia en "recuperar" —que se niega, porque `Holstered` no es
+		# recuperable— y el boton no hacia NADA. Como la partida empieza guardada,
+		# eso significa que al arrancar el juego la lanza no se podia tirar sin
+		# pulsar Tab antes. `Spear.lanzar()` ya aceptaba guardada: la intencion
+		# estaba escrita y el guardia la contradecia.
+		_chequeo_("el boton la tira tambien GUARDADA, sin pasar por Tab", 1.0,
+			func() -> void:
+				_l.fsm.cambiar(&"Holstered")
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3(0, 0, -1))
+				_visto.clear()
+				_boton_lanza = 3,
+			func() -> bool: return _l.esta_fuera() or _visto.has(&"InFlight"),
+			"la partida empieza con la lanza guardada: si el boton no la tira, no hay lanza"),
+
+		_chequeo_("y guardada sigue a la mano, sin transformada rancia", 0.5,
+			func() -> void:
+				# Se vuelve a guardar EXPRESAMENTE: el chequeo anterior la tiro, y
+				# lo que se mide aqui es el estado `Holstered`, no el que quede.
+				_l.fsm.cambiar(&"Holstered")
+				_p.fsm.cambiar(&"Fall")
+				_p.global_position = Vector3(-6.0, 0.05, 12.0)
+				_p.velocity = Vector3.ZERO,
+			func() -> bool:
+				return _l.global_position.distance_to(_p.global_position) < 3.0,
+			"una posicion vieja en un objeto invisible es una trampa para quien la lea"),
 
 		# --- BALANCEO (etapa 4) -----------------------------------------------
 		# El ancla se coloca a mano y alta: es una MEDICION del pendulo, y para que
@@ -472,12 +546,191 @@ func _construir() -> void:
 				var t: SpearTuning = _l.tuning
 				return t.imantado_grados > 0.0 and t.imantado_grados <= 15.0,
 			"pasado ese punto la lanza apunta por ti y acertar no significa nada"),
+
+		# =====================================================================
+		# LA RESORTERA (3.08). Dos cuerdas, tension y disparo.
+		# =====================================================================
+
+		# EL CAMINO DE ENTRADA, POR SU BOTON. El anclaje se tira con su tecla y se
+		# clava solo; no se le fuerza el estado. Un test que coloca el anclaje a
+		# mano no prueba que se pueda PONER, que es la leccion que dejo escrita el
+		# balanceo cuando estaba en verde sin poder entrar en el.
+		_chequeo_("el anclaje existe y se guarda", 0.3,
+			func() -> void: pass,
+			func() -> bool: return _an != null and _an.guardado(),
+			"la segunda cuerda tiene que existir y empezar recogida"),
+
+		_chequeo_("se tira con su boton y se clava", 1.2,
+			func() -> void:
+				# SALIR DEL BALANCEO ANTES DE MOVER AL JUGADOR. Los chequeos de la
+				# carga en viaje lo dejan colgado de la lanza clavada en el corral,
+				# y teletransportarlo sin soltar la cuerda hace que la restriccion
+				# lo arrastre 44 m de vuelta en cuanto arranca el frame. El anclaje
+				# entonces perseguia a un jugador que cruzaba el mapa, y el fallo
+				# parecia del retorno cuando era de la preparacion.
+				_p.fsm.cambiar(&"Fall")
+				_l.fsm.cambiar(&"Wielded")
+				_p.global_position = Vector3(0.0, 0.05, 33.0)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3(0, 0, -1))
+				_anclaje_boton = 3,
+			func() -> bool: return _an.clavado(),
+			"contra el muro se para en seco, igual que la lanza"),
+
+		# CON DOS DAGAS, EL BOTON REPARTE: tira mientras te quede alguna guardada, y
+		# recoge cuando ya no queda ninguna. Es la misma regla del boton de la lanza
+		# —"si la llevas la tiras, si no vuelve"— extendida a un par, y por eso no
+		# hay que aprender nada nuevo.
+		_chequeo_("la segunda pulsacion tira la SEGUNDA daga", 1.0,
+			func() -> void: _anclaje_boton = 3,
+			func() -> bool:
+				var fuera := 0
+				for d in _p.dagas:
+					if not d.guardado():
+						fuera += 1
+				return fuera == 2,
+			"teniendo dos, el boton tira la que queda antes de recoger la que ya esta puesta"),
+
+		# Y VUELVE VOLANDO, como la lanza. Desaparecer y reaparecer en la mano se
+		# lee como un teletransporte: no sabes si lo has recogido o lo has perdido.
+		# Es la misma leccion que `SpearReturning`, aplicada al anclaje.
+		_chequeo_("y sin ninguna guardada, el boton RECOGE, volando", 0.9,
+			func() -> void:
+				_visto.clear()
+				_anclaje_boton = 3,
+			func() -> bool: return _an.guardado() and _visto.has(&"anclaje_volviendo"),
+			"o lo tienes puesto o no lo tienes, y eso se ve: un boton basta"),
+
+		# CON LOS DOS PUNTOS PUESTOS, LA MISMA Z DA OTRA COSA. No hay tecla nueva:
+		# lo que decide es cuantas cuerdas hay puestas, y eso se ve.
+		_chequeo_("con DOS puntos, la cuerda da resortera", 0.6,
+			func() -> void:
+				_colgar_entre(Vector3(16.0, 20.0, 22.0), Vector3(16.0, 20.0, 30.0),
+					Vector3(16.0, 14.0, 26.0))
+				_tension_max = 0.0
+				_visto.clear()
+				_cuerda_fija = true,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Slingshot",
+			"dos anclajes son un elastico, no un pendulo: el estado tiene que ser otro"),
+
+		# TENSION. Alejarse de los dos puntos estira las dos bandas, y cada una
+		# tira de vuelta con mas fuerza cuanto mas estirada. Aqui quien tira es la
+		# gravedad —el jugador cuelga por debajo— porque es determinista; en la
+		# mano del jugador quien tira es el stick.
+		# La ventana es CORTA a proposito: 0.22 s. Con las dos bandas a
+		# `resortera_rigidez` el conjunto oscila con periodo ~0.76 s, asi que el
+		# estiramiento maximo cae a un cuarto de periodo —0.19 s— y despues el
+		# elastico ya te esta devolviendo. Con una ventana de medio segundo el
+		# chequeo soltaba con las cuerdas casi flojas y medía un tiro de nada:
+		# la tension estaba, pero no en el instante de soltar.
+		_chequeo_("alejarse de los anclajes acumula tension", 0.22,
+			func() -> void: _p.velocity = Vector3(0, -26.0, 0),
+			func() -> bool: return _tension_max > 8.0,
+			"si estirarse no acumulara nada, no habria nada que disparar"),
+
+		# EL DISPARO. Soltar el boton es el gatillo.
+		_chequeo_("soltar dispara, y por encima del clamp global", 0.7,
+			func() -> void:
+				_cuerda_fija = false
+				_disparo_vel = 0.0
+				_midiendo_disparo = true,
+			func() -> bool: return _disparo_vel > _p.tuning.velocidad_maxima,
+			"el clamp global (22) se comeria el disparo entero: por eso existe momentum_libre"),
+
+		_chequeo_("y sale de la resortera", 0.3,
+			func() -> void: _midiendo_disparo = false,
+			func() -> bool: return _p.fsm.nombre_actual() != &"Slingshot",
+			"disparar es salir: quedarse colgado despues de soltar no seria un disparo"),
+
+		# Y EL CASO CONTRARIO, que es el que se lee como un fallo si no existe:
+		# rozar el boton sin haber tirado no puede catapultarte.
+		_chequeo_("soltar SIN tensar no catapulta", 0.5,
+			func() -> void:
+				_colgar_entre(Vector3(16.0, 20.0, 22.0), Vector3(16.0, 20.0, 30.0),
+					Vector3(16.0, 14.0, 26.0))
+				_cuerda_fija = true,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Slingshot",
+			"hace falta estar colgado para poder soltar sin tension"),
+
+		_chequeo_("y se suelta sin impulso", 0.35,
+			func() -> void:
+				_cuerda_fija = false
+				_disparo_vel = 0.0
+				_midiendo_disparo = true,
+			func() -> bool: return _disparo_vel < _p.tuning.velocidad_maxima,
+			"por debajo de `resortera_estirado_min` se suelta y ya: no hay tiro"),
+
+		# DISPARAR DESDE EL SUELO. Es el caso que se rompia solo: al soltar pisando
+		# tierra se salia a `Idle`, y la friccion de suelo se comia el tiro en tres
+		# frames —tensabas de pie, salias disparado y te frenabas en el sitio—.
+		_chequeo_("tensar de pie en el suelo", 0.3,
+			func() -> void:
+				_midiendo_disparo = false
+				_colgar_entre(Vector3(16.0, 10.0, 25.0), Vector3(16.0, 10.0, 27.0),
+					Vector3(16.0, 0.05, 26.0))
+				_cuerda_fija = true,
+			func() -> bool: return _p.fsm.nombre_actual() == &"Slingshot",
+			"con dos puntos encima, colgarse tambien vale desde el suelo"),
+
+		# El estirado se hace TELETRANSPORTANDO al jugador: los largos de reposo se
+		# fijan al engancharse, asi que apartarse 10 m estira las dos bandas 4 m
+		# cada una. Es artificial a proposito —lo que se mide aqui no es como se
+		# tensa, es que el tiro SOBREVIVE al suelo—; tensar de verdad se prueba
+		# arriba, con la gravedad haciendo el trabajo.
+		_chequeo_("y el disparo desde el suelo no se frena", 0.5,
+			func() -> void:
+				_p.global_position = Vector3(26.0, 0.05, 26.0)
+				_cuerda_fija = false
+				_disparo_vel = 0.0
+				_midiendo_disparo = true,
+			func() -> bool: return _disparo_vel > _p.tuning.velocidad_maxima,
+			"un disparo que sale a Idle lo borra la friccion: tiene que salir a Fall"),
+
+		# UN SOLO PUNTO SIGUE SIENDO EL BALANCEO. La resortera no puede haberse
+		# comido el pendulo: son dos verbos y el jugador elige cual con la posicion
+		# de sus cuerdas, no con un menu.
+		_chequeo_("con UN solo punto vuelve a ser balanceo", 1.2,
+			func() -> void:
+				_midiendo_disparo = false
+				# TODAS las dagas, no solo la primera: basta con que quede una clavada
+				# en mundo para que la resortera siga lista.
+				for d in _p.dagas:
+					d.recuperar()
+					d.estado = Anclaje.Estado.GUARDADO
+				_l.global_position = Vector3(16.0, 20.0, 22.0)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.UP})
+				_p.global_position = Vector3(16.0, 14.0, 26.0)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				_p.fsm.cambiar(&"Fall")
+				_visto.clear()
+				_cuerda = 3,
+			func() -> bool:
+				return _visto.has(&"SpearSwing") and not _visto.has(&"Slingshot"),
+			"recoger un anclaje devuelve el pendulo: quien elige el verbo es el jugador"),
 	]
+
+
+## Deja al jugador colgando entre los dos anclajes, con la lanza en A y el
+## anclaje en B. Los dos se colocan a mano PORQUE lo que se mide aqui es la
+## fisica del elastico; que se pueda LLEGAR a ponerlos lo comprueban los tres
+## chequeos de arriba, cada uno por su boton.
+func _colgar_entre(a: Vector3, b: Vector3, jugador: Vector3) -> void:
+	_l.global_position = a
+	_l.fsm.cambiar(&"Embedded", {"punto": a, "normal": Vector3.UP})
+	_an.global_position = b
+	_an.estado = Anclaje.Estado.CLAVADO
+	_p.global_position = jugador
+	_p.velocity = Vector3.ZERO
+	_p.stamina.llenar()
+	_p.momentum_libre = 0.0
+	_p.fsm.cambiar(&"Fall")
 
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 45.0:
+	if _reloj > 60.0:
 		_fallos.append("el test se colgo")
 		_informe()
 		return
@@ -503,11 +756,26 @@ func _physics_process(delta: float) -> void:
 		_boton_lanza -= 1
 		if _boton_lanza == 0:
 			Input.action_release(&"throw_spear")
-	if _cuerda > 0:
+	# La cuerda mantenida necesita SOLTARSE de verdad al bajar la bandera. Dejar de
+	# llamar a `action_press` no suelta nada: la accion se queda pulsada para
+	# siempre, y la resortera —que dispara al soltar— no disparaba nunca. Hace
+	# falta el flanco, no el nivel.
+	if _cuerda_fija:
+		Input.action_press(&"rope")
+		_cuerda_suelta = false
+	elif not _cuerda_suelta:
+		Input.action_release(&"rope")
+		_cuerda_suelta = true
+	elif _cuerda > 0:
 		Input.action_press(&"rope")
 		_cuerda -= 1
 		if _cuerda == 0:
 			Input.action_release(&"rope")
+	if _anclaje_boton > 0:
+		Input.action_press(&"throw_anchor")
+		_anclaje_boton -= 1
+		if _anclaje_boton == 0:
+			Input.action_release(&"throw_anchor")
 	if _salto > 0:
 		Input.action_press(&"jump")
 		_salto -= 1
@@ -538,6 +806,16 @@ func _physics_process(delta: float) -> void:
 		_swing_vmax = maxf(_swing_vmax, v)
 	else:
 		_v_ant = _p.velocity.length()
+	# Latch del retorno del anclaje: dura dos decimas, asi que preguntarlo al final
+	# del chequeo mediria que ya ha llegado, no que haya volado.
+	if _an != null and is_instance_valid(_an) and _an.estado == Anclaje.Estado.RETORNO:
+		_visto[&"anclaje_volviendo"] = true
+	# Resortera: la tension se mide MIENTRAS cuelgas —al soltar ya no existe— y el
+	# disparo DESPUES de salir, que es donde se ve si el clamp global se lo come.
+	if _p.fsm.nombre_actual() == &"Slingshot":
+		_tension_max = maxf(_tension_max, float(_p.fsm.actual.get("_tension")))
+	elif _midiendo_disparo:
+		_disparo_vel = maxf(_disparo_vel, _p.velocity.length())
 	if _l != null and is_instance_valid(_l):
 		_dist_min = minf(_dist_min, _p.global_position.distance_to(_l.global_position))
 	if _l != null and is_instance_valid(_l):

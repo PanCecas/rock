@@ -73,12 +73,13 @@ func exit(_siguiente: StringName = &"") -> void:
 		player.velocity *= tuning.zip_conserva
 
 
-## ¿Sigue habiendo a dónde ir? La lanza en la mano no es un destino.
+## ¿Sigue habiendo a dónde ir? Ni la lanza en la mano ni la guardada son destino:
+## la segunda ni siquiera actualiza su posicion, asi que apunta a donde estuviera.
 func _valido() -> bool:
 	var l: Spear = player.lanza
 	if l == null or not is_instance_valid(l):
 		return false
-	return not l.en_mano()
+	return l.esta_fuera()
 
 
 func _punto() -> Vector3:
