@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AttackData" format=3]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_H2_slam"
+nombre = "Remate descendente"
+frames_windup = 18
+frames_activo = 5
+frames_recuperacion = 26
+golpes = 1
+dano = 34.0
+dano_poise = 46.0
+empuje = Vector3(0, 0, 14)
+stagger = 1.4
+fuerza_muerte = 38.0
+torque_muerte = 16.0
+rompe_guardia = true
+etiquetas = Array[StringName]([&"contundente"])
+alcance = 2.4
+radio = 1.2
+arco_grados = 90.0
+max_objetivos = 3
+avance = 2.0
+frenazo = true
+movilidad = 0.0
+hitstop = 0.14
+shake = 1.4
+color_vfx = &"carmesi"
+frame_cadena = 99

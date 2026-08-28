@@ -74,6 +74,57 @@ func _construir_guion() -> void:
 			func() -> bool: return _indice_ataque() >= 3,
 			"la cadena debe llegar al finisher"),
 
+		# --- Cadena PESADA (3.08) ---------------------------------------------
+		# Dos golpes con formas distintas: el giro pega DOS VECES con un solo gesto
+		# —area, apertura— y el remate pega UNA con todo el peso. El eje de siempre.
+		#
+		# Que el giro pegue dos veces no sale de encadenar dos ataques: es UN
+		# AttackData con `golpes = 2`, o sea un solo gesto que el jugador no puede
+		# interrumpir por la mitad. La diferencia se nota: entre dos ataques
+		# encadenados hay una decision, dentro de un gesto no.
+		_chequeo_("el giro pesado golpea DOS veces", 0.85,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_colocar(1.8)
+				# Postura alta para aislar el DAÑO: si se le quiebra la guardia a
+				# mitad del giro, cambia de estado y el segundo impacto mediria
+				# otra cosa.
+				_g.poise.actual = 500.0
+				_vida_antes = _g.salud.actual
+				_pulsar(&"attack_heavy"),
+			func() -> bool: return (_vida_antes - _g.salud.actual
+				>= _p.ataque_pesado.dano * 1.8),
+			"con `golpes = 2` la misma victima tiene que llevarse los dos impactos"),
+
+		_paso_("abrir la cadena pesada", 0.42, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_colocar(2.0)
+			_pulsar(&"attack_heavy"), &"Attack"),
+		_chequeo_("y encadena al remate", 0.12,
+			func() -> void:
+				_soltar_todo()
+				_pulsar(&"attack_heavy"),
+			func() -> bool: return (_indice_ataque() >= 2
+				and _ataque_actual() == _p.ataque_pesado.siguiente),
+			"el pesado tiene que continuarse con el pesado, no morir en un golpe"),
+
+		# Y LOS BOTONES SIGUEN SIGNIFICANDO LO MISMO. `boton_cadena` existe para
+		# esto: si el ligero pudiera rematar una cadena pesada, los dos botones se
+		# volverian intercambiables a mitad de combo y la lectura se perderia.
+		_paso_("abrir la pesada otra vez", 0.42, func() -> void:
+			_soltar_todo()
+			_reponer()
+			_colocar(2.0)
+			_pulsar(&"attack_heavy"), &"Attack"),
+		_chequeo_("y el ligero NO la remata", 0.12,
+			func() -> void:
+				_soltar_todo()
+				_pulsar(&"attack_light"),
+			func() -> bool: return _ataque_actual() != _p.ataque_pesado.siguiente,
+			"una cadena pesada solo se continua con el boton pesado"),
+
 		# --- Cancelaciones ----------------------------------------------------
 		_chequeo_("ataque -> dash", 0.4,
 			func() -> void:
@@ -1420,13 +1471,31 @@ func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, p
 		"chequeo": chequeo, "porque": porque}
 
 
+## El Lancero **DE LA ARENA**, no el primero que devuelva el grupo global.
+##
+## Buscaba en `get_tree().get_nodes_in_group(&"guardianes")` y se quedaba con el
+## primero, y eso lo ataba al orden en que se instancian las escenas. En cuanto el
+## Gym estreno su puesto de patrulla —con un Guardian, tambien Lancero— el test
+## empezo a coger ESE: lo mataba correctamente y luego buscaba el cadaver dentro
+## de `Arena`, donde por supuesto no estaba. La comprobacion decia "el pesado no
+## lanza cadaver" cuando el pesado funcionaba perfectamente.
+##
+## Buscar dentro de la Arena ata el test a lo que el test controla. Un test que
+## depende de que nadie mas del proyecto instancie un enemigo es un test que se
+## rompera otra vez.
 func _lancero() -> void:
-	for g in get_tree().get_nodes_in_group(&"guardianes"):
-		if g.is_queued_for_deletion():
-			continue
-		if (g as Guardian).tipo == Guardian.Tipo.LANCERO:
-			_g = g
-			return
+	_g = _buscar_lancero(_main.get_node("Arena"))
+
+
+func _buscar_lancero(n: Node) -> Guardian:
+	if n is Guardian and not n.is_queued_for_deletion():
+		if (n as Guardian).tipo == Guardian.Tipo.LANCERO:
+			return n as Guardian
+	for h in n.get_children():
+		var g := _buscar_lancero(h)
+		if g != null:
+			return g
+	return null
 
 
 ## Coloca al jugador a `dist` metros del Guardian, mirandolo. El Guardian se

@@ -23,6 +23,17 @@ const FPS := 60.0
 @export var frames_activo: int = 4
 ## Recuperación. Es lo que castiga fallar, y donde viven las cancelaciones.
 @export var frames_recuperacion: int = 12
+## Cuántos IMPACTOS hace el gesto. Un ataque giratorio golpea dos veces con una
+## sola animación, y eso no es lo mismo que dos ataques encadenados: no hay
+## decisión del jugador entre medias, no se puede cancelar entre ellos, y quien
+## está dentro del arco se lleva los dos.
+##
+## Cada impacto reabre el swing de la hitbox, así que el MISMO enemigo se lleva
+## los dos golpes. Sin eso, la lista de `_tocados` se lo comería el segundo y un
+## "ataque de dos hits" haría exactamente el daño de uno.
+@export_range(1, 5, 1) var golpes: int = 1
+## Frames entre el fin de una ventana activa y el principio de la siguiente.
+@export_range(0, 60, 1) var frames_entre_golpes: int = 8
 
 @export_group("Daño")
 @export var dano: float = 10.0
@@ -104,8 +115,18 @@ const FPS := 60.0
 @export var color_vfx: StringName = &"blanco_tiza"
 
 @export_group("Cadena y cancelaciones")
-## Siguiente golpe de la cadena ligera. Null = es el finisher.
+## Siguiente golpe de la cadena. Null = es el finisher.
 @export var siguiente: AttackData
+## CON QUE BOTON se encadena al siguiente.
+##
+## Existe porque el pesado tiene su propia cadena —giro y remate— y con un solo
+## botón de encadenar habría que elegir: o el pesado se continúa con el ligero
+## (que rompe la lectura: los dos botones significan cosas distintas y deben
+## seguir significándolas) o el ligero deja de encadenar.
+##
+## 0 = Ligero, 1 = Pesado. Ligero es el defecto, así que los `.tres` que ya
+## existían no cambian de comportamiento por existir este campo.
+@export_enum("Ligero", "Pesado") var boton_cadena: int = 0
 ## Frame (desde el inicio del ataque) a partir del cual se puede encadenar.
 @export var frame_cadena: int = 10
 ## Ventanas de cancelación en frames: {"dash": Vector2i(inicio, fin), ...}
@@ -114,7 +135,13 @@ const FPS := 60.0
 
 
 func total_frames() -> int:
-	return frames_windup + frames_activo + frames_recuperacion
+	return frames_windup + frames_activos_totales() + frames_recuperacion
+
+
+## Lo que ocupan TODAS las ventanas activas y los huecos entre ellas. Con
+## `golpes = 1` es exactamente `frames_activo`, que es como estaba antes.
+func frames_activos_totales() -> int:
+	return golpes * frames_activo + (golpes - 1) * frames_entre_golpes
 
 
 func duracion() -> float:
@@ -125,9 +152,28 @@ func frames_a_seg(frames: int) -> float:
 	return float(frames) / FPS
 
 
-## ¿Estamos dentro de la ventana activa, medido en frames desde el inicio?
+## ¿Estamos dentro de UNA ventana activa, medido en frames desde el inicio?
 func activo_en(frame: int) -> bool:
-	return frame >= frames_windup and frame < frames_windup + frames_activo
+	return indice_golpe(frame) >= 0
+
+
+## Qué impacto está abierto en este frame, de 0 a `golpes - 1`. Devuelve -1 si
+## ninguno.
+##
+## Es lo que permite al estado saber que ha empezado un impacto NUEVO y reabrir
+## el swing. Preguntar solo "¿estoy activo?" no distingue el segundo golpe del
+## primero, y ahí es donde un ataque de dos hits acaba haciendo uno.
+func indice_golpe(frame: int) -> int:
+	if frame < frames_windup:
+		return -1
+	var desde := frame - frames_windup
+	var ciclo := frames_activo + frames_entre_golpes
+	if ciclo <= 0:
+		return -1
+	var i := desde / ciclo
+	if i >= golpes:
+		return -1
+	return i if desde % ciclo < frames_activo else -1
 
 
 ## ¿La cancelación `tipo` está abierta en este frame?

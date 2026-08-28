@@ -145,6 +145,33 @@ func _secciones() -> Array:
 				"cuando": "el stick empuja a lo largo del arco, como en un columpio"},
 		]},
 
+		{"titulo": "LA RESORTERA — dos cuerdas", "filas": [
+			{"nombre": "Tirar el anclaje · y recogerlo", "acciones": [InputActions.THROW_ANCHOR],
+				"cuando": "la segunda cuerda · sin asignar en mando todavía"},
+			{"nombre": "Tensar entre los dos puntos", "acciones": [InputActions.ROPE],
+				"cuando": "MANTENER · con lanza y anclaje puestos, la cuerda tensa"},
+			{"nombre": "Disparar", "acciones": [InputActions.ROPE],
+				"cuando": "SOLTAR · cuanto más tires hacia atrás, más lejos sales"},
+			{"nombre": "Disparar (también)", "acciones": [InputActions.JUMP]},
+		]},
+
+		{"titulo": "ZARANDEAR — la daga es de CARNE", "filas": [
+			{"nombre": "Clavar la daga en un enemigo", "acciones": [InputActions.THROW_ANCHOR],
+				"cuando": "la lanza atraviesa a los bichos · la daga se queda"},
+			{"nombre": "Agarrarlo y hacerlo girar", "acciones": [InputActions.ROPE],
+				"cuando": "el stick lo hace girar a tu alrededor · cuesta stamina"},
+			{"nombre": "Estamparlo — daño en área", "acciones": [InputActions.ATTACK_HEAVY],
+				"cuando": "cuanto más rápido girara, más duele el impacto"},
+			{"nombre": "Soltarlo sin más", "acciones": [InputActions.ROPE]},
+		]},
+
+		{"titulo": "COMBO PESADO", "filas": [
+			{"nombre": "Giro — golpea DOS veces", "acciones": [InputActions.ATTACK_HEAVY],
+				"cuando": "un solo gesto, dos impactos, área alrededor"},
+			{"nombre": "Remate descendente", "acciones": [InputActions.ATTACK_HEAVY],
+				"cuando": "otra vez pesado durante el giro · un golpe, mucho empuje"},
+		]},
+
 		{"titulo": "EN EL AGUA", "filas": [
 			{"nombre": "Bucear", "acciones": [InputActions.CROUCH]},
 			{"nombre": "Subir", "acciones": [InputActions.JUMP], "cuando": "mantener"},
