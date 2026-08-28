@@ -1,6 +1,7 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://src/enemies/Guardian.gd" id="g"]
+[ext_resource type="Resource" path="res://content/data/attacks/estampido.tres" id="a_estampido"]
 [ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="hp"]
 [ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="po"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
@@ -8,10 +9,13 @@
 [ext_resource type="Script" path="res://src/enemies/states/EnemyStateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyDormido.gd" id="e_dormido"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAcercarse.gd" id="e_acercarse"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyPatrulla.gd" id="e_patrulla"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyTelegrafia.gd" id="e_telegrafia"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAtacar.gd" id="e_atacar"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyRecuperar.gd" id="e_recuperar"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyAturdido.gd" id="e_aturdido"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyAgarrado.gd" id="e_agarrado"]
+[ext_resource type="Script" path="res://src/enemies/states/EnemyEstampado.gd" id="e_estampado"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyDerribado.gd" id="e_derribado"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyQuebrado.gd" id="e_quebrado"]
 [ext_resource type="Script" path="res://src/enemies/states/EnemyMuerto.gd" id="e_muerto"]
@@ -31,6 +35,8 @@ size = Vector3(0.3, 0.3, 0.12)
 collision_layer = 4
 collision_mask = 1
 script = ExtResource("g")
+agarrable = true
+ataque_estampido = ExtResource("a_estampido")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -75,6 +81,9 @@ script = ExtResource("e_dormido")
 [node name="Acercarse" type="Node" parent="FSM"]
 script = ExtResource("e_acercarse")
 
+[node name="Patrulla" type="Node" parent="FSM"]
+script = ExtResource("e_patrulla")
+
 [node name="Telegrafia" type="Node" parent="FSM"]
 script = ExtResource("e_telegrafia")
 
@@ -86,6 +95,12 @@ script = ExtResource("e_recuperar")
 
 [node name="Aturdido" type="Node" parent="FSM"]
 script = ExtResource("e_aturdido")
+
+[node name="Agarrado" type="Node" parent="FSM"]
+script = ExtResource("e_agarrado")
+
+[node name="Estampado" type="Node" parent="FSM"]
+script = ExtResource("e_estampado")
 
 [node name="Derribado" type="Node" parent="FSM"]
 script = ExtResource("e_derribado")

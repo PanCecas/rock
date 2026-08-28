@@ -11,14 +11,14 @@ func physics_update(delta: float) -> void:
 		# rango esperando a que el swing pase de largo.
 		var avance := enemigo.avance_al_golpear()
 		if avance > 0.0:
-			var adelante := -enemigo.global_basis.z
+			var adelante := enemigo.frente()
 			enemigo.velocity.x = adelante.x * avance
 			enemigo.velocity.z = adelante.z * avance
-		enemigo.hitbox.golpear(datos, -enemigo.global_basis.z)
+		enemigo.hitbox.golpear(datos, enemigo.frente())
 	else:
 		enemigo.motor.frenar(delta)
 
-	if enemigo.frame_ataque >= datos.frames_windup + datos.frames_activo:
+	if enemigo.frame_ataque >= datos.frames_windup + datos.frames_activos_totales():
 		fsm.cambiar(&"Recuperar")
 
 
