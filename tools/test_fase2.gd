@@ -679,6 +679,44 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
 			"insistir contra un muro perpendicular debe enganchar solo"),
 
+		# --- 3.12: y su otra mitad -------------------------------------------
+		# INSISTIR NO ES CHOCAR. El mismo muro, la misma tecla, pero llegando
+		# surfeando: eso no es pedir escalar, es terminar una linea. Medido antes
+		# de la correccion, 4 de las 5 adherencias automaticas de 60 s de juego
+		# salian directamente de `Surf`, y la salida del surf acababa pegada a la
+		# geometria con la velocidad a cero — el "al salir del surf no puedo
+		# direccionar al personaje" que se reporto. El surf en si salia limpio:
+		# ocho caminos de salida medidos en pista libre, los ocho obedeciendo.
+		_chequeo_("surfear contra el muro NO engancha solo", 1.0,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(-0.9, 0.05, -34.0)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(90.0)
+				_pulsar(&"move_forward")
+				_pulsar(&"dash")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(-1, 0, 0), "rapidez": 15.0}),
+			func() -> bool: return _p.fsm.nombre_actual() != &"Climb",
+			"el agarre automatico es para quien CAMINA contra el muro, no para quien llega a 15 m/s"),
+
+		# Y LA MECANICA NO SE PIERDE: quien quiera trepar el muro al que llega
+		# surfeando, lo pide con el boton. Sin esta mitad, la de arriba se podria
+		# aprobar rompiendo la escalada entera.
+		_chequeo_("pero pedir agarre desde el surf SI engancha", 1.0,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(-0.9, 0.05, -34.0)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(90.0)
+				_pulsar(&"move_forward")
+				_pulsar(&"dash")
+				_pulsar(&"grab")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(-1, 0, 0), "rapidez": 15.0}),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
+			"apagar la adherencia automatica no puede llevarse por delante el agarre a mano"),
+
 		# --- Correccion 2.01 ---------------------------------------------------
 		# LANDING SLIDE: aterrizar con velocidad manteniendo agachado no frena.
 		_chequeo_("aterrizar agachado desliza", 0.8,

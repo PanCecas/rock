@@ -356,8 +356,20 @@ func _construir() -> void:
 			"el balanceo se usa para LLEGAR a un sitio, y llegar termina en un salto"),
 
 		# --- ATRAVESAR --------------------------------------------------------
+		# LA INVARIANTE, PRECISADA (3.10). La lanza atraviesa lo que NO se puede
+		# agarrar —colosos, bichos grandes— y se queda clavada en lo que sí. Ese
+		# reparto es lo que le da a la lanza el papel que iba a tener la segunda
+		# daga: agarrar un segundo enemigo sin duplicar un arma.
+		#
+		# Asi que el enemigo de esta prueba se declara NO agarrable: lo que se mide
+		# aqui es que sigue atravesando lo que no es presa.
 		_chequeo_("atraviesa a los enemigos sin pararse", 1.2,
 			func() -> void:
+				# NADIE AGARRABLE en el camino: lo que se mide es que atraviesa lo que
+				# NO es presa, y el corral tiene un Embestidor que si lo es — se le
+				# clavaria con razon y el test culparia a la invariante equivocada.
+				for e in get_tree().get_nodes_in_group(&"enemigos"):
+					(e as Enemigo).agarrable = false
 				# Al aire libre, lejos del muro: aqui interesa que NO se pare.
 				# A lo ancho del corral: el Embestidor esta a 7 m y detras queda
 				# sitio libre. Tirar hacia el coloso no valdria: clavarse en un
@@ -581,20 +593,10 @@ func _construir() -> void:
 		# recoge cuando ya no queda ninguna. Es la misma regla del boton de la lanza
 		# —"si la llevas la tiras, si no vuelve"— extendida a un par, y por eso no
 		# hay que aprender nada nuevo.
-		_chequeo_("la segunda pulsacion tira la SEGUNDA daga", 1.0,
-			func() -> void: _anclaje_boton = 3,
-			func() -> bool:
-				var fuera := 0
-				for d in _p.dagas:
-					if not d.guardado():
-						fuera += 1
-				return fuera == 2,
-			"teniendo dos, el boton tira la que queda antes de recoger la que ya esta puesta"),
-
 		# Y VUELVE VOLANDO, como la lanza. Desaparecer y reaparecer en la mano se
 		# lee como un teletransporte: no sabes si lo has recogido o lo has perdido.
 		# Es la misma leccion que `SpearReturning`, aplicada al anclaje.
-		_chequeo_("y sin ninguna guardada, el boton RECOGE, volando", 0.9,
+		_chequeo_("y el MISMO boton la recoge, volando", 0.9,
 			func() -> void:
 				_visto.clear()
 				_anclaje_boton = 3,
@@ -709,6 +711,54 @@ func _construir() -> void:
 			func() -> bool:
 				return _visto.has(&"SpearSwing") and not _visto.has(&"Slingshot"),
 			"recoger un anclaje devuelve el pendulo: quien elige el verbo es el jugador"),
+
+		# --- 3.12: LA Z ESTANDO ADHERIDO --------------------------------------
+		# Los cuatro verbos de cuerda viven en `Attached`, que es el mismo grupo
+		# al que perteneces cuando escalas. `GroupAttached` no llamaba a
+		# `intentar_cuerda()`: **escalando o colgado de un canto la Z no hacia
+		# nada**, y el sintoma era silencio. Se prueba por el camino de entrada
+		# REAL —la tecla y el `InputBuffer`—, no forzando el estado.
+		_chequeo_("adherido a la pared, agarrado de verdad", 0.6,
+			func() -> void:
+				_soltar_todo()
+				_cuerda_fija = false
+				for d in _p.dagas:
+					if is_instance_valid(d):
+						d.recuperar()
+						d.estado = Anclaje.Estado.GUARDADO
+				# Contra la pared escalable del Gym: centro (24,6,20), cara z=19.5.
+				_p.global_position = Vector3(24.0, 0.3, 19.1)
+				_p.velocity = Vector3.ZERO
+				_p.stamina.llenar()
+				# ENCARARLO, y no es cosmetica: `WallSensor` sondea hacia
+				# `direccion_frontal()`, que sin velocidad devuelve la Z del visual.
+				# Colocado sin girar, el jugador miraba hacia donde lo hubiera
+				# dejado el chequeo anterior y la sonda frontal no encontraba el
+				# muro — el mismo detalle que documenta `_ante_coloso` en el test
+				# visual. De ahi que esta comprobacion saliera 1 de cada 2.
+				_p.orientar_a(Vector3(0.0, 0.0, 1.0))
+				# SALIR DEL ESTADO ANTERIOR A MANO. El chequeo de antes termina
+				# BALANCEANDOSE, y `SpearSwing` es un estado de `Attached`: alli no
+				# hay agarre automatico ni lo pide nadie, asi que el jugador se
+				# quedaba colgado al lado del muro y esta comprobacion fallaba 1 de
+				# cada 3. Cuando salia verde era porque un enemigo le habia pegado
+				# y el `Hitstun` lo soltaba — o sea, dependiendo de la IA, que es
+				# justo lo que CLAUDE.md prohibe.
+				_p.fsm.cambiar(&"Fall")
+				Input.action_press(&"grab")
+				_l.global_position = Vector3(24.0, 9.0, 19.4)
+				_l.fsm.cambiar(&"Embedded", {
+					"punto": _l.global_position, "normal": Vector3.BACK})
+				_visto.clear(),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
+			"sin estar escalando de verdad, lo de abajo no probaria nada"),
+
+		_chequeo_("y la Z sigue existiendo ahi", 0.8,
+			func() -> void:
+				_visto.clear()
+				_cuerda = 4,
+			func() -> bool: return _visto.has(&"SpearSwing") or _visto.has(&"SpearZip"),
+			"la cuerda estaba en Grounded y en Airborne y NO en Attached: regla dura #13 del reves"),
 	]
 
 
@@ -847,6 +897,29 @@ func _informe() -> void:
 	get_tree().quit(0 if _fallos.is_empty() else 1)
 
 
+## Suelta TODAS las teclas Y APAGA LOS CONTADORES que las vuelven a pulsar.
+##
+## Las dos mitades hacen falta. `_cuerda`, `_zip` y compañia son cuentas atras que
+## siguen pulsando su tecla en los frames siguientes: soltarla ahora no sirve de
+## nada si el frame que viene la vuelve a pulsar. Con la Z ya viva estando
+## adherido (3.12), una `_cuerda` heredada del chequeo anterior sacaba al jugador
+## de `Climb` a `SpearSwing` en mitad de la medida — y solo a veces, segun cuantos
+## frames le quedaran. Un test intermitente es peor que uno rojo.
+func _soltar_todo() -> void:
+	for a in InputMap.get_actions():
+		if Input.is_action_pressed(a):
+			Input.action_release(a)
+	_p.buffer.clear()
+	_cuerda = 0
+	_zip = 0
+	_salto = 0
+	_boton_lanza = 0
+	_atk_lig = 0
+	_atk_pes = 0
+	_anclaje_boton = 0
+	_cuerda_fija = false
+
+
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "chequeo": chequeo, "porque": porque}
 
@@ -864,5 +937,9 @@ func _preparar_victima(pos: Vector3) -> void:
 	_main.add_child(g)
 	g.global_position = pos
 	g.vista = 0.0
+	# NO AGARRABLE por defecto en las pruebas de la lanza: lo que miden es que
+	# ATRAVIESA, y un bicho agarrable la pararia con razon. Quien quiera probar el
+	# agarre lo pone a true expresamente.
+	g.agarrable = false
 	g.fsm.cambiar(&"Dormido")
 	_victima = g

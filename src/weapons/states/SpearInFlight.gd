@@ -48,6 +48,23 @@ func physics_update(delta: float) -> void:
 	lanza.global_position = hasta
 	_recorrido += paso
 
+	# SE CLAVA EN LO AGARRABLE, atraviesa lo demás.
+	#
+	# La invariante nº 1 —atravesar los cuerpos— sigue en pie para lo que se
+	# escribió: colosos, enemigos grandes, todo lo que no se puede zarandear. Un
+	# bicho pequeño es otra cosa: ahí la lanza se queda, y de ella se tira.
+	#
+	# Es lo que pidió el usuario al quitar la segunda daga: *"que sea daga y lanza
+	# y ya, pero dejar lo que se implementó y aplicarlo a la lanza"*. El papel que
+	# iba a tener la segunda daga —agarrar un segundo enemigo— lo hace la lanza, y
+	# así se puede llegar a dos presas sin duplicar un arma.
+	var presa := _presa_en(desde, hasta)
+	if presa != null:
+		lanza.global_position = presa.global_position + Vector3.UP * 0.9
+		fsm.cambiar(&"Embedded", {
+			"punto": lanza.global_position, "normal": -lanza.direccion, "cuerpo": presa})
+		return
+
 	# Daño en tránsito, y la lanza SIGUE. Eso es atravesar.
 	if lanza.ataque != null and lanza.hitbox != null:
 		if lanza.hitbox.golpear(lanza.ataque, lanza.direccion) > 0:
@@ -97,3 +114,21 @@ func _imantar(dir: Vector3) -> Vector3:
 
 func debug_line() -> String:
 	return "VUELO  %.0f/%.0f m" % [_recorrido, tuning.alcance_maximo]
+
+
+## ¿Hay un enemigo AGARRABLE en el tramo de este frame?
+##
+## Se pregunta por `agarrable` y no por el tamaño ni por la clase: quién se deja
+## clavar lo declara el enemigo, igual que `WeakPoint.llave`. Con eso, añadir un
+## bicho al que la lanza se le queda clavada es escribirle un `true` en su
+## `.tscn`, sin abrir el arma.
+func _presa_en(desde: Vector3, hasta: Vector3) -> Enemigo:
+	var espacio := lanza.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(desde, hasta, Layers.ENEMY)
+	if lanza.dueno is CollisionObject3D:
+		q.exclude = [(lanza.dueno as CollisionObject3D).get_rid()]
+	var r := espacio.intersect_ray(q)
+	if r.is_empty():
+		return null
+	var e := r.get("collider") as Enemigo
+	return e if e != null and e.agarrable and e.esta_vivo() else null

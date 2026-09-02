@@ -60,19 +60,18 @@ extends CharacterBody3D
 ## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
 ## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
 var lanza: Spear = null
-## LAS DAGAS. **Una lista, no dos campos**, y esa es la decisión.
+## LA DAGA. **Una**, igual que la lanza.
 ##
-## `anclaje_a` / `anclaje_b` es exactamente cómo se llega a que uno de los dos se
-## quede sin arreglar: cada guardia hay que escribirlo dos veces y basta olvidar
-## uno. Con lista, todo lo que pregunta por las dagas recorre lo mismo.
+## Fueron dos durante un parche, para poder agarrar dos enemigos. El usuario lo
+## probo y lo corto: *"las dos dagas complica las cosas, que sea daga y lanza y
+## ya"*. Tenia razon — dos armas identicas con el mismo boton obligan a llevar la
+## cuenta de cual esta donde, y eso no es una decision, es contabilidad.
 ##
-## **Son DOS a propósito, y no contradice que la lanza sea UNA.** El argumento de
-## escasez de `Spear.gd` es específico de ella: colocarla es un compromiso que
-## mantienes. Una daga pequeña que vuelve sola es lo contrario —un ritmo— y dos
-## son creíbles donde dos lanzas no lo serían.
+## El papel que iba a tener la segunda —agarrar un segundo enemigo— lo hace ahora
+## LA LANZA, que tambien se clava en lo agarrable. Dos presas sin duplicar un arma.
 ##
-##   La lanza es UNA porque colocarla es una decisión.
-##   Las dagas son DOS porque tirarlas es un compás.
+## Sigue siendo una LISTA y no un campo suelto: cuesta lo mismo, y el dia que haya
+## un arma de cuerda mas no hay que reescribir los seis guardias que la recorren.
 var dagas: Array[Anclaje] = []
 
 ## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`.
@@ -831,6 +830,13 @@ func _actualizar_adherencia(delta: float) -> void:
 	if not pared.hay_pared or stamina.vacia():
 		tiempo_contra_pared = 0.0
 		return
+	# EL ESTADO PUEDE APAGARLA. El surf, el dash y el slide llegan a la pared, no
+	# insisten contra ella: ver `PlayerState.adherencia_automatica()`. Sin esto,
+	# terminar una linea rapida contra un muro te dejaba escalandolo sin haberlo
+	# pedido, y con la velocidad a cero.
+	if fsm.actual != null and not fsm.actual.adherencia_automatica():
+		tiempo_contra_pared = 0.0
+		return
 	if buffer.move_vector().length() < 0.5:
 		tiempo_contra_pared = 0.0
 		return
@@ -1166,10 +1172,19 @@ func daga_en_mundo() -> Anclaje:
 	return null
 
 
-## LA PRIMERA DAGA CLAVADA EN UN ENEMIGO AGARRABLE, o null. Es de lo que se tira
-## para zarandear.
-func daga_en_carne() -> Anclaje:
+## EL ARMA CLAVADA EN CARNE AGARRABLE, o null. De ella se tira para zarandear.
+##
+## Mira la daga Y la lanza, en ese orden. Las dos pueden quedarse en un bicho
+## pequeño desde la 3.10: el usuario quito la segunda daga —"que sea daga y lanza
+## y ya"— y el papel que iba a tener, agarrar un segundo enemigo, lo hace la
+## lanza. Asi se llega a dos presas sin duplicar un arma.
+##
+## La daga primero porque es la barata: si tienes las dos clavadas en carne, la
+## que quieres soltar antes es la que vuelve sola.
+func arma_en_carne() -> Node3D:
 	for d in dagas:
-		if is_instance_valid(d) and d.clavado() and d.en_carne():
+		if is_instance_valid(d) and d.en_carne():
 			return d
+	if lanza != null and is_instance_valid(lanza) and lanza.en_carne():
+		return lanza
 	return null

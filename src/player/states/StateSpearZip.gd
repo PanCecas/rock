@@ -148,6 +148,12 @@ func maneja_ataques() -> bool:
 	return true
 
 
+## Y LA CUERDA. Ya estas viajando hacia la lanza; repetir la pulsacion volveria a
+## cobrar `zip_stamina` por un viaje que ya esta en marcha.
+func maneja_cuerda() -> bool:
+	return true
+
+
 func debug_line() -> String:
 	var c: String = ["", "  CARGA", "  CARGA PESADA"][_carga]
 	return "ZIP  %.1f m%s" % [player.global_position.distance_to(_objetivo), c]

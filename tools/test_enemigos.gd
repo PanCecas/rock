@@ -231,21 +231,44 @@ func _construir() -> void:
 			func() -> bool: return _e.agarrable,
 			"los bichos pequenos son la presa: es lo que hace del zarandeo una respuesta"),
 
-		# LA DAGA SE CLAVA EN CARNE. Es lo que separa la daga de la lanza: la lanza
-		# atraviesa los cuerpos a proposito y se para contra la piedra.
-		_chequeo_("la daga se clava en el enemigo y la lanza NO", 0.4,
+		# EL CAMINO COMPLETO, SIN FORZAR NADA (3.10). La version anterior de este
+		# chequeo colocaba la daga a mano —`estado = CLAVADO`, `cuerpo_clavado =
+		# _e`— y por eso daba verde mientras el usuario reportaba que **la mecanica
+		# no funcionaba ni siquiera**. Es exactamente la leccion que `CLAUDE.md` ya
+		# tenia escrita del balanceo: un test que fuerza el estado no prueba que se
+		# pueda LLEGAR a el.
+		#
+		# Ahora se TIRA la daga de verdad y se comprueba que se clava sola.
+		_chequeo_("la daga se clava en el enemigo, tirandola", 1.2,
 			func() -> void:
+				_p.global_position = _e.global_position + Vector3(0, 0.05, 6.0)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3(0, 0, -1))
 				var d: Anclaje = _p.dagas[0]
-				d.estado = Anclaje.Estado.GUARDADO
-				d.global_position = _e.global_position
-				d.cuerpo_clavado = _e
-				d.estado = Anclaje.Estado.CLAVADO,
+				d.lanzar(d.punto_de_mano(), Vector3(0, 0, -1)),
 			func() -> bool:
 				var d: Anclaje = _p.dagas[0]
 				# En carne SI, y por tanto NO cuenta como punto de resortera: un
 				# ancla que anda rompe la conservacion de energia del elastico.
-				return d.en_carne() and _p.daga_en_mundo() == null and _p.daga_en_carne() == d,
+				return d.en_carne() and _p.daga_en_mundo() == null and _p.arma_en_carne() == d,
 			"la lanza es del MUNDO y la daga de la CARNE: ese es el reparto"),
+
+		# EL BUG QUE EL USUARIO REPORTO: "la mecanica de por si no funciona ni
+		# siquiera". `intentar_cuerda()` abortaba entero si la LANZA no estaba
+		# fuera —el guardia que arreglo el bug de la Z—, asi que para zarandear con
+		# la daga habia que haber tirado antes la lanza a cualquier parte.
+		#
+		# Este chequeo lo fija: con la lanza GUARDADA y la daga en carne, la Z
+		# tiene que zarandear igual.
+		_chequeo_("y zarandea aunque la lanza siga GUARDADA", 1.0,
+			func() -> void:
+				_p.lanza.fsm.cambiar(&"Holstered")
+				_p.stamina.llenar()
+				_p.fsm.cambiar(&"Idle")
+				_visto.clear()
+				_cuerda = 3,
+			func() -> bool: return _visto.has(&"Whirl"),
+			"el guardia de la lanza es de los verbos de la lanza: el zarandeo no depende de ella"),
 
 		# EL CAMINO DE ENTRADA REAL: pulsando la tecla, no con `fsm.cambiar()`.
 		# Leccion ya escrita en CLAUDE.md — un test que fuerza el estado no prueba

@@ -250,5 +250,12 @@ func maneja_salto() -> bool:
 	return true
 
 
+## Y LA CUERDA, que aqui es la mecanica entera: la resortera TENSA mientras
+## mantienes la Z y dispara al SOLTARLA. Sin este guardia el grupo consumiria la
+## pulsacion cada frame, el estado se rearmaria desde cero y no dispararia jamas.
+func maneja_cuerda() -> bool:
+	return true
+
+
 func debug_line() -> String:
 	return "RESORTERA  tension %.1f m/s%s" % [_tension, "  DISPARADO" if _disparado else ""]

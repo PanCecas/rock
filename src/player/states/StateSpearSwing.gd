@@ -295,6 +295,11 @@ func maneja_salto() -> bool:
 	return true
 
 
+## Y LA CUERDA. Colgado ya estas: volver a pulsar Z no puede volver a colgarte.
+func maneja_cuerda() -> bool:
+	return true
+
+
 func debug_line() -> String:
 	return "SWING  r=%.1f/%.1f  v=%.1f" % [
 		player.global_position.distance_to(_ancla), _largo, player.velocity.length()]

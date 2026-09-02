@@ -40,13 +40,33 @@ func shared_update(_delta: float) -> void:
 ## el corolario de la regla dura #13 dice que un guardia de accion no puede
 ## cancelar una transicion de terreno.
 func intentar_cuerda() -> bool:
-	var l: Spear = player.lanza
-	# HACE FALTA QUE LA LANZA ESTE AHI FUERA, no solo que no la lleves en la mano.
-	# Aqui ponia `l.en_mano()`, que solo es cierto en `Wielded`: con la lanza
-	# GUARDADA la negacion daba true y la cuerda tiraba de ti hacia una lanza
-	# invisible parada en el punto de spawn. Ver `Spear.esta_fuera()`.
-	if l == null or not is_instance_valid(l) or not l.esta_fuera():
+	# SI LA HOJA SE QUEDA LA CUERDA, EL GRUPO NO SE LA ROBA. Regla dura #13, y
+	# aqui pesa el doble: los cuatro verbos de cuerda viven en `Attached`, o sea
+	# que el grupo que resuelve la Z es el mismo al que pertenecen. Sin esto,
+	# colgarse de la lanza reentraria en el estado cada frame que la Z siguiera
+	# pulsada, y la resortera —que tensa mientras mantienes y dispara al soltar—
+	# no llegaria a disparar nunca.
+	if fsm.actual != null and fsm.actual.maneja_cuerda():
 		return false
+
+	# EL GUARDIA DE LA LANZA ES SOLO PARA LOS VERBOS DE LA LANZA.
+	#
+	# Aqui estaba arriba del todo, cortando la funcion entera si la lanza no
+	# estaba fuera — y con eso **el zarandeo no funcionaba nunca**: para agarrar
+	# un bicho con el arma de carne habia que haber tirado ANTES la lanza a
+	# cualquier parte. El usuario lo reporto como "la mecanica de por si no
+	# funciona ni siquiera", y tenia razon.
+	#
+	# El guardia sigue haciendo falta —es el que arreglo el bug de la Z con la
+	# lanza guardada, que te disparaba al spawn— pero solo manda sobre balanceo,
+	# zip y resortera. El zarandeo no depende de la lanza para nada.
+	var l: Spear = player.lanza
+	var lanza_fuera: bool = l != null and is_instance_valid(l) and l.esta_fuera()
+	var presa_lista: bool = player.arma_en_carne() != null
+	if not lanza_fuera and not presa_lista:
+		return false
+	# Se consume DESPUES de saber que hay algo que hacer: una pulsacion tragada
+	# sin efecto es indistinguible de un boton que no responde.
 	if not buffer.consume(InputActions.ROPE):
 		return false
 
@@ -59,13 +79,16 @@ func intentar_cuerda() -> bool:
 	#
 	# Que no haya un tercer boton es la mitad del diseño: quien quiera balancearse
 	# teniendo los dos puestos recupera uno, y eso ya es una decision de posicion.
-	# CARNE ANTES QUE MUNDO. Una daga clavada en un bicho agarrable no admite otra
+	# CARNE ANTES QUE MUNDO. Un arma clavada en un bicho agarrable no admite otra
 	# lectura: lo que quieres es zarandearlo. Va delante de la resortera y del
 	# balanceo porque los dos son verbos de traversal y este es de combate, y
 	# porque el enemigo se te escapa mientras dudas.
-	if player.daga_en_carne() != null:
+	if presa_lista:
 		fsm.cambiar(&"Whirl", {}, true)
 		return true
+
+	if not lanza_fuera:
+		return false
 
 	if _resortera_lista():
 		fsm.cambiar(&"Slingshot", {}, true)

@@ -275,3 +275,20 @@ func _preparar_visual() -> void:
 
 func debug_line() -> String:
 	return "%s%s" % [fsm.nombre_actual(), "  [clavada]" if clavada_en_algo() else ""]
+
+
+## ¿Está clavada en CARNE agarrable? Espejo de `Anclaje.en_carne()`.
+##
+## La lanza atraviesa a casi todo, pero se queda en los bichos pequeños: son los
+## que se pueden zarandear, y ese es el papel que iba a tener la segunda daga.
+func en_carne() -> bool:
+	if not clavada_en_algo() or cuerpo_clavado == null:
+		return false
+	if not is_instance_valid(cuerpo_clavado) or not (cuerpo_clavado is Enemigo):
+		return false
+	var e := cuerpo_clavado as Enemigo
+	return e.agarrable and e.esta_vivo()
+
+
+func presa() -> Enemigo:
+	return cuerpo_clavado as Enemigo if en_carne() else null

@@ -172,8 +172,8 @@ func _salir() -> void:
 ## guardarse: si el enemigo muere a mitad de giro, esto devuelve null y el estado
 ## se acaba solo, sin un guardia por cada cosa que pueda pasarle.
 func _buscar_presa() -> Enemigo:
-	var d := player.daga_en_carne()
-	return d.presa() if d != null else null
+	var arma := player.arma_en_carne()
+	return arma.presa() if arma != null else null
 
 
 ## Ver `PlayerState.techo_velocidad()`. Llevar un cuerpo colgando no debería
@@ -185,6 +185,12 @@ func techo_velocidad() -> float:
 ## El estado se queda los ataques: sin esto el grupo los consume ANTES —corre
 ## primero— y el estampido no llegaría a existir nunca. Regla dura #13.
 func maneja_ataques() -> bool:
+	return true
+
+
+## Y LA CUERDA: aqui la Z es SOLTAR al enemigo, y eso lo resuelve el propio
+## estado. Si el grupo se quedara la pulsacion, zarandear no se podria terminar.
+func maneja_cuerda() -> bool:
 	return true
 
 
