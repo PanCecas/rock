@@ -80,6 +80,23 @@ Cinco estados, y la diferencia entre ellos importa:
 El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
 es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 
+### Parche 3.14 — control total del movimiento, y la cámara fuera del agua
+
+| Qué | Cómo se comprueba |
+|---|---|
+| **Girar deja de costar lo que cuesta frenar.** `frenado_momentum` bajaba la tasa del vector entero, así que salir del surf cuesta abajo a 15.8 m/s eran **1.43 s de línea recta**. Ahora el momentum baja el OBJETIVO y el giro conserva `aceleracion_suelo` | Barrido de 144 ensayos por el Gym: **12 fallos → 5**, y el peor caso en suelo desaparece |
+| **Y en el aire igual**, con número propio (`giro_aire`, 38 m/s²): por encima del techo el objetivo ES tu rapidez, o sea que esa llamada no acelera, gira | `MedirMovimiento`: la inversión en el aire pasa de *«aún avanzando»* a **invertida del todo** a 0.55 s |
+| **Los siete números de locomoción, intactos** — arranque 1.22 s, frenada al soltar 0.28 s / 1.29 m, pivote 0.17 s / 0.65 m, salto parado 3.2 m/s | `MedirMovimiento`, antes y después |
+| **La cámara ya no se mete en la piscina.** El brazo esquiva geometría pero una `ZonaAgua` es un `Area3D` y no existe para él: mirando hacia arriba la lente bajaba hasta **4.21 m bajo el agua**, y la superficie tiene `cull_disabled`, así que tapaba la pantalla | Barrido de pitch: −0.54 / −2.40 / −4.21 m → **+0.54 / +0.53 / +0.52** |
+| **Buceando NO se toca** — ahí la cámara tiene que estar debajo. La condición es nadar en superficie, no estar mojado | Mismo barrido: con la lente ya despejada el alza es cero |
+| **La hierba se leía como paja sobre el césped** — nacía en `musgo_medio` sobre un suelo `pasto_medio` y moría en `hierba_highlight`: medio círculo cromático en 78 cm. Ahora nace del color del suelo | `TestVisual`, tomas `claro` y `gym_general` |
+| **Y el parche terminaba en LÍNEA RECTA** — se leía como una alfombra. Densidad 11 → 34 briznas/m² y un borde que se apaga con ruido (`borde_difuso`, `borde_ruido`) | Ídem |
+| **El agua hervía** — `escala` 1.5 daba una onda de 48 cm, casi cuarenta rizos en un vaso de 18 m: de lejos eso no es agua, es aliasing. 0.95, y el brillo ensanchado (`rugosidad` 0.16) | `TestVisual`, toma `agua` |
+| **El rendimiento NO era el problema.** A/B en la misma pasada, sin vsync, 1280×720: con SSAO, glow, niebla, MSAA 4×, sombras suaves altas y el claro entero puestos, **1.44 ms — 695 fps**. Los 26–76 fps que se ven son los primeros segundos compilando shaders | `tools/_diag_perf` (temporal), con una fila de CONTROL que vuelve a encenderlo todo |
+| **Las 14 tomas rotas eran ediciones del EDITOR**, no código: `caliza_sol` a lavanda, `oro_palido` de oro a rosa, `energia_solar` 1.15 → 1.871, `domo_radio` 8 → 11 | Con `default_palette.tres` y `Main.tscn` en su sitio: **11 de 14 vuelven a 0.000%** |
+
+---
+
 ### Parche 3.13 — el marcapasos
 
 | Qué | Cómo se comprueba |

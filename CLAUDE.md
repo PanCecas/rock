@@ -170,6 +170,36 @@ plataformas en movimiento.
 	siempre la primera; en el juego se veia perfecto. Es la version de render de
 	la regla de los tests —el sitio donde se AFIRMA algo no puede ser el sitio
 	donde se DIBUJA—, y el precio es un `Array` por sistema.
+24. **BAJAR LA TASA NO SOLO FRENA: TAMBIEN IMPIDE GIRAR.** `motor.acelerar()` mueve
+	el VECTOR entero hacia el deseado con un solo numero, asi que esa tasa contesta
+	a la vez dos preguntas que no se parecen —cuanto tardas en FRENAR y cuanto
+	tardas en OBEDECER—. Mientras las dos valen lo mismo no se nota; en cuanto una
+	se baja a proposito, el jugador pierde el control sin que nadie lo pidiera.
+	Paso dos veces con el mismo sintoma —"sigue en linea recta y no puedo
+	direccionarlo"— y en dos sitios distintos: `frenado_momentum` (6 m/s²) en
+	`Move`, que costaba **1.43 s de linea recta** saliendo del surf cuesta abajo, y
+	`aceleracion_aire` (12) en el aire, donde una inversion a 9.4 m/s no llegaba a
+	completarse nunca.
+	**Se arregla bajando el OBJETIVO, no la tasa**: un techo de rapidez que se
+	acerca a la rampa a `frenado_momentum` conserva la regla del momentum entera
+	—la velocidad extra se sigue perdiendo despacio— y deja el giro con la
+	autoridad de siempre. En el aire, donde el objetivo YA es tu propia rapidez, la
+	llamada no acelera nada: gira, y por eso tiene su propio numero (`giro_aire`).
+	Corolario: **el `move_toward` sobre el vector es el primitivo correcto y no se
+	sustituye por un `slerp`**. Pedir la direccion contraria traza una recta que
+	pasa por el cero —frenada en seco y pivote de Mario 64—; un slerp da un giro en
+	U con radio. Medido al intentarlo: la frenada pidiendo lo contrario pasaba de
+	0.17 s / 0.65 m a 2.75 s / 21.76 m.
+25. **UN NUMERO TOCADO EN EL EDITOR ES UN CAMBIO DE CODIGO SIN REVISAR.** El
+	screenshot test salio 0/14 y las 14 tomas parecian rotas por lo ultimo que se
+	habia tocado. No lo estaban: `default_palette.tres` y `Main.tscn` traian
+	ediciones del editor —`caliza_sol` a lavanda, `oro_palido` de oro a rosa,
+	`energia_solar` de 1.15 a 1.871, `domo_radio` de 8 a 11— y eso cambia TODAS las
+	tomas a la vez. Con esos dos ficheros en su sitio, 11 de 14 volvieron a 0.000%.
+	Dos cosas de aqui: **antes de culpar al codigo, `git diff` de los datos**, y
+	**el validador ya lo estaba diciendo** —`Palette.validar()` avisaba de `carmesi`
+	y `oro_palido` en cada arranque y el aviso se leyo como ruido—. Un warning que
+	se ignora por costumbre es un test que no existe.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.

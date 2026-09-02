@@ -44,7 +44,10 @@ uniform float amplitud : hint_range(0.0, 0.5) = 0.085;
 // NUMERO DE ONDA. Es el mando que MAS importa: la pendiente de la ola es a·k, asi
 // que subir la escala inclina la normal sin levantar la superficie. Con 0.55 la
 // normal se movia dos grados y el agua se veia como un degradado plano.
-uniform float escala : hint_range(0.05, 8.0) = 1.5;
+// Bajado de 1.5: con k_max = 8.7*escala, a 1.5 la onda mas corta medía 48 cm y en
+// un vaso de 18 m salian casi cuarenta rizos. De lejos eso no es agua, es ruido —
+// centellea y aliasea—. A 0.95 la ola grande se lee y el rizo sigue estando.
+uniform float escala : hint_range(0.05, 8.0) = 0.95;
 uniform float velocidad : hint_range(0.0, 4.0) = 0.85;
 uniform float transparencia : hint_range(0.0, 1.0) = 0.42;
 // Profundidad a la que el agua alcanza su color hondo, en metros.
@@ -52,6 +55,10 @@ uniform float profundidad_color : hint_range(0.5, 30.0) = 5.0;
 // Grosor del borde de espuma contra la geometría, en metros.
 uniform float borde_espuma : hint_range(0.0, 2.0) = 0.45;
 uniform float brillo : hint_range(0.0, 1.0) = 0.62;
+// Un espejo perfecto (0.08) concentra el sol en unos pocos pixeles que aparecen y
+// desaparecen entre frames: eso es el centelleo. Ensanchando el brillo, la misma
+// luz se reparte y el agua deja de hervir.
+uniform float rugosidad : hint_range(0.0, 1.0) = 0.16;
 
 // RELOJ CONGELABLE. Negativo = usar TIME, que es lo normal.
 //
@@ -145,7 +152,7 @@ void fragment() {
     vec3 fondo = texture(pantalla, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
 
     ALBEDO = mix(fondo, color, mix(transparencia, 1.0, f));
-    ROUGHNESS = 0.08;
+    ROUGHNESS = rugosidad;
     SPECULAR = brillo;
     METALLIC = 0.0;
 }

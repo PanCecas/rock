@@ -45,6 +45,9 @@ var _ruido := FastNoiseLite.new()
 ## Look ahead ya suavizado. Se guarda entre frames porque su gracia es ir por
 ## DETRAS de la velocidad, no seguirla.
 var _adelanto_suave: Vector3 = Vector3.ZERO
+## Cuanto se esta levantando el rig para no hundir la camara en el agua. Se guarda
+## entre frames para que suba y baje suave en vez de dar un salto al entrar.
+var _alza_agua: float = 0.0
 
 
 func _ready() -> void:
@@ -129,6 +132,7 @@ func _process(delta: float) -> void:
 	_sacudir_encuadre(delta)
 	brazo.spring_length = tuning.camara_distancia * float(_p["dist"])
 
+	_sacar_del_agua(delta)
 	_actualizar_fov(delta)
 
 
@@ -223,6 +227,43 @@ func _sacudir_encuadre(delta: float) -> void:
 	# Un pelín de giro además del desplazamiento: vende el impacto sin marear.
 	var g := tuning.camara_shake_giro * _shake
 	brazo.rotation_degrees = Vector3(_pitch + ny * g, nx * g, 0.0)
+
+
+## NADANDO EN SUPERFICIE, LA CAMARA NO SE METE EN EL AGUA.
+##
+## El brazo esquiva geometria —`Layers.CAMARA`— pero una `ZonaAgua` es un `Area3D`
+## y para el brazo no existe: nadando, el brazo baja por detras y la lente acaba
+## por debajo de la superficie. Y la superficie tiene `cull_disabled`, asi que
+## desde abajo tapa la pantalla entera con un plano de color: parece un error de
+## render y es solo la camara donde no debia estar.
+##
+## Se levanta el RIG entero y no se recorta el pitch: recortar el pitch le quita
+## al jugador el control de la vista justo cuando esta intentando mirar, que es
+## peor que subir la camara un palmo.
+##
+## BUCEANDO NO SE TOCA: ahi la camara TIENE que estar debajo. La condicion es
+## nadar en superficie, no estar mojado.
+func _sacar_del_agua(delta: float) -> void:
+	# LA ALTURA DE LA LENTE SE CALCULA EN LOCAL, NO SE PREGUNTA EN MUNDO.
+	#
+	# `camara.global_position` ya trae el alza del frame anterior, asi que usarla
+	# para decidir cuanto hay que alzar es un controlador persiguiendo su propio
+	# error: sube, la medida mejora, deja de subir, y se estabiliza justo donde
+	# todavia falta. Medido: 25 cm por debajo del agua mirando hacia arriba, y
+	# cualquier intento de compensarlo sumando el alza lo volvia inestable.
+	#
+	# La composicion local del brazo y la lente NO depende de donde este el rig, y
+	# es exactamente lo que hace falta: cuanto cuelga la lente por debajo de el.
+	var objetivo := 0.0
+	if _jugador != null and _jugador.agua != null:
+		var s: WaterSensor = _jugador.agua
+		if s.en_agua and not s.sumergido():
+			var cuelga: float = (brazo.transform * camara.transform).origin.y
+			objetivo = maxf(0.0,
+				(s.nivel + tuning.camara_margen_agua) - (_pos_suave.y + cuelga))
+	_alza_agua = lerpf(_alza_agua, objetivo, 1.0 - exp(-12.0 * delta))
+	if _alza_agua > 0.001:
+		global_position.y += _alza_agua
 
 
 ## Pide que la cámara se coloque detrás de una dirección de mundo.

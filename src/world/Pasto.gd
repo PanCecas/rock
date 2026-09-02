@@ -30,7 +30,17 @@ const SHADER := preload("res://src/art/shaders/hierba.gdshader")
 ## Lado del parche, en metros. Se siembra centrado en el nodo.
 @export var area: Vector2 = Vector2(26.0, 26.0)
 ## Briznas por metro cuadrado. Es EL numero de coste: todo lo demas es constante.
-@export_range(0.5, 60.0, 0.5) var densidad: float = 11.0
+@export_range(0.5, 120.0, 0.5) var densidad: float = 34.0
+## EL BORDE DEL PARCHE, en fraccion del semilado, donde la siembra se apaga.
+##
+## Sin esto el campo termina en una LINEA RECTA y el parche se lee como una
+## alfombra puesta encima del suelo, no como un claro. Es lo que mas delataba la
+## primera version a ojo, mas que la densidad.
+@export_range(0.0, 0.9, 0.05) var borde_difuso: float = 0.4
+## Cuanto se rompe ese borde con ruido. Un desvanecido perfectamente elíptico
+## sigue siendo una figura geometrica; lo que hace que parezca vegetacion es que
+## el limite sea IRREGULAR.
+@export_range(0.0, 0.6, 0.02) var borde_ruido: float = 0.26
 ## Semilla del reparto. Fija a proposito: un campo que cambia entre arranques
 ## rompe el screenshot test y no aporta nada.
 @export var semilla: int = 424242
@@ -153,11 +163,25 @@ func sembrar() -> void:
 	var espacio := get_world_3d().direct_space_state
 	var cuantas := int(area.x * area.y * densidad)
 
+	# El ruido que rompe el borde. Se evalua en la siembra y nunca mas: esto no es
+	# una animacion, es la FORMA del parche.
+	var ruido := FastNoiseLite.new()
+	ruido.seed = semilla
+	ruido.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	ruido.frequency = 0.12
+
 	var poses: Array[Transform3D] = []
 	var colores: PackedColorArray = PackedColorArray()
 	for _i in cuantas:
 		var x := rng.randf_range(-area.x * 0.5, area.x * 0.5)
 		var z := rng.randf_range(-area.y * 0.5, area.y * 0.5)
+		# CUANTA hierba toca AQUI. 1 en el centro, 0 pasado el borde.
+		var u: float = maxf(
+			absf(x) / maxf(area.x * 0.5, 0.001), absf(z) / maxf(area.y * 0.5, 0.001))
+		u += ruido.get_noise_2d(x, z) * borde_ruido
+		var mezcla: float = 1.0 - smoothstep(1.0 - borde_difuso, 1.0, u)
+		if mezcla <= 0.001 or rng.randf() > mezcla:
+			continue
 		var arriba := global_position + Vector3(x, sonda_arriba, z)
 		var abajo := global_position + Vector3(x, -sonda_abajo, z)
 		var q := PhysicsRayQueryParameters3D.create(arriba, abajo, Layers.SUELO_JUGADOR)
@@ -170,7 +194,10 @@ func sembrar() -> void:
 		if rad_to_deg(Vector3.UP.angle_to(n)) > pendiente_max:
 			continue
 		var punto: Vector3 = r["position"]
-		var escala := 1.0 + rng.randf_range(-variacion, variacion)
+		# Y ademas MENGUA hacia el borde. Apagar solo la cantidad deja briznas de
+		# altura completa sueltas por fuera, que se leen como pelos; menguando, el
+		# campo se hunde en el suelo.
+		var escala := (1.0 + rng.randf_range(-variacion, variacion)) * lerpf(0.5, 1.0, mezcla)
 		var base := Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(
 			Vector3(escala, escala, escala))
 		poses.append(Transform3D(base, punto - global_position))
@@ -205,7 +232,15 @@ func _montar() -> void:
 
 	_mat = ShaderMaterial.new()
 	_mat.shader = SHADER
-	_mat.set_shader_parameter(&"color_base", _color(&"musgo_medio"))
+	# LA BASE ES EL COLOR DEL SUELO DEL QUE SALE, no un verde mas oscuro.
+	#
+	# Con `musgo_medio` (#3E5230) contra un suelo `pasto_medio` (#5F7A3E) la brizna
+	# nacia mas oscura que la tierra y moria en `hierba_highlight` (#B0C46B), o sea
+	# recorria medio circulo cromatico en 78 cm: de lejos el parche se leia como
+	# PAJA tirada encima del cesped, con una costura visible en el borde. Naciendo
+	# del mismo color, el campo y el suelo son la misma cosa y el degradado solo
+	# aporta el remate de luz en la punta.
+	_mat.set_shader_parameter(&"color_base", _color(&"pasto_medio"))
 	_mat.set_shader_parameter(&"color_punta", _color(&"hierba_highlight"))
 	_mat.set_shader_parameter(&"rastro_radio", rastro_radio)
 	_mat.set_shader_parameter(&"rastro_alto", rastro_alto)

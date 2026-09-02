@@ -66,6 +66,19 @@ extends Resource
 ## lanzado, conservas lo que traias. Antes este suelo era `velocidad_correr` y por
 ## eso un salto vertical llegaba a maxima velocidad de carrera sin pisar el suelo.
 @export_range(0.0, 20.0, 0.1) var control_aereo_techo: float = 3.2
+## AUTORIDAD PARA GIRAR EN EL AIRE, en m/s2, y separada de `aceleracion_aire` a
+## proposito: son dos preguntas distintas.
+##
+##   aceleracion_aire -> cuanta velocidad puedes GANAR en el aire. Baja a
+##     proposito: si no, un salto desde parado llega a velocidad de carrera y la
+##     carrerilla no sirve de nada.
+##   giro_aire        -> cuanto puedes REDIRIGIR lo que ya llevas. No crea
+##     velocidad: solo la gira.
+##
+## Estaban unidas y por eso salir del surf por un desnivel dejaba al jugador
+## volando en linea recta: 12 m/s2 contra 13.5 m/s de inercia son 1.6 s para
+## girar 90 grados. Medido en el Gym.
+@export_range(1.0, 200.0, 1.0) var giro_aire: float = 38.0
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
 @export_range(0.0, 200.0, 1.0) var frenado_aire: float = 4.0
 ## Frenado cuando vas MÁS RÁPIDO que tu velocidad objetivo y sigues empujando.
@@ -507,6 +520,9 @@ extends Resource
 @export_group("Cámara")
 @export_range(1.0, 20.0, 0.1) var camara_distancia: float = 6.5
 @export_range(0.0, 4.0, 0.05) var camara_altura_objetivo: float = 1.35
+## Palmo que la lente guarda por encima del agua nadando en superficie. Ver
+## `CameraRig._sacar_del_agua()`.
+@export_range(0.0, 3.0, 0.05) var camara_margen_agua: float = 0.55
 @export_range(0.01, 1.0, 0.01) var camara_sensibilidad: float = 0.28
 @export_range(-89.0, 0.0, 1.0) var camara_pitch_min: float = -65.0
 @export_range(0.0, 89.0, 1.0) var camara_pitch_max: float = 55.0

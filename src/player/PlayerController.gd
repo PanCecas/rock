@@ -583,8 +583,16 @@ func control_aereo(delta: float) -> void:
 	# `velocidad_correr` como suelo, un salto desde parado alcanzaba la velocidad
 	# maxima de carrera sin tocar el suelo: el salto no pesaba nada porque la
 	# carrerilla no servia para nada.
-	var objetivo: float = maxf(tuning.control_aereo_techo, motor.rapidez_plana())
-	motor.acelerar(dir * objetivo, tuning.aceleracion_aire * escala, delta)
+	var rapidez := motor.rapidez_plana()
+	var objetivo: float = maxf(tuning.control_aereo_techo, rapidez)
+	# GANAR velocidad y REDIRIGIRLA son dos permisos distintos, y aqui se ve solo:
+	# por encima del techo el objetivo ES tu propia rapidez, asi que esta llamada
+	# no acelera nada — GIRA—. Cobrarle la tasa de aceleracion a un giro es lo que
+	# dejaba al jugador volando en linea recta al salir del surf por un desnivel:
+	# 12 m/s2 contra 13.5 m/s de inercia son 1.6 s para girar 90 grados.
+	var tasa: float = (tuning.giro_aire if rapidez > tuning.control_aereo_techo
+		else tuning.aceleracion_aire)
+	motor.acelerar(dir * objetivo, tasa * escala, delta)
 
 
 ## Baja la autoridad del control aéreo durante unos instantes.
