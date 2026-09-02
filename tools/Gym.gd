@@ -33,6 +33,24 @@ extends Node3D
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
+## EL CLARO: hierba con viento e interaccion, luciernagas y bandada. Se planta en
+## el Gym para que el mundo vivo se vea JUGANDO y no solo en su banco.
+@export var con_claro: bool = true
+## Donde se planta y cuanto ocupa.
+##
+## El sitio se eligio MIRANDO, y el primer intento —(-10, 0, -30)— lo tumbo el
+## screenshot test: caia a un metro de las rampas de calibracion de escalada, y
+## una luciernaga a dos metros de la camara es una mancha aditiva de 100 px que
+## tapa media toma. `escalada_muro_90` salio con un 8.47% de diferencia.
+##
+## Aqui esta acotado por: las rampas normales terminan en x = 0, el pasillo de
+## wall-run ocupa |x| < 2.3, las repisas empiezan en x = 17 y el corral en
+## z = -26. Y ademas se corrio hasta z = -13 para quedar DETRAS de la camara del
+## corral: unas luciernagas colandose por el borde de esa toma no la rompen, pero
+## su trabajo es vigilar la silueta de tres enemigos y no tiene por que compartirlo
+## con la decoracion.
+@export var claro_centro: Vector3 = Vector3(9.0, 0.0, -13.0)
+@export var claro_lado: float = 12.0
 
 const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
 const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
@@ -41,6 +59,9 @@ const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
 const LANZA := preload("res://src/weapons/Spear.tscn")
 const ANCLAJE := preload("res://src/weapons/Anclaje.tscn")
+const PASTO := preload("res://src/world/Pasto.gd")
+const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
+const BANDADA := preload("res://src/world/Bandada.gd")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -80,6 +101,7 @@ func construir() -> void:
 	_muro_lanza()
 	_tunel()
 	_piscina()
+	_claro()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -365,12 +387,11 @@ func _dar_lanza(jugador: Node3D) -> void:
 	l.global_position = jugador.global_position + Vector3.UP
 	jugador.set("lanza", l)
 
-	# Y LAS DOS DAGAS. Dos y no una: la resortera necesita lanza + daga en mundo,
-	# y zarandear necesita una daga en carne. Con una sola, tener las dos cosas a
-	# la vez seria imposible y media mecanica quedaria inalcanzable desde el Gym,
-	# que es donde se prueba el feel.
+	# Y LA DAGA. Una sola: la lanza tambien se clava en lo agarrable, asi que con
+	# un arma de cada tipo se llega a todo —resortera con las dos en mundo,
+	# zarandeo con cualquiera en carne— sin llevar la cuenta de dos objetos iguales.
 	var dagas: Array[Anclaje] = []
-	for i in 2:
+	for i in 1:
 		var a := ANCLAJE.instantiate() as Anclaje
 		a.name = "Daga%d" % i
 		a.palette = palette
@@ -452,6 +473,57 @@ func _patrulla() -> void:
 	])
 	_raiz.add_child(g)
 	g.global_position = g.ruta[0]
+
+
+## EL CLARO: el mundo vivo, dentro del Gym.
+##
+## Hierba que se aplasta al pasar, luciernagas que parpadean al unisono y una
+## bandada de criaturas de tela planeando encima. Los tres tienen su banco propio
+## en `tools/Claro.tscn` para afinarlos sin abrir una partida, pero **tienen que
+## estar tambien aqui**: un sistema que solo existe en su banco es un sistema que
+## nadie ve jugando, y entonces no esta puesto.
+##
+## No corre en el editor. `Pasto` lanza un rayo por brizna para pegarla al suelo y
+## `Bandada` y `Luciernagas` construyen un `Enjambre`, y las tres cosas necesitan
+## los autoloads y el espacio de fisica de una partida corriendo.
+func _claro() -> void:
+	if not con_claro or Engine.is_editor_hint():
+		return
+	_etiqueta("EL CLARO — corre por la hierba y mirala detras de ti",
+		claro_centro + Vector3(0.0, 0.06, claro_lado * 0.5 + 2.5))
+
+	var p := PASTO.new()
+	p.name = "Pasto"
+	p.area = Vector2(claro_lado, claro_lado)
+	_raiz.add_child(p)
+	p.global_position = claro_centro
+
+	var l := LUCIERNAGAS.new()
+	l.name = "Luciernagas"
+	l.cuantas = 140
+	l.area = Vector3(claro_lado * 0.95, 4.5, claro_lado * 0.95)
+	_raiz.add_child(l)
+	l.global_position = claro_centro + Vector3.UP * 0.6
+
+	# El circuito de la bandada, encogido para que quepa sobre el claro. Los
+	# valores de fabrica de `Bandada` son para cielo abierto: 26 m de radio.
+	var b := BANDADA.new()
+	b.name = "Bandada"
+	b.criaturas = 14
+	# Trece segundos por vuelta y no los veinte de fabrica. No es velocidad: es lo
+	# que tarda la bandada en DARSE CUENTA de que estas ahi. El enganche se mide
+	# promediando sobre el ciclo del oscilador —hace falta al menos una vuelta para
+	# distinguir "va enganchada" de "pasaba por delante"—, asi que a veinte
+	# segundos por vuelta se acercaban a los diez de que llegases, y eso se lee
+	# como que no reaccionan.
+	b.vuelta_segundos = 13.0
+	b.radio = 9.5
+	b.vaiven = 3.6
+	b.dispersion_tubo = 2.3
+	b.largo = 2.0
+	b.ancho = 0.34
+	_raiz.add_child(b)
+	b.global_position = claro_centro + Vector3.UP * 10.0
 
 
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza
