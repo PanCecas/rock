@@ -965,6 +965,217 @@ no hayas ejecutado.
 
 ---
 
+## PROMPT SISTEMA GENERATIVO — el enjambre de Kuramoto y las Criaturas de Tela
+
+```
+Construye un sistema generativo audiovisual dentro de ROCK. Lee CLAUDE.md antes de
+escribir nada: sus reglas duras aplican igual aquí que en el resto del proyecto.
+
+QUÉ ES
+Un puñado de agentes con PERSONALIDAD PROPIA acoplados como osciladores de Kuramoto.
+El ciclo del oscilador es lo único que existe: de él salen a la vez el sonido y todo
+lo que se ve. Las dos fórmulas están ya escritas en project.md §5 y se copian tal cual,
+porque son el modelo estándar y reinterpretarlas solo puede empeorarlas:
+
+    dθᵢ/dt = ωᵢ + (K/N) · Σⱼ sin(θⱼ − θᵢ)
+    r = | (1/N) · Σⱼ e^{iθⱼ} |         r = 0 disperso · r = 1 al unísono
+
+LAS RESTRICCIONES DEL ENCARGO — no son sugerencias
+1. NO HAY ROTACIÓN. Ninguna criatura gira nunca. Sin giro, un cuerpo solo puede
+   expresarse con DÓNDE está, CUÁNTO ocupa y DE QUÉ COLOR es. Pon un guardia en modo
+   debug que lo compruebe cada frame: un `look_at()` colado en el futuro se leería
+   como "el enjambre se ve raro" y nadie sabría por qué.
+2. EL SISTEMA ES INESTABLE. No converge y se planta: transita de caos a orden y
+   vuelve, para siempre. Resuélvelo con UNA sola regla —el parámetro de orden
+   realimenta el acoplamiento, con histéresis para que respire en vez de vibrar en
+   el umbral— y no con una máquina de estados ni con temporizadores.
+3. EL SONIDO ES EXTERNO. El sistema publica `pitch` y `amplitud` por agente y por
+   frame, y ahí termina su responsabilidad. No metas un AudioStreamPlayer.
+4. LA INTERACCIÓN ES DESORDENAR. Una perturbación resetea la fase de UN agente y lo
+   deja sordo un rato; el enjambre se recompone solo. El usuario además desplaza el
+   pitch del conjunto en semitonos. Eso es todo el mando que tiene.
+
+LA MANIFESTACIÓN — "Criaturas de Tela"
+Todo cuelga de un solo número por agente y por frame, `ciclo = (sinθ+1)/2`, y de un
+segundo, `desvío` (cuánto se aparta del grupo). Del ciclo salen color, opacidad,
+escala, la posición y el pitch; del desvío, la desaturación y el volumen. Que salga
+todo del mismo sitio es lo que hace que se lea como una cosa viva y no como cinco
+efectos sueltos. Reglas concretas:
+  · color: rampa calma→pico entre dos colores de la Palette, más una deriva de tono
+    SUTIL (una decena de grados, no una rueda: los azules y los rojos están
+    reservados por la regla dura #8)
+  · el desvío DESATURA hacia el gris de piedra. Dispersas son colores corridos, al
+    unísono son un solo color latiendo: así se VE la sincronización sin números
+  · opacidad recorriendo su rango con el ciclo —es lo que las hace de TELA—
+  · destello estrecho solo en la cresta (`pow` con exponente alto): lo que se lee es
+    el PULSO, no un objeto luminoso
+  · movimiento ondulatorio hecho SOLO de traslación
+
+LA COLA — es la pieza que pido explícitamente
+Cada criatura arrastra una línea, artística, que sigue su movimiento de forma
+procedural. Persecución en cadena con restricción de distancia, no verlet: el Cordon
+de la lanza usa verlet porque CUELGA entre dos puntos, y esto no cuelga de nada, va
+detrás. El retraso tiene que ser independiente del framerate (`1 - exp(-k·dt)`), o el
+look cambia según la máquina. Dibújala como tira de triángulos encarada a la cámara,
+afilándose hasta la punta.
+
+CÓMO SE ORGANIZA
+  src/generative/EnjambreTuning.gd   Resource con TODOS los números (regla dura #1)
+  src/generative/Enjambre.gd         el modelo. No dibuja ni suena
+  src/generative/CriaturaTela.gd     la manifestación
+  src/generative/Estela.gd           la cola
+  tools/Jardin.tscn                  el banco de pruebas, como el Gym lo es del movimiento
+  tools/TestEnjambre.tscn            el test funcional
+
+Que el modelo no dibuje ni suene no es ceremonia: el modelo es determinista y se
+puede afirmar cosas de él con un test; el render no. Mezclados, no habría forma de
+comprobar que el sistema hace lo que dice.
+
+EL TEST, en dos mitades porque son dos cosas que se miden distinto
+  · EL MODELO, EN SECO: pisa `_physics_process` a mano con dt fijo y corre minutos de
+    simulación en milisegundos. Mide el ciclo caos→orden→caos→orden, que K sube y
+    baja con la histéresis, que perturbar TIRA el orden y que luego resincroniza, y
+    que dos ejecuciones dan lo mismo. Incluye un CONTROL sin acoplamiento: con las
+    frecuencias repartidas a intervalos iguales las fases se realinean solas cada
+    2π/δω y r sube casi a 1 sin que haya sincronizado nada. Lo que separa una
+    coincidencia de un enganche es cuánto DURA, así que mide fracción de tiempo y
+    racha, no si alguna vez pasó.
+  · LA MANIFESTACIÓN, EN VIVO: el Jardín corriendo de verdad. Que NADIE rota en
+    NINGÚN frame (y que si le metes una rotación a mano se la quita), que la cola va
+    DETRÁS —con el signo del producto escalar contra el avance, nunca con un módulo:
+    regla dura #22—, que la opacidad recorre su rango y que las señales llegan.
+
+Y el screenshot test, que no se salta (regla dura #18). Ojo: el enjambre evoluciona
+con la física y una captura se dispara contando frames de RENDER. Congélalo y avanza
+un tiempo EXACTO a mano antes de fotografiarlo, igual que se hizo con el agua.
+
+Al terminar: los números que has MEDIDO —cuánto tarda en sincronizar, cuánto en
+deshacerse, qué pasa sin acoplamiento— y los tres resultados de test. No inventes
+resultados de pruebas que no hayas ejecutado.
+```
+
+**Qué salió al aplicarlo, con los números medidos:**
+
+| | |
+|---|---|
+| Caos → orden | **9.6 s** (K sube de 0.15 a 5.42) |
+| Orden → caos | **19.6 s** (K cae a 1.11) |
+| Segundo ciclo | **7.3 s** — respira, no decae |
+| Con acoplamiento | 56.5% del tiempo al unísono, racha de **16.2 s** |
+| Sin acoplamiento | 6.2% del tiempo, racha de **1.2 s** — la recurrencia no es sincronización |
+| Perturbar | r 0.954 → 0.783, y vuelve a 0.984 |
+| La sordera | desvío acumulado 0.353 contra 0.185 sin ella |
+
+Tres cosas se encontraron por medirlas y no por suponerlas:
+
+1. **La cola nacía plegada.** Colocar todos los nudos en el mismo punto parece lo
+   natural, y deja la distancia entre vecinos a cero: la dirección que usa la
+   restricción no significa nada y la cadena se dobla en zigzag en su primer frame.
+   Medido: 14 nudos y 1.17 m de cuerda ocupando **0.125 m**, y una vez plegada no se
+   estira nunca porque cada frame recalcula desde el pliegue. Nace estirada.
+2. **Una criatura que desliza por UN eje adelanta a su propia cola.** Va y vuelve por
+   su rastro, así que la mitad del tiempo la estela le queda delante: medido, 119
+   frames detrás contra 138 delante — una moneda al aire. Con un segundo eje al doble
+   de frecuencia el recorrido es un ocho, la criatura casi nunca vuelve por donde
+   vino, y de paso sale gratis el "movimiento ondulatorio" del encargo sin rotar nada.
+3. **Los mensajes de fallo del test mentían.** Se formateaban al MONTAR el guion,
+   cuando todos los latches valen cero, así que los dos fallos reales se reportaron
+   como "0 frames contra 0" y "largo 0.000 m". Ahora el motivo se resuelve al fallar.
+
+---
+
+---
+
+---
+
+## PROMPT PARCHE 3.12 — dos bugs de movimiento y el mundo vivo
+
+```
+Parche 3.12 de ROCK. Lee CLAUDE.md antes de escribir nada.
+
+BUGS DE MOVIMIENTO
+
+1. ADHERENCIA (Z / V, daga y lanza). El personaje falla al adherirse a superficies
+   con daga/lanza. Revisa la lógica de estado o las colisiones que impiden el
+   anclaje.
+2. SALIDA DEL SURF. Al salir de "surf" el movimiento se bloquea: no puedo
+   direccionar al personaje, como si las variables de velocidad, rotación o input
+   quedaran atascadas. ¿Cómo se limpian y reinician en la transición?
+
+No los des por diagnosticados por lo que digo yo. Los dos son reportes de lo que
+SIENTO jugando, y el sitio donde se siente un bug casi nunca es el sitio donde
+está. Reprodúcelos con un banco antes de tocar una línea, y si lo que encuentras
+no es lo que yo describí, dilo.
+
+SISTEMAS
+
+3. CRIATURAS VOLADORAS estilo *Journey*: que vuelen fluido y SINCRONICEN su
+   movimiento con el modelo de Kuramoto. MultiMesh o compute.
+4. LUCIÉRNAGAS estilo *Breath of the Wild*: esferitas brillantes que sincronizan
+   su parpadeo —o su movimiento— en el aire, con el mismo modelo.
+5. PASTO INTERACTIVO estilo *Ghost of Tsushima*, en planos sobre el suelo:
+   · el pasto se aplasta al pasar el jugador y deja un RASTRO QUE SE DESVANECE;
+     pásale la posición global del jugador al shader.
+   · viento que afecta a todo el pasto de forma unificada y rítmica (ondas o
+     ruido).
+   **Si ya existe diseñado, IMPLEMENTA ESO. No inventes.**
+
+Ese último punto vale para los tres: el enjambre de Kuramoto ya está escrito,
+medido y probado en `src/generative/`, y la hierba está diseñada al detalle en
+`docs/07_SHADERS.md §4`. Un segundo Kuramoto o una segunda idea de hierba serían
+dos cosas que se parecen y no son iguales, y que se desincronizan a la primera que
+alguien toque una.
+
+Al terminar: qué era cada bug DE VERDAD, con los números que lo demuestran, y los
+tres tests —funcional, de estados y visual—. No inventes resultados de pruebas que
+no hayas ejecutado.
+```
+
+**Qué salió al aplicarlo.**
+
+Los dos bugs eran uno de cada familia que este proyecto ya conoce, y **ninguno de
+los dos estaba donde el reporte decía**:
+
+| | |
+|---|---|
+| La Z adherido | `GroupAttached` no llamaba a `intentar_cuerda()`. La acción compartida existía en `Grounded` y en `Airborne` y **no** en el grupo donde viven los cuatro verbos de cuerda. Escalando: seis frames de Z, cero transiciones. Desde el suelo, el mismo gesto: `Idle>SpearSwing`. |
+| La salida del surf | **El surf sale limpio.** Ocho caminos de salida medidos en pista libre —soltar Shift, stamina a cero, perder el suelo, salto, long jump, slide y los dos ataques de surf—: los ocho terminan en `Move`, obedeciendo la dirección nueva con coseno +1.00, el alabeo deshecho a 0.0° y la cápsula de pie. 120 s de juego con input real: cero ventanas de bloqueo. Lo que bloquea es **la pared que hay delante**. |
+
+Y ahí estaba el bug de verdad: el agarre automático no distingue *insistir contra
+un muro* de *chocar con él a 15 m/s*. Medido en 60 s de juego, **4 de las 5
+adherencias automáticas salían directamente de `Surf`**, y la línea rápida
+terminaba pegada a la geometría con la velocidad a cero — que es exactamente "no
+puedo direccionar al personaje". Lo dice el propio número del tuning:
+`escalada_auto_tiempo` documenta que es para quien **camina** contra la pared.
+
+Del mundo vivo, tres cosas que salieron de medir y no de suponer:
+
+1. **`a_ritmo()` escalaba mal, y el test lo cazó por el sitio correcto.** Poner el
+   mismo modelo a otra velocidad es un cambio de variable `t' = t·f`, así que cada
+   magnitud escala por su potencia de `f`: `ω` y `K` son 1/s, pero `k_subida` y
+   `k_bajada` son **1/s²**. Escalándolo todo por `f` a secas —el error natural— el
+   sistema a mitad de reloj sincronizaba en 8.6 s en vez de en 19.2, o sea **antes
+   que el normal**. La comprobación no mira "si sincroniza": mira que a mitad de
+   reloj tarde exactamente el doble.
+2. **Al servidor de render no se le pregunta el estado del juego.**
+   `MultiMesh.get_instance_transform()` devuelve la identidad en headless, donde el
+   servidor es un maniquí. `perturbar_cerca()` medía contra doce criaturas todas en
+   el origen y elegía siempre la primera — y en pantalla se veía perfecto. Ahora
+   cada sistema guarda su copia. Es la regla dura #23.
+3. **El campo medio no es una aproximación.** `(1/N)Σⱼ sin(θⱼ−θᵢ) ≡ r·sin(ψ−θᵢ)`
+   es una identidad, así que el modelo pasa de O(N²) a O(N) sin cambiar de física:
+   `TestEnjambre` sigue dando 9.6 s al orden, 19.6 al caos y 7.3 al orden otra vez,
+   los mismos números que antes. Es lo que permite mover 180 luciérnagas con el
+   modelo ya medido; con la suma doble serían 32.400 senos por frame en GDScript.
+
+Y una decisión de diseño que conviene dejar escrita: **el viento no es un parámetro
+por parche, es un campo**. Vive en `project.godot > shader_globals` y el shader lo
+evalúa desde `TIME` y la posición de mundo, así que dos parches de hierba separados
+por medio mapa sacan el mismo valor **sin coordinarse**. La sincronización que
+pedía el encargo no se implementa: no hay nada que sincronizar.
+
+---
+
 ## REGLA PERMANENTE — el screenshot test
 
 ```

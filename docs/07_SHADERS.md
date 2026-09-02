@@ -17,11 +17,12 @@ una decisión mía y no un hecho del motor, lo dice.
 | Niebla crema + tonemap | §4.3 | ⚠️ **a medias** — ver §2 |
 | `banded_surface.gdshader` | §4.2 | ❌ **no existe** |
 | Post-proceso propio | §4.4 | ❌ no existe |
-| Hierba en MultiMesh | §4.5 | ❌ no existe |
-| Fauna atmosférica | §4.6 | ❌ no existe |
+| Hierba en MultiMesh | §4.5 | ✅ **hecha** (3.12) — ver §4 |
+| Fauna atmosférica | §4.6 | ✅ **hecha** (3.12) — bandada y luciérnagas, ver §4.1 |
 
-`find . -name "*.gdshader" -not -path "./addons/*"` devuelve **cero**. Todo el
-look actual sale del `WorldEnvironment` y de `StandardMaterial3D`.
+`find . -name "*.gdshader" -not -path "./addons/*"` devolvía **cero** cuando se
+escribió esto. Hoy devuelve cuatro: `agua`, `hierba`, `bandada` y `luciernaga`. El
+resto del look sigue saliendo del `WorldEnvironment` y de `StandardMaterial3D`.
 
 **Nota honesta sobre la referencia:** trabajo desde la descripción que
 `01_DIRECCION_ARTE.md §2` hace de tu imagen (arcos casi negros enmarcando un
@@ -257,6 +258,56 @@ source_color` alimentado desde código es la forma.
 Hay implementaciones completas y estudiables en **godotshaders.com** — buscar
 *Stylized Multimesh Grass Shader* y *Stylized grass with wind and deformation*.
 
+### Lo que se construyó (3.12), y las dos cosas que salieron distintas
+
+`src/art/shaders/hierba.gdshader` + `src/world/Pasto.gd`. Las cinco piezas de
+arriba están tal cual: doblado cuadrático, `UV.y = 0` en la punta, FBM de tres
+octavas, `COLOR` por instancia y el degradado `musgo_medio` → `hierba_highlight`
+leído de la `Palette`.
+
+Dos cosas se resolvieron distinto de como las planteaba este doc, y las dos por el
+mismo motivo:
+
+1. **La transformada de la dirección de viento a espacio de modelo NO EXISTE.** El
+   doc avisaba de que sin ella cada instancia dobla hacia un lado distinto — y es
+   verdad. Con `render_mode world_vertex_coords` el shader trabaja ya en
+   coordenadas de mundo, así que el problema desaparece por construcción en vez de
+   resolverse cada frame con un `inverse(mat3(MODEL_MATRIX))` por vértice.
+2. **El viento no es un uniform que alguien alimente desde código: es un CAMPO.**
+   Vive en `project.godot > shader_globals` —que es literalmente el "uniform
+   global" que pedía el doc— y la onda se evalúa desde `TIME` y la posición de
+   mundo. Consecuencia: dos parches separados por medio mapa sacan el mismo valor
+   sin que nadie sincronice nada. Las rachas y las tormentas salen de tocar esos
+   globales con `RenderingServer.global_shader_parameter_set()`.
+
+Y una pieza que el doc no pedía porque no era su encargo: **la interacción**. La
+hierba se aplasta al pasar el jugador y deja un rastro que se levanta solo. Son
+doce `vec4` —posición y frescura—, la ranura 0 es el jugador en vivo y las once
+restantes son la cola. Un array y no una textura de rastro a propósito: la textura
+obliga a un SubViewport con realimentación, y eso son dos pasadas y un estado del
+que no se puede afirmar nada en un test.
+
+**La hierba pisada además se OSCURECE**, y no es un truco: una brizna tumbada
+enseña su cara de abajo y se mete en la sombra de sus vecinas. Sin eso el rastro
+existe pero no se lee — la silueta cambia y el color no, y a diez metros solo se
+distingue un campo un poco más corto.
+
+---
+
+## 4.1 Fauna atmosférica — §4.6, resuelta con Kuramoto
+
+§4.6 pedía "bandadas de pájaros blancos con boids simples". Se hizo con el modelo
+de Kuramoto de `src/generative/` en vez de con boids, y la razón es que lo que se
+busca no es evitar colisiones: es que el grupo RESPIRE. Con `r` alto la bandada va
+apretada en un tramo del circuito y bate las alas al unísono; con `r` bajo se
+estira por todo él. Eso sale de una regla y además se puede afirmar con un test —
+tres fuerzas de boids peleándose entre sí, no.
+
+  · `src/world/Bandada.gd` + `bandada.gdshader` — cintas de tela que planean.
+  · `src/world/Luciernagas.gd` + `luciernaga.gdshader` — el parpadeo colectivo.
+
+El blanco de §4.6 se respeta: `blanco_tiza` es el único permitido de la paleta.
+
 ---
 
 ## 5. Orden de implementación
@@ -273,8 +324,8 @@ deja el juego jugable y verificable.
 | 5 | LUT de corrección de color | 1 textura | Unifica el frame entero |
 | 6 | Quad de pantalla: desaturación por profundidad | 1 shader | Refuerza el 60/30/10 solo |
 | 7 | Overlay de pinceladas a 12 fps | mismo shader | La firma del estilo |
-| 8 | Hierba MultiMesh | 1 shader + escena | El viento como personaje |
-| 9 | Bandadas de pájaros | boids | §4.6 |
+| 8 | ~~Hierba MultiMesh~~ | 1 shader + escena | **HECHO (3.12).** El viento como personaje |
+| 9 | ~~Bandadas de pájaros~~ | Kuramoto, no boids | **HECHO (3.12).** §4.6, ver §4.1 |
 
 **Del 1 al 2 son cinco minutos y ya vas a ver el cambio.** No empieces por el
 shader.
@@ -282,7 +333,7 @@ shader.
 ### Cómo se verifica
 
 **El screenshot test es la herramienta correcta para esto**, y ya existe. Cada
-paso de esta lista va a poner las 11 tomas en rojo, y eso está bien: se mira el
+paso de esta lista va a poner las 14 tomas en rojo, y eso está bien: se mira el
 mapa de diff en `user://visual/`, se comprueba que cambió lo que tenía que
 cambiar, y **entonces** se regenera la referencia (regla dura #18).
 

@@ -22,6 +22,7 @@ plataformas en movimiento.
 | `docs/05_TABLERO.md` | **Qué está listo, en proceso, bugueado y pendiente.** Se actualiza en el MISMO commit que el cambio. |
 | `docs/07_SHADERS.md` | **Como se construye el look**: shader de bandas con sombra tintada, niebla, post-proceso, hierba. Con la API verificada y fuentes. |
 | `docs/06_INTEGRACION_3D.md` | **Llevar todo esto a modelos, animaciones y escenarios de Blender.** Export, AnimationTree, IK, navmesh. **Se usa DESPUES de cerrar los tweaks.** |
+| `docs/08_MANUAL.md` | **RECETARIO: como se USA cada sistema.** Donde esta, que hay que escribir para meterlo en una escena, que numeros tocar y por donde entran tus modelos de Blender. Es el doc que se abre para trabajar; los demas dicen por que. |
 
 ## Reglas duras del código
 1. **Ningún número mágico en `.gd`.** Todo valor que se toque para "que se sienta bien" vive en
@@ -60,6 +61,13 @@ plataformas en movimiento.
 	siempre ANTES que las de accion. Ahi vivio el "floating fall": salirse de una
 	plataforma surfeando no cambiaba de estado nunca. Un guardia de INPUT no puede
 	cancelar una transicion de TERRENO.
+	**Y la misma regla al reves:** una ACCION COMPARTIDA tiene que estar en TODOS
+	los grupos donde exista. `intentar_cuerda()` vivia en `Grounded` y en
+	`Airborne` y no en `Attached`, asi que **escalando o colgado de un canto la Z
+	no hacia absolutamente nada** —ni balanceo, ni zip, ni resortera, ni
+	zarandeo—. Mismo sintoma de siempre: silencio. Y su guardia, `maneja_cuerda()`,
+	tuvo que existir a la vez, porque los cuatro verbos de cuerda VIVEN en
+	`Attached`: sin el, la resortera se rearmaba cada frame y no disparaba nunca.
 14. **La postura la resuelve el controlador, no las transiciones.** Un estado
 	PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
 	altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
@@ -113,6 +121,12 @@ plataformas en movimiento.
 	(55°). Dos vectores decidiendo lo mismo divergen con momentum, asi que las dos
 	condiciones podian ser ciertas a la vez —"quiere hacer todo a la vez"— y entre
 	49.5 y 55 no saltaba ninguna.
+	**Y el agarre AUTOMATICO es para quien CAMINA contra el muro**, que es lo que
+	su propio numero dice (`escalada_auto_tiempo`). Llegar a 15 m/s surfeando no es
+	insistir, es chocar, y el codigo no distinguia las dos cosas: medido, 4 de las
+	5 adherencias automaticas de 60 s de juego salian directamente de `Surf`, y la
+	salida del surf acababa pegada a la geometria con la velocidad a cero. Lo
+	declara cada estado con `adherencia_automatica()`; el agarre a mano no cambia.
 21. **CADA BANDO TIENE SU FRENTE, Y ES UNO SOLO.** El jugador mira a **+Z** en su
 	nodo `Visual`; los enemigos miran a **−Z** en su cuerpo. Los dos convenios son
 	correctos, conviven a proposito y **no hay que unificarlos**: lo prohibido es
@@ -147,6 +161,15 @@ plataformas en movimiento.
 	tambien recorre metros. Cuando lo que se prueba es un SENTIDO —perseguir,
 	huir, acercarse, empujar—, se mide con signo o comparando distancias antes y
 	despues. Nunca con un modulo.
+23. **AL SERVIDOR DE RENDER NO SE LE PREGUNTA EL ESTADO DEL JUEGO.** Lo que se le
+	manda, se guarda tambien de este lado. `MultiMesh.get_instance_transform()`
+	devuelve la IDENTIDAD en headless —ahi el servidor es un maniqui que no guarda
+	el buffer—, asi que cualquier logica que lea de ahi funciona en pantalla y
+	falla en un test sin decir por que. Paso con la bandada y las luciernagas:
+	`perturbar_cerca()` media contra doce criaturas todas en el origen y elegia
+	siempre la primera; en el juego se veia perfecto. Es la version de render de
+	la regla de los tests —el sitio donde se AFIRMA algo no puede ser el sitio
+	donde se DIBUJA—, y el precio es un `Array` por sistema.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
@@ -242,9 +265,9 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *Ligero atraviesa · pesado los manda a volar con tu inercia* | |
 | | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
 | **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
-| **Dagas: tirar / recoger** (son DOS) | **X** | *sin asignar* |
-| | *tira mientras te quede una guardada · recoge cuando no queda ninguna* | |
-| **Zarandear** — daga clavada en un enemigo + **Z** | **Z** | D-pad der. |
+| **Daga: tirar / recoger** | **X** | *sin asignar* |
+| | *la lanza tambien se clava en enemigos pequenos: dos presas, dos armas* | |
+| **Zarandear** — daga O lanza clavada en un enemigo + **Z** | **Z** | D-pad der. |
 | | *el stick lo hace girar · **click der.** lo estampa con dano en area* | |
 | **Resortera** — con lanza Y anclaje puestos, la misma **Z** tensa | **Z** (mantener) | D-pad der. |
 | | *Tira hacia atras con el stick y SUELTA: sales catapultado* | |
@@ -283,17 +306,21 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 ## Herramientas
 | Script | Para qué |
 |---|---|
-| `tools/Gym.gd` | Sala de pruebas por código. Editar parámetros, no cubos. Incluye las rampas de calibración de escalada (45–90°, con el pie en la misma línea). |
+| `tools/Gym.gd` | Sala de pruebas por código. Editar parámetros, no cubos. Incluye las rampas de calibración de escalada (45–90°, con el pie en la misma línea) y **EL CLARO** (hierba interactiva, luciérnagas y bandada) en (9, 0, −13). Se apaga con `con_claro`. |
 | `tools/smoke_test.gd` | Comprobación de humo. `godot --headless --path . --script tools/smoke_test.gd` |
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
 | `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
-| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 11 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
+| `tools/TestVisual.tscn` | **Screenshot tests.** Compara 14 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada, la particion de los verbos de pared y el combo pesado. 135 comprobaciones. |
-| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, que una lanza clavada viaja con el cuerpo y el ZARANDEO de enemigos. 35 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA y las DOS dagas. 52 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada, la particion de los verbos de pared, el combo pesado y que el surf no te pega a la pared. 137 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, que una lanza clavada viaja con el cuerpo y el ZARANDEO de enemigos. 36 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA, la daga y que la Z existe estando adherido. 53 comprobaciones. |
+| `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
+| `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
+| `tools/TestMundoVivo.tscn` | Test de la capa atmosferica, en las mismas dos mitades que `TestEnjambre`: en SECO comprueba que el campo medio es una identidad exacta y que `a_ritmo()` es un cambio de reloj; EN VIVO, que la hierba nace pegada al suelo y no en las paredes, que el rastro sigue al jugador y se desvanece, que el destello es un pulso y no un brillo, que las cintas miran hacia donde vuelan, y la ESCOLTA entera —algunas y no todas, que rodean de verdad, y que vuelven solas cuando te vas—. 27 comprobaciones. |
+| `tools/TestEnjambre.tscn` | Test del sistema generativo, en dos mitades: el MODELO en seco —a pasos de dt fijo, minutos de simulacion en milisegundos— y la MANIFESTACION en vivo. Mide la respiracion caos↔orden, la perturbacion y su resincronizacion, el control sin acoplamiento, y que nadie rota ni un frame. 31 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
 | `tools/TestFase1.tscn` | Test funcional de la FSM. `godot --headless --path . tools/TestFase1.tscn` |
 | `src/core/DebugDraw.gd` | **Gizmos 3D en el mundo (F7).** Modo inmediato: `DebugDraw.esfera(...)`, `.cono(...)`, `.linea(...)`, `.rayo(...)`, `.caja(...)`, `.punto(...)`. Dibuja la hitbox que se consulta, el cono de vision y la ruta de cada enemigo, y las cuerdas con su radio. **Cuesta cero apagado**: toda entrada sale por `if not activo: return`. |
@@ -385,6 +412,93 @@ contra colosos. **Fase 3 CERRADA.**
   encadenado al **remate descendente** con el propio boton pesado
   (`AttackData.boton_cadena`), para que los dos botones sigan significando lo
   mismo dentro de un combo y fuera de el.
+
+**Sistema generativo (`src/generative/`).** Aparte del juego, con su propio banco
+(`tools/Jardin.tscn`). N agentes acoplados como osciladores de Kuramoto: cada uno
+nace con su frecuencia propia —eso es la personalidad, y no cambia nunca— y el ciclo
+del oscilador es lo UNICO que existe. De ese numero salen a la vez el color, la
+opacidad, la escala, el recorrido y el pitch; del desvio respecto al grupo salen la
+desaturacion y el volumen. Que todo cuelgue del mismo sitio es lo que hace que se
+lea como una cosa viva y no como cinco efectos sueltos.
+
+Cuatro cosas que lo definen y no se negocian:
+
+- **NO HAY ROTACION.** Ninguna criatura gira nunca; hay un guardia en modo debug que
+  lo reafirma cada frame. Sin giro, un cuerpo solo puede expresarse con donde esta,
+  cuanto ocupa y de que color es —y doce cuerpos girando a la vez son ilegibles—.
+- **La inestabilidad es UNA regla, no una maquina de estados:** el parametro de orden
+  realimenta el acoplamiento, con histeresis. Medido: sincroniza en 9.6 s, se
+  deshace en 19.6, y vuelve en 7.3. Respira y no termina nunca.
+- **El sonido es externo por encargo.** `Enjambre` publica `pitch` y `amplitud` por
+  agente y por frame y ahi acaba. No hay un solo `AudioStreamPlayer`.
+- **La cola es persecucion en cadena, no verlet.** El `Cordon` de la lanza cuelga
+  entre dos puntos y por eso usa verlet; esta va DETRAS, que es otro problema.
+
+El modelo no dibuja ni suena a proposito: es determinista y se puede afirmar cosas de
+el con un test —que es lo que hace `TestEnjambre`—, y el render no.
+
+**Parche 3.12 — dos bugs de movimiento y el MUNDO VIVO (`src/world/`).**
+
+Los dos bugs, con lo que se midio para encontrarlos:
+
+- **La Z estaba muerta estando adherido.** `GroupAttached` no llamaba a
+  `intentar_cuerda()`. Ver la ampliacion de la regla dura #13.
+- **El surf te pegaba a la pared.** El surf en si sale limpio —ocho caminos de
+  salida medidos en pista libre, los ocho obedeciendo, con el alabeo deshecho y la
+  capsula de pie—; lo que bloqueaba era el agarre automatico enganchandote al muro
+  contra el que terminabas la linea. Ver la ampliacion de la regla dura #20.
+
+Y la capa atmosferica. **Esta plantada en el Gym** —`Gym._claro()`, en
+(9, 0, -13), a dieciocho metros del spawn— y ademas tiene banco propio en
+`tools/Claro.tscn` para afinarla sin abrir una partida. Las dos cosas hacen falta:
+un sistema que solo existe en su banco es un sistema que nadie ve jugando, y
+entonces no esta puesto.
+
+- **Hierba en MultiMesh** (`src/world/Pasto.gd` + `src/art/shaders/hierba.gdshader`).
+  Es lo que `docs/07_SHADERS.md §4` ya tenia diseñado, implementado tal cual:
+  doblado cuadratico con la altura, `UV.y = 0` en la punta, ruido FBM y color por
+  instancia. **El viento es un CAMPO, no un parametro por parche**: vive en
+  `project.godot > shader_globals` y el shader lo evalua desde `TIME` y la posicion
+  de mundo, asi que dos parches separados por medio mapa sacan el mismo valor sin
+  hablar entre ellos. Y se APLASTA al pasar: doce huellas con su frescura, la 0 es
+  el jugador en vivo y las once restantes son el rastro, que se levanta solo.
+- **Bandada y luciernagas** (`src/world/Bandada.gd`, `Luciernagas.gd`). No traen
+  modelo propio: son dos manifestaciones mas del `Enjambre` de Kuramoto que ya
+  estaba medido. La bandada apretada o estirada segun `r`; las luciernagas
+  parpadeando todas a la vez o en desorden. `EnjambreTuning.a_ritmo()` las pone a
+  su velocidad —**cada magnitud por su potencia de `f`**: `ω` y `K` son 1/s, pero
+  `k_subida` y `k_bajada` son 1/s²—.
+- Y por eso el modelo pasa a **campo medio**: `(1/N)Σⱼ sin(θⱼ−θᵢ) ≡ r·sin(ψ−θᵢ)` es
+  una identidad exacta, no un promedio, y baja el coste de O(N²) a O(N). Con la
+  suma doble, 180 luciernagas costarian 32.400 senos por frame en GDScript.
+
+**Parche 3.13 — EL MARCAPASOS.** Kuramoto con forzamiento externo: un oscilador
+de fuera que tira de los agentes que lo tengan cerca. Una pieza, dos verbos.
+
+- **La bandada te ESCOLTA.** Te acercas y unas cuantas dejan el circuito y te
+  rodean en circulo; te vas y se sueltan y vuelven. No hay estado "escoltando" ni
+  transicion que programar: se mezclan las POSICIONES de dos curvas —el circuito y
+  la orbita— con un peso, y la fase sigue corriendo sin enterarse.
+- **"Algunas, no todas" no se programa, se deduce.** El criterio de enganche sale
+  de la propia ecuacion: en el marco que gira con el marcapasos,
+  `dφ/dt = (ωᵢ−Ω) − A·sin(φ)` tiene punto fijo **si y solo si `|ωᵢ − Ω| ≤ A`**.
+  Enganchan las que PUEDEN seguirle el ritmo.
+- **Y hace falta un SEGUNDO rasgo fijo: la `curiosidad`.** Medido: con la llamada
+  igual para todas, el marcapasos capturaba unas pocas, el acoplamiento del grupo
+  arrastraba al resto detras y a los treinta segundos escoltaban **las catorce**.
+  Es fisica correcta —un enjambre muy acoplado se mueve como una cosa— y es lo
+  contrario de lo que se busca. Con el rasgo: **7 de 14, estable**, y siempre las
+  mismas, que es mejor que un sorteo porque se aprende a reconocerlas.
+- **Quien se va deja de contar para el grupo.** El parametro de orden pesa cada
+  agente por `1 − enganche`. Sin eso la bandada persigue a sus propias escoltas.
+  Con `enganche = 0` es la formula de siempre: `TestEnjambre` sigue en 9.6 / 19.6 / 7.3.
+- **Las luciernagas son un ENJAMBRE, no 180 bichos.** La nube se APRIETA al
+  sincronizarse —mismo `r` que decide el parpadeo, otro canal— y cruzarlas las
+  desordena por delante de ti y se recomponen detras.
+- **Y la bandada era invisible.** `01_DIRECCION_ARTE §4.6` pide pajaros blancos
+  `#F2F0E6`; la niebla del juego es `#EFE8D8`. **El mismo color.** El blanco de la
+  referencia funciona contra los arcos oscuros; contra cielo abierto la silueta
+  tiene que ser MAS OSCURA que el fondo. Ahora es `lavanda_profundo`.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

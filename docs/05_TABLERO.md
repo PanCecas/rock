@@ -57,11 +57,62 @@ Cinco estados, y la diferencia entre ellos importa:
 | **El botón de la lanza no hacía NADA al arrancar** — mismo fallo: guardada caía en «recuperar», que se niega. La partida empieza guardada | `TestLanza` |
 | **El anclaje perseguía para siempre a un jugador que se aleja** — el retorno interpolaba contra una distancia recalculada cada frame | `TestLanza` |
 | **ZARANDEAR ENEMIGOS (opción 2)** — daga en carne, giro con el stick, estampido con daño en área escalado por la velocidad. El balanceo con los papeles invertidos: tú eres el ancla, el enemigo la masa | `TestEnemigos`, 6 chequeos |
-| **Las dagas son DOS** — `PlayerController.dagas` como lista, no dos campos. Un botón las reparte: tira mientras queda alguna, recoge cuando no | `TestLanza`, 2 chequeos |
-| **`lanza = mundo · daga = carne`** — la daga se clava en enemigos; la lanza los sigue atravesando. Un enemigo agarrado NO cuenta como punto de resortera | `TestEnemigos` · `TestLanza` 12/12 de resortera intactas |
+| **`lanza = mundo · daga = carne`, con matiz** — la daga se clava en enemigos, y la lanza tambien **en los agarrables**: atraviesa lo que no se puede zarandear. Asi se llega a dos presas con dos armas, sin una segunda daga | `TestEnemigos` · `TestLanza` |
+| **UNA daga, no dos** — dos armas iguales con el mismo boton obligaban a llevar la cuenta de cual estaba donde, y eso no es una decision: es contabilidad | `TestLanza` |
+| **EL ZARANDEO NO FUNCIONABA** — `intentar_cuerda()` abortaba entero si la LANZA no estaba fuera, asi que agarrar con la daga exigia haber tirado la lanza antes. El guardia de la lanza ahora solo manda sobre los verbos de la lanza | `TestEnemigos`, chequeo por el camino real |
+| **AGUA por derivadas analiticas** — suma de senos en octavas, normal desde ∂h/∂x y ∂h/∂z. Sin simulacion. El primer shader propio del proyecto | `TestVisual`, toma `agua` |
+| **Tres tomas del visual dejan de derivar** — el cordon (ya estaba), la postura agachada y el agua. Una referencia no puede fotografiar una animacion en curso | 3 pasadas a 0.000%, 0.035% |
 
-Jefe Kuramoto **documentado** en `project.md §5`. Documentar es el entregable; no
-se implementa.
+**SISTEMA GENERATIVO** (`src/generative/`), aparte del juego y con su propio banco:
+
+| | Verificado por |
+|---|---|
+| **El enjambre de Kuramoto** — N agentes, cada uno con su frecuencia propia. Reparto de fases por ángulo áureo: uniformes es un equilibrio del modelo y no sincroniza nunca | `TestEnjambre` |
+| **La inestabilidad, en UNA regla** — el orden realimenta el acoplamiento con histéresis. Medido: 9.6 s al orden, 19.6 al caos, 7.3 al orden otra vez. Respira y no termina | `TestEnjambre`, 4 chequeos |
+| **El control sin acoplamiento** — con las frecuencias a intervalos iguales, las fases se realinean solas cada 2π/δω y r sube casi a 1 sin haber sincronizado nada. Lo que separa la coincidencia del enganche es cuanto DURA: 1.2 s de racha contra 16.2 | `TestEnjambre`, 2 chequeos |
+| **Perturbar y resincronizar** — r 0.954 → 0.783 → 0.984. La sordera alarga la vuelta: desvío acumulado 0.353 contra 0.185 sin ella | `TestEnjambre`, 5 chequeos |
+| **NO HAY ROTACIÓN** — ni un frame, y si alguien le mete una a mano se la quita | `TestEnjambre`, 2 chequeos |
+| **Las Criaturas de Tela** — color, opacidad, escala, recorrido y pitch, todos colgando del MISMO número. El desvío desatura: al unísono el enjambre es un solo color latiendo | `TestEnjambre` · `TestVisual`, toma `enjambre` |
+| **La cola procedural** — persecución en cadena con restricción de distancia, retraso independiente del framerate | `TestEnjambre`, 3 chequeos |
+| **La cola nacía PLEGADA** — todos los nudos en el mismo punto deja la dirección de la restricción sin significado y la cadena se doblaba en zigzag: 1.17 m de cuerda ocupando 0.125. Nace estirada | `TestEnjambre` |
+| **Una criatura que desliza por UN eje adelanta a su propia cola** — va y vuelve por su rastro: 119 frames detrás contra 138 delante. Con un segundo eje al doble de frecuencia el recorrido es un ocho | `TestEnjambre`, con signo (regla dura #22) |
+
+El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
+es el sistema audiovisual, no un boss: comparten el modelo y nada más.
+
+### Parche 3.13 — el marcapasos
+
+| Qué | Cómo se comprueba |
+|---|---|
+| **Kuramoto con FORZAMIENTO externo** — un oscilador de fuera que tira de quien tenga cerca. `Enjambre.pedir_tiron()`, y caduca cada frame como `pedir_postura()` | `TestEnjambre` sigue en 31/31: sin tirón el modelo es idéntico |
+| **La bandada te ESCOLTA** — unas cuantas dejan el circuito y te rodean en círculo. No hay estado ni transición: se mezclan las posiciones de dos curvas con un peso | `TestMundoVivo`, 5 chequeos |
+| **"Algunas, no todas" sale de la ECUACIÓN** — engancha quien cumple `\|ωᵢ−Ω\| ≤ A`, y eso lo decide la frecuencia propia, que es la personalidad | `TestMundoVivo` — toda escolta cumple la condición |
+| **Y de un SEGUNDO rasgo fijo, la `curiosidad`** — sin él, el acoplamiento del grupo arrastraba al resto detrás de las primeras y a los 30 s escoltaban **las 14**. Con él: **7 de 14, estable**, y siempre las mismas | `TestMundoVivo` — curiosidad media 0.19 las que vienen contra 0.72 las que no |
+| **Quien se va deja de contar para el grupo** — el orden pesa por `1 − enganche`; si no, la bandada persigue a sus propias escoltas | `TestEnjambre` 31/31 sin cambios |
+| **Y vuelven solas** — la llamada se mide al TERRITORIO, no a cada criatura: una escolta orbita a 5 m de ti por definición y su distancia nunca sube. Medido: el jugador se iba a 90 m y dos se iban con él para siempre | `TestMundoVivo`, 2 chequeos |
+| **Luciérnagas = ENJAMBRE.** La nube se aprieta al sincronizarse: mismo `r` que decide el parpadeo, otro canal. Y cruzarlas las desordena, con techo de cadencia | `TestMundoVivo`, 3 chequeos |
+| **La bandada era INVISIBLE** — §4.6 pide blanco `#F2F0E6` y la niebla es `#EFE8D8`: el mismo color. Contra cielo abierto la silueta tiene que ser más oscura que el fondo | `TestVisual`, tomas `gym_general` y `claro` |
+| **La toma del claro no convergía** — el enjambre corre desde que entra en el árbol, así que `avanzar(11)` sumaba once segundos exactos sobre un punto de partida distinto cada vez. Se reinicia antes de congelar | `TestVisual` — 0.000% en dos pasadas |
+
+---
+
+### Parche 3.12 — dos bugs de movimiento y el mundo vivo
+
+| Qué | Cómo se comprueba |
+|---|---|
+| **La Z estaba MUERTA estando adherido** — `intentar_cuerda()` vivía en `Grounded` y en `Airborne` y no en `Attached`, que es justo donde viven los cuatro verbos de cuerda. Escalando o colgado de un canto no había ni balanceo, ni zip, ni resortera, ni zarandeo, y el síntoma era silencio | `TestLanza`, 2 chequeos por el camino de entrada real |
+| **`maneja_cuerda()`**, el guardia que hacía falta a la vez: sin él la resortera se rearmaba cada frame y no disparaba nunca | `TestLanza` — los 12 chequeos de resortera siguen verdes |
+| **El surf te PEGABA a la pared** — el agarre automático es para quien camina contra el muro, no para quien llega a 15 m/s. Medido: 4 de las 5 adherencias automáticas de 60 s de juego salían directamente de `Surf` | `TestFase2`, 2 chequeos: no engancha solo, y con `GRAB` sí |
+| **El surf en sí sale limpio** — ocho caminos de salida medidos en pista libre, los ocho obedeciendo la dirección nueva, con el alabeo a 0.0° y la cápsula de pie | medido con la matriz de salidas del 3.12 |
+| **EL CLARO, plantado en el Gym** — hierba, luciérnagas y bandada en (9, 0, −13), a 18 m del spawn. El sitio se eligió mirando: el primer intento caía a un metro de las rampas de calibración y una luciérnaga a dos metros de la cámara tapaba media toma (8.47% de diferencia) | `TestVisual` — `gym_general`, `postura_*` y `claro` regeneradas mirando el diff; las otras diez intactas |
+| **Hierba en MultiMesh con viento** — doblado cuadrático, `UV.y = 0` en la punta, ruido FBM y color por instancia. Lo que `07_SHADERS.md §4` ya tenía diseñado | `TestMundoVivo` · `TestVisual`, toma `claro` |
+| **El viento es un CAMPO, no un parámetro por parche** — `shader_globals` + `TIME` y posición de mundo: dos parches separados por medio mapa sacan el mismo valor sin coordinarse | `TestMundoVivo` — los cinco globales registrados |
+| **La hierba se aplasta y deja rastro** — doce huellas con su frescura; la 0 es el jugador en vivo, las once restantes se levantan solas | `TestMundoVivo`, 4 chequeos · `TestVisual` |
+| **Bandada de criaturas de tela** — apretada cuando el enjambre se ordena, estirada cuando se deshace: 151° de arco contra 325° | `TestMundoVivo`, 4 chequeos |
+| **Luciérnagas que parpadean juntas** — el destello es `pow(ciclo, 7)`, un pulso y no un brillo: ciclo medio 0.52 contra brillo medio 0.23 | `TestMundoVivo`, 4 chequeos |
+| **Kuramoto en CAMPO MEDIO** — `(1/N)Σ sin(θⱼ−θᵢ) ≡ r·sin(ψ−θᵢ)`, identidad exacta: O(N²) → O(N). Es lo que permite 180 luciérnagas con el modelo ya medido | `TestMundoVivo` — diferencia < 1e-5 en 300 pasos · `TestEnjambre` sigue dando 9.6 / 19.6 / 7.3 s |
+| **`a_ritmo()` escalaba mal** — `k_subida` y `k_bajada` son 1/s², no 1/s. A mitad de reloj el sistema sincronizaba en 8.6 s en vez de 19.2, ANTES que el normal | `TestMundoVivo` — razón 2.00 |
+| **Al servidor de render no se le pregunta el estado del juego** (regla dura #23) — `MultiMesh.get_instance_transform()` da la identidad en headless | `TestMundoVivo` — `perturbar_cerca` acierta la criatura pedida |
 
 ---
 
@@ -70,11 +121,13 @@ se implementa.
 | Suite | |
 |---|---|
 | `TestFase1` — FSM | **12/12** |
-| `TestFase2` — combate, postura, agua, escalada, paredes, combo pesado | **135/135** |
-| `TestEnemigos` — cono, carga, patrulla, arquetipos, zarandeo | **35/35** |
-| `TestLanza` — lanza, resortera y las dos dagas | **52/52** |
+| `TestFase2` — combate, postura, agua, escalada, paredes, combo pesado, adherencia | **137/137** |
+| `TestEnemigos` — cono, carga, patrulla, arquetipos, zarandeo | **36/36** |
+| `TestLanza` — lanza, resortera, la daga y la cuerda estando adherido | **53/53** |
 | `TestMenu` | **4/4** |
-| `TestVisual` | **11/11** |
+| `TestEnjambre` — modelo en seco y manifestación en vivo | **31/31** |
+| `TestMundoVivo` — hierba, luciérnagas, bandada y escolta | **27/27** |
+| `TestVisual` — 14 tomas, con el agua, el enjambre y el claro | **14/14** |
 | humo | 0 infracciones |
 
 ---
@@ -126,44 +179,50 @@ Ordenados por lo que más estorba para jugar.
 
 ## FALTA
 
+*Revisado y MEDIDO contra el código el 3.13. Lo que había aquí estaba desfasado en
+media docena de líneas: decía que no existía ni un shader propio (hay cuatro), que
+la perspectiva aérea estaba en 0 (está en 0.78) y que la hierba no existía.*
+
 **Deuda del roadmap (P0):**
-- Escala unificada de screen shake — hoy sale de ~15 sitios con valores a mano.
-- Audio mínimo — `content/audio/` está vacío. El multiplicador de juice más barato.
+- **Audio mínimo.** `content/audio/` sigue **vacío**, contado. Es el multiplicador
+  de juice más barato que queda: el enjambre ya publica `pitch` y `amplitud` por
+  agente y por frame esperando a que alguien los toque.
+- **Escala unificada de screen shake** — medido: **40 llamadas a
+  `EventBus.camara_shake.emit()`** con valores a mano repartidas por el código.
 - Sincronizar los números del roadmap con la realidad.
 
-**El look (P1) — nada de esto existe todavía.** Ver `docs/07_SHADERS.md`, que
-tiene la API verificada y las fuentes. Ordenado por rentabilidad:
-- **`fog_aerial_perspective ≈ 0.7`** — dos números, y es lo que más cambia la
-  imagen. Hoy está sin poner, o sea en 0.
-- Probar tonemap **AGX** contra el FILMIC actual.
-- **`banded_surface.gdshader`** — el shader de tres bandas con sombra tintada.
-  `find` devuelve **cero** shaders propios en el proyecto.
+**El look (P1).** Ver `docs/07_SHADERS.md`. Lo que YA está, medido:
+`perspectiva_aerea = 0.78` (paso 1 de §5, hecho), cuatro shaders propios
+—`agua`, `hierba`, `bandada`, `luciernaga`—, hierba en MultiMesh con viento e
+interacción, y fauna atmosférica. Lo que falta, por rentabilidad:
+- Probar tonemap **AGX** contra el `FILMIC` actual. Un número.
+- **`banded_surface.gdshader`** — el shader de tres bandas con sombra tintada. Es
+  EL look de ilustración y **no existe**: `find` devuelve cero.
 - Quad de pantalla: desaturación por profundidad + overlay de pinceladas a 12 fps.
-- Hierba en MultiMesh con viento.
+- LUT de corrección de color.
 
 **Contenido:**
+- **Fase 4: EL COLOSO.** Es el contenido real del juego y no está empezado. Las
+  piezas sí: `WeakPoint`, `ColosoMediano` escalable, `SurfaceContext` con marco
+  móvil, la lanza como asidero. Falta el bicho de verdad y su pelea.
 - **Ataques aéreos** — evaluados y con dirección propuesta en `project.md §8`.
   Medido: cinco de los seis son ataques de VIAJE, y `dive_attack`/`dive_pesado`
-  tienen la hitbox viva **120 frames**. De ahí sale la lectura de *Attack on
-  Titan*. **Pendiente de una decisión de diseño**, no de código: son seis `.tres`.
-- **La daga necesita su propio verbo** — propuesta en `project.md §7bis`. Hoy se
-  define por lo que NO hace (ni daña, ni es plataforma, ni se empuña): es la
-  lanza **menos** cosas, y un objeto definido por sus carencias no tiene
-  identidad. Propuesta: **lanza = mundo, daga = carne.**
-- **Clavar en carne y zarandear** — propuesta completa en `project.md §7`. La
-  lanza atraviesa a los enemigos **a propósito** (invariante de `SpearInFlight`,
-  con test), así que esto añade un tercer resultado al impacto, no arregla un
-  fallo. La física sale de piezas que ya existen: `Ragdoll` + la restricción
-  analítica de `StateSpearSwing`, con los papeles invertidos.
-- **Remate aéreo 3+1** — pesado en el aire: tres golpes que persiguen
-  recalculando cada frame y un cuarto que estampa. **Desbloqueado**: el apuntado
-  en 3D ya existe. Ojo con `velocidad_maxima = 22`, que recorta en silencio, y
-  con `cd_dive`, que estrangula la cadena.
-- `SquadDirector` — grupos de enemigos.
+  tienen la hitbox viva **120 frames**. **Pendiente de una decisión de diseño**,
+  no de código: son seis `.tres`.
+- **Remate aéreo 3+1** — pesado en el aire: tres golpes que persiguen recalculando
+  cada frame y un cuarto que estampa. **Desbloqueado**: el apuntado en 3D ya
+  existe. Ojo con `velocidad_maxima = 22`, que recorta en silencio, y con
+  `cd_dive`, que estrangula la cadena.
+- `SquadDirector` — grupos de enemigos. No existe.
 - IA acuática.
-- Fase 4: el coloso.
 
 **Herramientas y entorno:**
+- **La respuesta Blender → Godot / MCP**, pendiente desde el parche 3.10 y lo
+  único de aquella lista que no se contestó.
+- La cámara cinematográfica: `CameraTuning`, `PhantomDirector` y `PhantomRig.tscn`
+  están escritos y **sin cablear**. El obstáculo está medido: Phantom se queda con
+  el `transform` de la cámara y todo el movimiento deduce la dirección de
+  `player.camara()`, así que cablearlo tal cual pone 18 tests en rojo.
 - Plantilla de nivel vacía + comprobador de geometría importada.
 - Guía de uso de ProtonScatter.
 
