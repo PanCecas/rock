@@ -475,6 +475,25 @@ jam.panel.abrir()                   # sin acercarse
 de la pentatónica —la tónica y la quinta— y el círculo los demás. Sin eso son
 quince cuadrados iguales y no hay dónde apoyar la vista.
 
+**Cada celda dice su nota**, en solfeo y con octava (SOL3, LA4), y la hoja lleva
+la nota *raíz* de cada músico como cabecera de columna. Y hay dos mandos:
+
+| | |
+|---|---|
+| **COMPÁS** −/+ | El único número de la estación que se juzga de oído. Reescala el modelo entero en vivo (`cambiar_compas`), sin devolver el corro al caos. |
+| **TONO** ‹/› | Recorre los siete naturales. **Cambiar de tono no estropea lo escrito**: la hoja dice *quién* toca y *cuándo*, no en qué altura. |
+
+**Y mientras la hoja está abierta, no se juega.** Ni mover, ni atacar, ni girar la
+cámara. No es una pausa —el mundo sigue corriendo, que para eso se abre— sino un
+corte de input en el `InputBuffer`; ver la regla dura #26. Si montas otra interfaz
+modal, emite `EventBus.interfaz_modal` y ya está: no toques al jugador.
+
+**Los ocho se distinguen entre sí** por dos canales que no mienten: el **tamaño**
+sale de su registro (cuerpo grande, sonido grave) y el **color** de su grado en la
+escala, que es el mismo número que decide si la rejilla lo pinta rombo o círculo.
+El brillo queda libre para el golpe. Si cambias `registro_grados`, las tres cosas
+se mueven juntas — salen todas de `grado_de()`.
+
 **Colgar algo de cada golpe** —una luz, una vibración, una partícula— sin tocar el
 sintetizador:
 

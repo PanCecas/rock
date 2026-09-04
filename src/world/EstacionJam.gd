@@ -103,8 +103,12 @@ const TECLAS := TECLAS_COL * TECLAS_FIL
 ## La escala, en semitonos desde la tonica. Por defecto la PENTATONICA MAYOR
 ## —0, 2, 4, 7, 9—, que es la que no puede sonar mal consigo misma.
 @export var escala: PackedInt32Array = PackedInt32Array([0, 2, 4, 7, 9])
-## Tonica, en Hz. 174.61 es un fa3, el mismo `pitch_base` del `EnjambreTuning`.
-@export_range(40.0, 900.0, 0.01) var tonica: float = 174.61
+## Tonica, en Hz. 196.00 es un SOL3.
+##
+## `EnjambreTuning.pitch_base` vale 174.61 —un fa— y aqui no se hereda a
+## proposito: la altura del corro es una decision de escena, igual que cuantos
+## musicos hay. El panel la cambia en vivo con los siete nombres naturales.
+@export_range(40.0, 900.0, 0.01) var tonica: float = 196.00
 ## Cuantos GRADOS DE LA ESCALA separan el puesto mas grave del mas agudo.
 ##
 ## En grados y no en semitonos, y eso no es una comodidad: es lo que hace que la
@@ -121,8 +125,22 @@ const TECLAS := TECLAS_COL * TECLAS_FIL
 @export_range(-60.0, 12.0, 0.5) var volumen_db: float = -9.0
 ## A cuantos metros deja de oirse.
 @export_range(2.0, 200.0, 1.0) var alcance: float = 26.0
-## Cuanto tarda una nota en apagarse, en segundos.
+## Cuanto tarda una nota en apagarse, en segundos. Es la de referencia: las graves
+## duran mas y las agudas menos (ver `decaimiento_grave`).
 @export_range(0.05, 6.0, 0.05) var nota_duracion: float = 1.1
+## ATAQUE de la nota, en segundos.
+##
+## Sin el, la onda arranca de golpe en una amplitud cualquiera y eso es una
+## discontinuidad: se oye como un CHASQUIDO delante de cada nota, y con ocho
+## puestos atacando cinco veces por segundo el corro entero sonaba a estatica. Ocho
+## milisegundos no se perciben como un ataque lento y quitan el clic entero.
+@export_range(0.0, 0.2, 0.001) var nota_ataque: float = 0.008
+## Cuanto mas RESUENAN las graves que las agudas, como exponente.
+##
+## En un instrumento de verdad la cuerda larga vibra mas tiempo, y sin esto los
+## ocho registros se apagaban a la vez: el bajo sonaba tan corto como el agudo y el
+## corro no tenia suelo. A 0.6, el puesto grave dura casi el doble que el agudo.
+@export_range(0.0, 2.0, 0.05) var decaimiento_grave: float = 0.6
 ## Mezcla del segundo y tercer armonico. A cero es un seno puro —una flauta sosa—;
 ## subirlo le pone madera. Es lo unico que separa esto de un pitido.
 @export_range(0.0, 1.0, 0.01) var armonicos: float = 0.38
@@ -337,11 +355,21 @@ func _sonar(hz: float, vol: float, pan: float) -> void:
 		if a < mas_floja:
 			mas_floja = a
 			libre = v
+	# LAS GRAVES RESUENAN MAS. Una cuerda larga vibra mas tiempo, y sin esto los
+	# ocho registros se apagaban a la vez y el corro no tenia suelo.
+	var dur: float = nota_duracion * pow(
+		clampf(tonica / maxf(hz, 1.0), 0.35, 3.0), decaimiento_grave)
+	var subida: int = maxi(1, int(nota_ataque * mix_rate))
 	_voces[libre] = {
 		"paso": hz * float(_tabla.size()) / maxf(mix_rate, 1.0),
 		"cursor": 0.0,
-		"amp": vol,
-		"caida": pow(0.001, 1.0 / maxf(nota_duracion * mix_rate, 1.0)),
+		"amp": 0.0,
+		"tope": vol,
+		# El ataque es LINEAL y en muestras: un incremento fijo por muestra, que es
+		# una suma en el bucle interno. Una curva costaria una potencia por muestra
+		# y no se distinguiria en ocho milisegundos.
+		"sube": float(vol) / float(subida),
+		"caida": pow(0.001, 1.0 / maxf(dur * mix_rate, 1.0)),
 		"izq": clampf(0.5 - pan * 0.5, 0.0, 1.0),
 		"der": clampf(0.5 + pan * 0.5, 0.0, 1.0),
 	}
@@ -369,6 +397,8 @@ func nota_de(i: int) -> float:
 	if asientos > 1:
 		paso = int(roundf(float(registro_grados) * float(i) / float(asientos - 1)))
 	var idx := paso + grado
+	# NOTA: `grado_de()` recalcula solo el `paso`; los dos salen de la misma linea
+	# a proposito. Si esto cambia, cambia alli.
 	var semis: int = escala[posmod(idx, n)] + 12 * (idx / n)
 	return tonica * pow(2.0, float(semis) / 12.0)
 
@@ -453,6 +483,79 @@ func pulsar_tecla(t: int) -> void:
 	_sonar(nota_de_tecla(t), 0.8, 0.0)
 
 
+## CAMBIAR EL COMPAS EN VIVO, sin reconstruir nada.
+##
+## Poner el mismo modelo a otra velocidad es un cambio de variable `t' = t·f`, asi
+## que cada magnitud escala por SU potencia de `f` —`a_ritmo()` lo tiene escrito y
+## el test lo vigila—. Aqui se aplica sobre el tuning que ya esta corriendo, no
+## sobre uno nuevo: el enjambre guarda la referencia, y darle otro objeto le
+## borraria las fases y devolveria el corro al caos cada vez que muevas el tempo.
+func cambiar_compas(segundos: float) -> void:
+	var nuevo: float = clampf(segundos, 0.2, 8.0)
+	var f: float = compas_segundos / nuevo
+	if is_equal_approx(f, 1.0):
+		return
+	compas_segundos = nuevo
+	tuning.frecuencia_base *= f
+	tuning.dispersion *= f
+	tuning.k_min *= f
+	tuning.k_max *= f
+	tuning.k_subida *= f * f
+	tuning.k_bajada *= f * f
+	tuning.perturbacion_duracion /= f
+	tuning.enganche_suavizado /= f
+	# Las frecuencias YA REPARTIDAS tambien: viven en el enjambre desde
+	# `reiniciar()`, y dejarlas sin escalar seria tener el acoplamiento a un ritmo
+	# y a los agentes a otro.
+	if enjambre != null:
+		for i in enjambre.omegas.size():
+			enjambre.omegas[i] *= f
+		enjambre.marcapasos_omega = tuning.frecuencia_base
+
+
+## EN QUE GRADO DE LA ESCALA cae el musico `i`.
+##
+## Publico, y sale del MISMO reparto que usa `nota_de()`. De aqui cuelgan su
+## tamano, su color y la forma que le pinta la rejilla: cuatro sitios preguntando
+## lo mismo con cuatro cuentas distintas es como se llega a que el corro diga una
+## cosa y la hoja otra.
+func grado_de(i: int) -> int:
+	if asientos <= 1 or escala.is_empty():
+		return 0
+	var paso: int = int(roundf(
+		float(registro_grados) * float(i) / float(maxi(asientos - 1, 1))))
+	return posmod(paso, escala.size())
+
+
+## LA NOTA RAIZ del musico `i`: la que suena cuando su ciclo esta abajo.
+##
+## Es su IDENTIDAD —lo que no cambia—, frente a `nota_de()`, que sube y baja con la
+## fase. La rejilla la usa como cabecera de columna: "esta columna es el SOL2".
+func nota_raiz_de(i: int) -> float:
+	if escala.is_empty():
+		return tonica
+	var n := escala.size()
+	var paso: int = 0
+	if asientos > 1:
+		paso = int(roundf(float(registro_grados) * float(i) / float(asientos - 1)))
+	var semis: int = escala[posmod(paso, n)] + 12 * (paso / n)
+	return tonica * pow(2.0, float(semis) / 12.0)
+
+
+## EL NOMBRE DE UNA FRECUENCIA, en solfeo y con octava: "SOL3", "LA#4".
+##
+## En solfeo y no en cifrado americano porque es lo que se pidio y lo que se lee
+## sin traducir. Se calcula desde LA4 = 440 Hz, que es la referencia estandar, y no
+## desde la tonica: asi el nombre sigue siendo cierto cuando se cambia de tono.
+func nombre_de_nota(hz: float) -> String:
+	const NOMBRES := ["DO", "DO#", "RE", "RE#", "MI", "FA",
+		"FA#", "SOL", "SOL#", "LA", "LA#", "SI"]
+	if hz <= 0.0:
+		return "—"
+	var midi: int = int(roundf(69.0 + 12.0 * log(hz / 440.0) / log(2.0)))
+	return "%s%d" % [NOMBRES[posmod(midi, 12)], midi / 12 - 1]
+
+
 ## Cuantos musicos llevan TU compas ahora mismo.
 func enganchados(umbral: float = 0.6) -> int:
 	return enjambre.enganchados(umbral) if enjambre != null else 0
@@ -530,7 +633,10 @@ func _animar(delta: float) -> void:
 			# convergen, el corro entero es un solo color latiendo — y eso es ver la
 			# sincronizacion sin que nadie ponga un numero en pantalla.
 			var junto: float = 1.0 - enjambre.desvio_de(i)
-			var c: Color = palette.piedra_sombra.lerp(palette.lavanda_gris, junto)
+			# EL DESVIO DESATURA SOBRE SU PROPIO COLOR, no sobre uno comun: cada
+			# musico se apaga hacia la sombra y vuelve al SUYO, asi que se le sigue
+			# reconociendo mientras va a su aire.
+			var c: Color = palette.piedra_sombra.lerp(_color_de_grado(grado_de(i)), junto)
 			_mat_musico[i].albedo_color = c.lerp(palette.oro_palido, _brillos[i])
 			_mat_musico[i].emission_energy_multiplier = _brillos[i] * 1.6
 
@@ -554,6 +660,8 @@ func _montar_corro() -> void:
 
 	for i in asientos:
 		var p := _sitio_local(i)
+		# 0 en el grave, 1 en el agudo. De aqui cuelga el TAMANO.
+		var t: float = float(i) / float(maxi(asientos - 1, 1))
 
 		var taburete := MeshInstance3D.new()
 		taburete.name = "Taburete%d" % i
@@ -566,23 +674,43 @@ func _montar_corro() -> void:
 		taburete.position = Vector3(p.x, alto_taburete * 0.5, p.z)
 		add_child(taburete)
 
-		# CAPSULA GRIS, regla dura #7: el feel se prueba sin una sola animacion.
-		# Cuando haya musicos de Blender, esta malla es lo unico que se cambia.
+		# CADA MUSICO SE DISTINGUE DE LOS DEMAS, y por dos canales que no mienten:
+		#
+		#   TAMANO  <- su registro. El bajo es grande y el agudo pequeno, que es la
+		#              lectura fisica del tono: cuerpo grande, sonido grave. Un corro
+		#              de ocho identicos no dice quien esta tocando que.
+		#   COLOR   <- su GRADO en la escala, el mismo numero que decide si la
+		#              rejilla lo pinta rombo o circulo. Asi el corro y la hoja se
+		#              pueden mirar a la vez sin traducir.
+		#
+		# El BRILLO queda libre para el golpe, que es lo unico que cambia por frame.
+		var cuerpo: float = lerpf(1.30, 0.72, t)
 		var musico := MeshInstance3D.new()
 		musico.name = "Musico%d" % i
 		var caps := CapsuleMesh.new()
-		caps.radius = 0.26
-		caps.height = 1.05
+		caps.radius = 0.26 * cuerpo
+		caps.height = 1.05 * cuerpo
 		musico.mesh = caps
-		var mat := _mat(palette.lavanda_gris, 0.8)
+		var mat := _mat(_color_de_grado(grado_de(i)), 0.8)
 		mat.emission_enabled = true
 		mat.emission = palette.oro_palido
 		mat.emission_energy_multiplier = 0.0
 		musico.material_override = mat
-		musico.position = p + Vector3.UP * 0.52
+		musico.position = p + Vector3.UP * (0.5 * 1.05 * cuerpo)
 		add_child(musico)
 		_musicos.append(musico)
 		_mat_musico.append(mat)
+
+		# Y EL INSTRUMENTO delante, que es lo que se ve de lejos: la silueta cambia
+		# aunque el color se pierda en la niebla. Tres formas y no ocho, porque lo
+		# que hay que distinguir son los GRADOS, no los individuos.
+		var inst := MeshInstance3D.new()
+		inst.name = "Instrumento%d" % i
+		inst.mesh = _malla_instrumento(grado_de(i), cuerpo)
+		inst.material_override = _mat(palette.piedra_sombra, 0.75)
+		var hacia := (Vector3(-p.x, 0.0, -p.z)).normalized() * 0.42
+		inst.position = p + hacia + Vector3.UP * 0.34
+		add_child(inst)
 
 	# POOL DE VOCES, y mas que asientos: una fila de la hoja con seis musicos
 	# marcados son seis ataques en el mismo frame, y encima el teclado puede estar
@@ -590,6 +718,40 @@ func _montar_corro() -> void:
 	_voces.resize(asientos * 2 + 4)
 	for v in _voces.size():
 		_voces[v] = {}
+
+
+## Un color por grado de la escala, todos de la Palette (regla dura #9). Cinco
+## tonos que se distinguen entre si SIN salirse del croma que la regla #8 permite
+## a un elemento de entorno.
+func _color_de_grado(g: int) -> Color:
+	var tonos: Array[Color] = [
+		palette.lavanda_gris, palette.crema_medio, palette.piedra_media,
+		palette.lavanda_profundo, palette.caliza_sol,
+	]
+	return tonos[posmod(g, tonos.size())]
+
+
+## La silueta del instrumento. Tres formas repartidas por grado.
+func _malla_instrumento(g: int, escala_cuerpo: float) -> Mesh:
+	match posmod(g, 3):
+		0:
+			# Tambor: ancho y bajo.
+			var t := CylinderMesh.new()
+			t.top_radius = 0.20 * escala_cuerpo
+			t.bottom_radius = 0.22 * escala_cuerpo
+			t.height = 0.26 * escala_cuerpo
+			return t
+		1:
+			# Caja de cuerda: plana y alta.
+			var c := BoxMesh.new()
+			c.size = Vector3(0.30, 0.44, 0.10) * escala_cuerpo
+			return c
+		_:
+			# Cuenco: una esfera achatada.
+			var e := SphereMesh.new()
+			e.radius = 0.17 * escala_cuerpo
+			e.height = 0.22 * escala_cuerpo
+			return e
 
 
 func _mat(color: Color, rugosidad: float) -> StandardMaterial3D:
@@ -656,7 +818,8 @@ func _rellenar_audio() -> void:
 			if v.is_empty():
 				continue
 			var amp: float = v["amp"]
-			if amp < 0.0008:
+			var sube: float = v["sube"]
+			if sube <= 0.0 and amp < 0.0008:
 				_voces[i] = {}
 				continue
 			var cur: float = v["cursor"]
@@ -664,7 +827,15 @@ func _rellenar_audio() -> void:
 			izq += m * float(v["izq"])
 			der += m * float(v["der"])
 			v["cursor"] = fposmod(cur + float(v["paso"]), float(n))
-			v["amp"] = amp * float(v["caida"])
+			if sube > 0.0:
+				# Rampa de ataque: sube hasta el tope y a partir de ahi decae.
+				amp += sube
+				if amp >= float(v["tope"]):
+					amp = v["tope"]
+					v["sube"] = 0.0
+				v["amp"] = amp
+			else:
+				v["amp"] = amp * float(v["caida"])
 		# Techo blando: ocho voces al unisono se pasan de 1.0 y eso recorta feo.
 		buf[s] = Vector2(clampf(izq, -1.0, 1.0), clampf(der, -1.0, 1.0))
 	_playback.push_buffer(buf)

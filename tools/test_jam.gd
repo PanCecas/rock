@@ -44,6 +44,7 @@ func _ready() -> void:
 	_la_hoja()
 	_la_sincronizacion()
 	_el_marcapasos()
+	_el_modo_hoja()
 	_informe()
 
 
@@ -484,6 +485,55 @@ func _el_marcapasos() -> void:
 	_avanzar(25.0)
 	_afirmar(_e.enganchados() == 0, "te vas y se sueltan",
 		"%d enganchados 25 s despues de irte" % _e.enganchados())
+
+
+# --- 6) El modo hoja: escribir NO es jugar ------------------------------------
+
+## MIENTRAS ESCRIBES NO JUEGAS, y hay que probarlo por el camino real.
+##
+## La hoja NO pausa el arbol —se abre para escuchar el corro, y con el juego
+## congelado dejaria de sonar—, asi que el jugador se queda vivo debajo. Si nadie
+## le corta el input, escribir una nota es tambien correr, saltar y atacar.
+##
+## Se prueba abriendo el PANEL, no emitiendo la senal a mano: lo que hay que
+## afirmar es que abrir la interfaz desconecta al jugador, no que la senal haga lo
+## que dice. Un `InputBuffer` de verdad escucha, igual que el del jugador.
+func _el_modo_hoja() -> void:
+	var buffer := InputBuffer.new()
+	add_child(buffer)
+	Input.action_press(&"move_forward")
+	Input.action_press(&"attack_light")
+
+	_afirmar(not buffer.silenciado and buffer.move_vector().length() > 0.5,
+		"con la hoja cerrada el jugador obedece",
+		"move_vector %.2f con W pulsada" % buffer.move_vector().length())
+
+	_e.panel.abrir()
+	var mueve := buffer.move_vector().length()
+	var sostiene := buffer.is_held(&"move_forward")
+	_afirmar(buffer.silenciado and mueve < 0.001 and not sostiene,
+		"ABRIR LA HOJA desconecta al jugador, con las teclas pulsadas",
+		"move_vector %.2f, is_held %s; se corta en el `InputBuffer` porque la
+" % [
+			mueve, str(sostiene)] +
+		"        regla dura #4 garantiza que es el UNICO que habla con Input: ahi
+" +
+		"        se apagan de una vez el movimiento, los ataques, el salto y la lanza")
+
+	# Y LO GUARDADO NO SE EJECUTA AL CERRAR. Una pulsacion que estaba en el buffer
+	# justo antes de abrir saldria al volver, y eso se siente como un fantasma.
+	var fantasma := buffer.consume(&"attack_light")
+	_afirmar(not fantasma, "y el buffer se vacia, sin pulsaciones fantasma",
+		"nada guardado sobrevive a abrir la interfaz")
+
+	_e.panel.cerrar()
+	_afirmar(not buffer.silenciado and buffer.move_vector().length() > 0.5,
+		"y cerrarla se lo devuelve",
+		"move_vector %.2f" % buffer.move_vector().length())
+
+	Input.action_release(&"move_forward")
+	Input.action_release(&"attack_light")
+	buffer.queue_free()
 
 
 # --- Informe ------------------------------------------------------------------

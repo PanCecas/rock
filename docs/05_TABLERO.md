@@ -80,6 +80,21 @@ Cinco estados, y la diferencia entre ellos importa:
 El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
 es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 
+### Parche 3.16 — pulido de la jam: notas, agentes y modo escritura
+
+| Qué | Cómo se comprueba |
+|---|---|
+| **Escribir no es jugar** — abrir la hoja desconecta al jugador: ni mueve, ni ataca, ni gira la cámara. No es una pausa; el mundo sigue corriendo porque la hoja se abre para escuchar | `TestJam`, 4 chequeos por el camino real (`panel.abrir()`) · `TestFase2`, 2 más con el cuerpo |
+| **Y se corta donde se LEE** — en el `InputBuffer`, que la regla #4 ya garantiza que es el único que habla con `Input`. Ahí se apagan de una vez movimiento, ataques, salto, lanza y cuerda | Regla dura #26 |
+| **Sin pulsaciones fantasma** — el buffer se vacía al cortar: lo guardado justo antes de abrir se ejecutaría al cerrar | `TestJam` |
+| **Las notas dejaban un CHASQUIDO** — ataque instantáneo es una discontinuidad, y con ocho puestos atacando cinco veces por segundo el corro sonaba a estática. 8 ms de rampa | A oído en `tools/Jam.tscn` |
+| **Y las graves resuenan más** — como una cuerda larga. Sin eso los ocho registros se apagaban a la vez y el corro no tenía suelo | `decaimiento_grave` = 0.6: el bajo dura casi el doble que el agudo |
+| **Los ocho se distinguen** — el TAMAÑO sale del registro, el COLOR del grado en la escala (el mismo que decide rombo o círculo en la rejilla), y el brillo queda libre para el golpe. Más instrumento delante: tres siluetas | `TestVisual` 14/14 sin tocar baselines: están demasiado lejos en las 14 tomas |
+| **Los nombres de las notas** — solfeo con octava en cada tecla, y la nota raíz de cada músico como cabecera de columna. Sin nombres la rejilla es bonita y muda | En pantalla: SOL LA SI RE MI, la pentatónica de sol |
+| **Compás y tono en vivo** — `cambiar_compas()` reescala el modelo entero con las potencias de `a_ritmo()` sobre el tuning que ya corre, sin devolver el corro al caos | `TestJam` 33/33 |
+
+---
+
 ### Parche 3.15 — la estación de jam y su hoja de notas
 
 | Qué | Cómo se comprueba |

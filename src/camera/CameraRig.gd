@@ -48,6 +48,10 @@ var _adelanto_suave: Vector3 = Vector3.ZERO
 ## Cuanto se esta levantando el rig para no hundir la camara en el agua. Se guarda
 ## entre frames para que suba y baje suave en vez de dar un salto al entrar.
 var _alza_agua: float = 0.0
+## Con una interfaz modal abierta, la camara no obedece. El raton ya estaba
+## cubierto —solo gira con `MOUSE_MODE_CAPTURED`— pero el STICK no: con el mando,
+## mirar la hoja de notas movia el encuadre por debajo.
+var _modal: bool = false
 
 
 func _ready() -> void:
@@ -72,6 +76,7 @@ func _ready() -> void:
 	EventBus.player_state_changed.connect(_on_estado_cambiado)
 	EventBus.camara_realinear.connect(alinear_a)
 	EventBus.camara_shake.connect(sacudir)
+	EventBus.interfaz_modal.connect(func(abierta: bool) -> void: _modal = abierta)
 
 	_p = (MODOS[&"Explore"] as Dictionary).duplicate()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -103,7 +108,8 @@ func _process(delta: float) -> void:
 	if objetivo == null:
 		return
 
-	var stick := Input.get_vector(&"look_left", &"look_right", &"look_up", &"look_down")
+	var stick := (Vector2.ZERO if _modal else
+		Input.get_vector(&"look_left", &"look_right", &"look_up", &"look_down"))
 	if not stick.is_zero_approx():
 		_yaw -= stick.x * 180.0 * delta
 		_pitch -= stick.y * 130.0 * delta

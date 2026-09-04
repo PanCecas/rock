@@ -47,3 +47,16 @@ signal camara_realinear(direccion: Vector3, fuerza: float)
 signal palette_changed(palette: Palette)
 signal tuning_reloaded()
 signal debug_toggled(visible: bool)
+
+## UNA INTERFAZ MODAL SE ABRE O SE CIERRA.
+##
+## No es lo mismo que `GameState.set_pausa()`: pausar CONGELA el arbol, y hay
+## interfaces que necesitan que el mundo siga vivo debajo —la hoja de notas se
+## abre precisamente para escuchar el corro—. Lo que hace falta decir es otra
+## cosa: **el jugador esta escribiendo, no jugando**.
+##
+## Se anuncia aqui y no se acuerda entre dos nodos porque son al menos tres los
+## que tienen que enterarse: el `InputBuffer` deja de leer, la camara deja de
+## girar, y manana sera el HUD o el soft-lock. Un flag pasado a mano de la
+## interfaz al jugador se queda corto en cuanto aparezca el cuarto.
+signal interfaz_modal(abierta: bool)

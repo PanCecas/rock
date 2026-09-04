@@ -1313,10 +1313,46 @@ func _construir_guion() -> void:
 					(_g.global_position - _p.global_position).normalized())),
 			func() -> bool: return _velocidad_cadaver() > 10.0,
 			"rematar con el pesado debe lanzar un cadaver fisico con fuerza"),
+
+		# --- 3.16: ESCRIBIR NO ES JUGAR --------------------------------------
+		# Una interfaz modal —la hoja de notas de la jam— NO pausa el arbol: el
+		# mundo tiene que seguir vivo debajo. Eso deja al jugador corriendo por
+		# ahi mientras escribes, y aqui se comprueba la consecuencia de verdad,
+		# con el cuerpo: pulsar W con la interfaz abierta no lo mueve un metro.
+		#
+		# `TestJam` ya prueba que abrir el panel silencia el `InputBuffer`; esto
+		# prueba lo que le pasa al PERSONAJE, que es lo que se reporto.
+		_chequeo_("con una interfaz modal abierta el jugador no se mueve", 0.8,
+			func() -> void:
+				_soltar_todo()
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle")
+				_marca = _p.global_position
+				EventBus.interfaz_modal.emit(true)
+				Input.action_press(&"move_forward")
+				Input.action_press(&"attack_light"),
+			func() -> bool:
+				# EN HORIZONTAL. Colocado a 0.3 m del suelo el cuerpo CAE, y esos
+				# 30 cm de caida contaban como desplazamiento: la comprobacion
+				# salia roja con el jugador perfectamente quieto.
+				return (_plano(_p.global_position - _marca) < 0.25
+					and _p.fsm.actual.categoria != &"Combat"),
+			"si el input no se corta, escribir una nota es tambien correr y atacar"),
+
+		_chequeo_("y cerrarla se lo devuelve", 0.6,
+			func() -> void:
+				EventBus.interfaz_modal.emit(false)
+				_marca = _p.global_position,
+			func() -> bool: return _plano(_p.global_position - _marca) > 0.6,
+			"un corte que no se levanta es peor que no cortar"),
 	]
 
 
 var _vida_antes: float = 0.0
+## Donde estaba el jugador al empezar la medida. Para las dos comprobaciones del
+## modo hoja: lo que se mide es CUANTO se ha movido, no donde esta.
+var _marca: Vector3 = Vector3.ZERO
 var _esperar_frames: int = 0
 var _esperar_ataque: int = 0
 var _esperar_salto: int = 0
@@ -1502,6 +1538,11 @@ func _informe() -> void:
 
 func _paso_(nombre: String, dur: float, hacer: Callable, espera: StringName) -> Dictionary:
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "espera": espera}
+
+
+## Cuanto se ha movido en HORIZONTAL. Lo vertical es la gravedad, no el jugador.
+func _plano(v: Vector3) -> float:
+	return Vector2(v.x, v.z).length()
 
 
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:

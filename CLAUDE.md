@@ -200,6 +200,21 @@ plataformas en movimiento.
 	**el validador ya lo estaba diciendo** —`Palette.validar()` avisaba de `carmesi`
 	y `oro_palido` en cada arranque y el aviso se leyo como ruido—. Un warning que
 	se ignora por costumbre es un test que no existe.
+26. **UNA INTERFAZ MODAL NO ES UNA PAUSA, Y SE CORTA DONDE SE LEE.** Son dos
+	cosas distintas y el proyecto necesita las dos: `MenuControles` PAUSA el arbol
+	—se abre para pararse a leerlo—, pero la hoja de notas de la jam se abre para
+	ESCUCHAR el corro, asi que el mundo tiene que seguir corriendo debajo. Y eso
+	deja al jugador vivo: sin cortarle el input, escribir una nota es tambien
+	correr, saltar y atacar.
+	El corte va en el `InputBuffer` y en ningun otro sitio, porque la regla dura #4
+	ya garantiza que es el UNICO que habla con `Input`: apagarlo ahi apaga de una
+	vez el movimiento, los ataques, el salto, la lanza y la cuerda —y lo seguira
+	haciendo con el verbo que nazca manana—. Cualquier otro sitio es una lista que
+	hay que acordarse de ampliar. Se anuncia con `EventBus.interfaz_modal` y no con
+	un flag pasado a mano, porque ya son dos los que escuchan —el buffer y la
+	camara, que con mando seguia girando— y manana sera el HUD.
+	**Y al cortar se VACIA el buffer**: una pulsacion guardada justo antes de abrir
+	se ejecutaria al cerrar, y eso se siente como un fantasma.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
@@ -304,6 +319,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Hoja de notas** (junto a la jam) | **E** | Y |
 | | *rejilla de rombos y circulos: una columna por musico, una fila por paso* | |
+| | *mientras esta abierta NO se juega: ni mover, ni atacar, ni girar la camara* | |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · **F7 gizmos 3D** · F5 tuning · F6 paleta · F4 respawn arena | |
 
@@ -564,12 +580,33 @@ que `Enjambre` publicaba desde el 3.11 sin oyente. Esta plantada en el Gym
   audicion—, y la HOJA es **una columna por musico y una fila por paso**, asi que
   marcar una celda es decirle a ESE de los ocho que ataque en ESE momento.
   · **El cabezal corre con la fase MEDIA del enjambre**, no con un temporizador
-    propio. Eso fusiona las dos mitades en vez de ponerlas una al lado de la otra:
-    cuanto mas juntos van los ocho, mejor tocan lo que escribiste. Con la hoja
-    vacia vuelven a improvisar solos — no hay modo que elegir, lo dice el contenido.
+	propio. Eso fusiona las dos mitades en vez de ponerlas una al lado de la otra:
+	cuanto mas juntos van los ocho, mejor tocan lo que escribiste. Con la hoja
+	vacia vuelven a improvisar solos — no hay modo que elegir, lo dice el contenido.
   · **El rombo y el circulo no son decoracion**: el rombo marca los grados PILARES
-    de la pentatonica —tonica y quinta— y el circulo los demas. Sin eso son
-    cuadrados iguales y no hay donde apoyar la vista.
+	de la pentatonica —tonica y quinta— y el circulo los demas. Sin eso son
+	cuadrados iguales y no hay donde apoyar la vista.
+  · **Cada celda dice su NOTA**, en solfeo y con octava —SOL3, LA4—, y la hoja
+	lleva la nota RAIZ de cada musico como cabecera de columna. Sin nombres la
+	rejilla es bonita y muda: se pulsa a ciegas y no hay forma de volver a
+	encontrar la nota que gusto.
+  · **Dos mandos**: el COMPAS, que es el unico numero que se juzga a oido, y el
+	TONO, que recorre los siete naturales. Cambiar de tono no estropea lo escrito
+	—la hoja dice QUIEN toca y CUANDO, no en que altura—.
+  · **Y ESCRIBIR NO ES JUGAR**: abrir la hoja desconecta al jugador (regla #26).
+
+**Parche 3.16 — pulido de la estacion.** Las notas dejan de chasquear —tenian un
+ataque instantaneo, que es una discontinuidad, y con ocho puestos atacando cinco
+veces por segundo el corro sonaba a estatica—; ocho milisegundos de rampa lo
+quitan entero. Y **las graves resuenan mas que las agudas**, como una cuerda
+larga: sin eso los ocho registros se apagaban a la vez y el corro no tenia suelo.
+
+Los ocho musicos **se distinguen ahora**, y por canales que no mienten: el TAMANO
+sale de su registro —cuerpo grande, sonido grave— y el COLOR de su grado en la
+escala, que es el mismo numero que decide si la rejilla lo pinta rombo o circulo.
+Asi el corro y la hoja se pueden mirar a la vez sin traducir. El brillo queda
+libre para el golpe. Y llevan instrumento delante: tres siluetas por grado, que es
+lo que se ve de lejos cuando el color se pierde en la niebla.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
