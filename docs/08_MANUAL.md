@@ -403,6 +403,64 @@ Tres cosas que hay que saber o no funciona:
 
 ---
 
+### 8.2 La estación de jam — el enjambre que SUENA
+
+Ocho puestos en corro tocando juntos, estilo *Sky*. Es la tercera manifestación
+del mismo Kuramoto (bandada, luciérnagas, esto) y la primera que usa el `pitch` y
+la `amplitud` que `Enjambre` llevaba dos parches publicando sin que nadie
+escuchara.
+
+**Ponerla en una escena** — dos líneas, como todo lo demás:
+
+```gdscript
+var jam := EstacionJam.new()
+add_child(jam)
+jam.global_position = Vector3(-16, 0, 14)
+jam.seguir(jugador)          # opcional: sin esto adopta al del EventBus
+```
+
+Ya está: se monta el corro, se sintetiza el sonido y empieza a tocar. **No lleva
+colisión** —ni la tarima, ni los taburetes, ni los músicos— a propósito: es
+escenografía con audio, y un obstáculo en medio del Gym rompería las medidas de
+movimiento sin avisar.
+
+**Qué se oye, y por qué está bien sin tocar nada:**
+
+| | |
+|---|---|
+| `compas_segundos` | Lo único que se juzga de oído. 1.7 s por vuelta de cada músico. |
+| `golpes_por_compas` | A 1 suena a campanas; a 2 empieza a sonar a banda. |
+| `escala` | **Pentatónica mayor.** Es la regla entera: sin segundas menores ni tritonos, ocho voces sin director no pueden chocar. Cámbiala y pierdes esa garantía. |
+| `registro_grados` | Cuántos GRADOS separan el puesto grave del agudo. **En grados, no en semitonos** — ver abajo. |
+| `fuerza_llamada` | La `A` de `\|ωᵢ − Ω\| ≤ A`. Tiene que ser comparable a la dispersión de frecuencias o te siguen los ocho. |
+| `fraccion_curiosa` | Qué mitad del corro te presta atención. |
+
+**Dos trampas que ya costaron sangre aquí:**
+
+1. **El registro va en grados de la escala, no en semitonos.** Repartir 24
+   semitonos entre ocho puestos da saltos de 3.43; redondeando salen notas que no
+   están en la pentatónica, y sumarles un grado bueno da una nota mala. Medido:
+   **143 de 480 combinaciones caían fuera**. Contando en grados no hay forma de
+   salirse — la escala pasa de ser una intención a ser una invariante.
+2. **Si la llamada es fuerte, te siguen todos.** Exactamente el mismo fallo que
+   tuvo la escolta de la bandada. Aquí hicieron falta las dos cosas: bajar `A`
+   hasta el orden de la dispersión, y la `curiosidad` como segundo rasgo fijo,
+   porque el acoplamiento del grupo arrastra detrás a quien por sí solo no podría
+   seguirte.
+
+**Colgar algo de cada golpe** —una luz, una vibración, una partícula— sin tocar el
+sintetizador:
+
+```gdscript
+jam.golpe.connect(func(puesto: int, hz: float) -> void:
+    ...)
+```
+
+Es la misma idea que `Enjambre.ciclo`: el sistema publica hechos y quien quiera
+que los use.
+
+---
+
 ## 9. Con tus modelos de Blender
 
 `06_INTEGRACION_3D.md` cubre el pipeline: formato, ajustes del exportador, escala,
@@ -417,6 +475,7 @@ mapa de *dónde encaja cada modelo* en lo que ya está construido.
 | **Brizna de hierba** | `Pasto.malla` (`@export var malla: Mesh`) | `UV.y = 1` en la base, `0` en la punta. Origen en la base |
 | **Criatura voladora** | `Bandada.malla` (`@export var malla: Mesh`) | tumbada hacia **−Z**. `UV.y = 0` cabeza, `1` cola |
 | **Criatura de tela** | `Visual` de `src/generative/CriaturaTela.tscn` | ninguno — **pero no la rotes nunca** |
+| **Músico de la jam** | `Musico0..7` de `EstacionJam` (hoy cápsulas) | sentado, origen en la base del taburete. **No lo rotes**: la estación solo mueve posición, escala y color |
 | **Luciérnaga** | no lo modeles | es un billboard de dos gradientes. Un modelo se vería peor y costaría más |
 | **Escenario** | ver `06 §6` | tres condiciones, y son las únicas |
 

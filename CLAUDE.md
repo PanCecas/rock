@@ -349,6 +349,8 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA, la daga y que la Z existe estando adherido. 53 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
+| `tools/Jam.tscn` | **El banco de la estacion de musica.** Ocho puestos en corro tocando el mismo Kuramoto: se ESCUCHA, no se mira. Acercate y unos cuantos te cogen el compas · **1..8** golpea un puesto a mano · **R** al caos · **F7** dibuja el orden y quien te sigue. `godot --path . --resolution 960x540 tools/Jam.tscn` |
+| `tools/TestJam.tscn` | Test de la estacion: que las notas caen en la pentatonica siempre, que el compas es el pedido, que al unisono los ataques se juntan (41 ms contra 59) y que el marcapasos engancha a algunos y no a todos. 22 comprobaciones. |
 | `tools/TestMundoVivo.tscn` | Test de la capa atmosferica, en las mismas dos mitades que `TestEnjambre`: en SECO comprueba que el campo medio es una identidad exacta y que `a_ritmo()` es un cambio de reloj; EN VIVO, que la hierba nace pegada al suelo y no en las paredes, que el rastro sigue al jugador y se desvanece, que el destello es un pulso y no un brillo, que las cintas miran hacia donde vuelan, y la ESCOLTA entera —algunas y no todas, que rodean de verdad, y que vuelven solas cuando te vas—. 27 comprobaciones. |
 | `tools/TestEnjambre.tscn` | Test del sistema generativo, en dos mitades: el MODELO en seco —a pasos de dt fijo, minutos de simulacion en milisegundos— y la MANIFESTACION en vivo. Mide la respiracion caos↔orden, la perturbacion y su resincronizacion, el control sin acoplamiento, y que nadie rota ni un frame. 31 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
@@ -529,6 +531,31 @@ de fuera que tira de los agentes que lo tengan cerca. Una pieza, dos verbos.
   `#F2F0E6`; la niebla del juego es `#EFE8D8`. **El mismo color.** El blanco de la
   referencia funciona contra los arcos oscuros; contra cielo abierto la silueta
   tiene que ser MAS OSCURA que el fondo. Ahora es `lavanda_profundo`.
+
+**Parche 3.15 — LA ESTACION DE JAM** (`src/world/EstacionJam.gd`). Ocho puestos en
+corro que tocan juntos, estilo *Sky*. Tercera manifestacion del mismo Kuramoto
+—bandada, luciernagas, esto— y la primera que CONSUME el `pitch` y la `amplitud`
+que `Enjambre` publicaba desde el 3.11 sin oyente. Esta plantada en el Gym
+(-16, 0, 14) y ademas tiene banco propio en `tools/Jam.tscn`.
+
+- **El instrumento es el PUESTO, no el agente.** El agente trae el ritmo y el
+  puesto el registro. Sin eso el unisono seria una sola voz mas fuerte y no un
+  acorde.
+- **PENTATONICA, y esa es la regla entera.** Sin segundas menores ni tritonos,
+  ocho voces sin director no pueden chocar — es lo que en *Sky* deja tocar juntos
+  a dos desconocidos. Y por eso **el registro se cuenta en GRADOS de la escala y
+  no en semitonos**: repartir 24 semitonos entre ocho puestos da saltos de 3.43 y
+  redondeando salen notas de fuera. Medido, **143 de 480 combinaciones**.
+- **Notas, no un zumbido.** La fase del Kuramoto no modula un tono continuo: ES el
+  pulso. Sincronizarse se OYE como que se juntan los ataques —41 ms al vecino con
+  r>0.82 contra 59 con r<0.40—, y **se aprieta un 30% y no un 90% a proposito**:
+  el acoplamiento se suelta en `orden_saciedad` = 0.86, asi que el corro nunca
+  cuadra del todo. Una banda perfectamente cuadrada suena a secuenciador.
+- **Un solo altavoz, no ocho**, y sintesis por tabla de onda. Ocho
+  `AudioStreamPlayer3D` son ocho buffers que rellenar desde GDScript cada frame
+  para una cosa que siempre se escucha como un conjunto.
+- **Sin colision.** Tarima, taburetes y musicos son escenografia: un obstaculo en
+  medio del Gym rompe las medidas de movimiento sin avisar.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.

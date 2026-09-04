@@ -80,6 +80,24 @@ Cinco estados, y la diferencia entre ellos importa:
 El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
 es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 
+### Parche 3.15 — la estación de jam
+
+| Qué | Cómo se comprueba |
+|---|---|
+| **Ocho puestos en corro que tocan juntos**, estilo *Sky*. Tercera manifestación del mismo Kuramoto —bandada, luciérnagas, esto— y la primera que consume el `pitch`/`amplitud` que `Enjambre` publicaba desde el 3.11 sin oyente | `TestJam`, 22 comprobaciones |
+| **El instrumento es el PUESTO, no el agente** — el agente trae el ritmo, el puesto el registro. Sin eso el unísono sería una sola voz más fuerte, no un acorde | `TestJam` — 220 Hz el grave, 880 el agudo, dos octavas justas |
+| **Pentatónica, y es la regla entera** — sin segundas menores ni tritonos, ocho voces sin director no pueden chocar. Por eso no hace falta un director | `TestJam` — 480 combinaciones de puesto y ciclo, **0 fuera de la escala** |
+| **Y el registro va en GRADOS, no en semitonos** — repartir 24 semitonos entre ocho puestos da saltos de 3.43, y redondeando salen notas de fuera: sumar un grado bueno a un registro malo da una nota mala | Nació roja: **143 de 480** caían fuera |
+| **Notas, no un zumbido** — el puesto golpea cuando su fase cruza una subdivisión del compás. La fase no modula un tono: ES el pulso | `TestJam` — 290 ataques en 30 s contra ~282 esperados |
+| **Al unísono los ataques se JUNTAN** — 41 ms al vecino con r>0.82 contra 59 con r<0.40. Se aprieta un 30% y no un 90% **a propósito**: el acoplamiento se suelta en 0.86, así que el corro nunca cuadra del todo | `TestJam`, y costó tres métricas: contar racimos y contar compañía daban 1.43 vs 1.36 y 62% vs 52% — ciertos e inútiles |
+| **Y los desviados cantan más flojo** — es lo que convierte el orden en volumen: disperso un murmullo, al unísono un acorde | `TestJam` — factor 0.44 el más desviado contra 0.97 el más centrado |
+| **El jugador es el marcapasos** — te acercas y algunos te cogen el compás. Misma pieza que la escolta de la bandada | `TestJam` — 3 de 8, y 0 con el visitante a 400 m |
+| **Y hicieron falta LAS DOS cosas** — bajar `A` al orden de la dispersión (a 1.1 enganchaban los ocho) **y** la `curiosidad`, porque el acoplamiento del grupo arrastra detrás a quien solo no podría | `TestJam` — curiosidad media 0.24 los que vienen contra 0.52 los que no |
+| **Un solo altavoz, no ocho** — la estación es el instrumento; la mezcla ocurre antes. Síntesis por tabla de onda: ~2.900 vueltas de bucle por frame en vez de 5.900 `sin()` | `TestJam` — se monta sin tarjeta de sonido (driver Dummy) |
+| **Y no lleva colisión** — tarima, taburetes y músicos son escenografía: un obstáculo en medio del Gym rompería las medidas de movimiento sin avisar | `TestFase1` 12/12 y `MedirMovimiento` sin cambios |
+
+---
+
 ### Parche 3.14 — control total del movimiento, y la cámara fuera del agua
 
 | Qué | Cómo se comprueba |
@@ -201,8 +219,11 @@ media docena de líneas: decía que no existía ni un shader propio (hay cuatro)
 la perspectiva aérea estaba en 0 (está en 0.78) y que la hierba no existía.*
 
 **Deuda del roadmap (P0):**
-- **Audio mínimo.** `content/audio/` sigue **vacío**, contado. Es el multiplicador
-  de juice más barato que queda: el enjambre ya publica `pitch` y `amplitud` por
+- **Audio mínimo.** `content/audio/` sigue **vacío**, contado: no hay un solo
+  sample en el proyecto, y golpes, pasos y aterrizajes siguen mudos. Lo que SÍ
+  suena desde el 3.15 es la estación de jam, y suena **sintetizado** —tabla de
+  onda, sin ficheros—, así que cierra el encargo del enjambre pero no este punto.
+  Sigue siendo el multiplicador de juice más barato que queda: el enjambre publica `pitch` y `amplitud` por
   agente y por frame esperando a que alguien los toque.
 - **Escala unificada de screen shake** — medido: **40 llamadas a
   `EventBus.camara_shake.emit()`** con valores a mano repartidas por el código.

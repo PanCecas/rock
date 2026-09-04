@@ -36,6 +36,8 @@ extends Node3D
 ## EL CLARO: hierba con viento e interaccion, luciernagas y bandada. Se planta en
 ## el Gym para que el mundo vivo se vea JUGANDO y no solo en su banco.
 @export var con_claro: bool = true
+## ¿Se monta la ESTACION DE JAM? Ver `_jam()`.
+@export var con_jam: bool = true
 ## Donde se planta y cuanto ocupa.
 ##
 ## El sitio se eligio MIRANDO, y el primer intento —(-10, 0, -30)— lo tumbo el
@@ -51,6 +53,10 @@ extends Node3D
 ## con la decoracion.
 @export var claro_centro: Vector3 = Vector3(9.0, 0.0, -13.0)
 @export var claro_lado: float = 12.0
+## Donde se planta el corro de musicos. Al otro lado del spawn que el claro, para
+## que se puedan oir por separado: dos sistemas que respiran encima del mismo sitio
+## se estorban al juzgarlos.
+@export var jam_centro: Vector3 = Vector3(-16.0, 0.0, 14.0)
 
 const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
 const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
@@ -62,6 +68,7 @@ const ANCLAJE := preload("res://src/weapons/Anclaje.tscn")
 const PASTO := preload("res://src/world/Pasto.gd")
 const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
 const BANDADA := preload("res://src/world/Bandada.gd")
+const ESTACION_JAM := preload("res://src/world/EstacionJam.gd")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -102,6 +109,7 @@ func construir() -> void:
 	_tunel()
 	_piscina()
 	_claro()
+	_jam()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -583,6 +591,25 @@ func _piscina() -> void:
 	agua.position = centro + Vector3(0, (alto - 0.5) * 0.5, 0)
 
 	_etiqueta("ESTANQUE — clavate desde la torre", centro + Vector3(0, 0.06, ancho * 0.5 + 2.5))
+
+
+## LA ESTACION DE JAM: ocho puestos en corro que tocan juntos.
+##
+## Vive AQUI y no solo en `tools/Jam.tscn` por la misma razon que el claro: un
+## sistema que solo existe en su banco es un sistema que nadie ve jugando, y
+## entonces no esta puesto. A dieciseis metros del spawn y al otro lado que el
+## claro, para que se oiga sola.
+func _jam() -> void:
+	if not con_jam or Engine.is_editor_hint():
+		return
+	_etiqueta("LA JAM — acercate y algunos te cogeran el compas",
+		jam_centro + Vector3(0.0, 0.06, 6.0))
+
+	var e := ESTACION_JAM.new()
+	e.name = "EstacionJam"
+	e.palette = palette
+	_raiz.add_child(e)
+	e.global_position = jam_centro
 
 
 # --- Utilidades --------------------------------------------------------------
