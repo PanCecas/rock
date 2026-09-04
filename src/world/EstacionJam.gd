@@ -62,6 +62,31 @@ const TECLAS_COL := 5
 const TECLAS_FIL := 3
 const TECLAS := TECLAS_COL * TECLAS_FIL
 
+## LAS TRES FAMILIAS del corro. El orden importa: es el mismo que usan la silueta
+## del instrumento y el color, porque los tres salen de `grado_de()`.
+enum Familia {PIANO, GUITARRA, VIENTO}
+const NOMBRE_FAMILIA := ["PIANO", "GUIT", "VIENTO"]
+
+## EL ESPECTRO DE CADA FAMILIA: amplitud de cada armonico, del 1 en adelante.
+##
+## Es media identidad del instrumento. La otra media —y la que mas se oye— es la
+## ENVOLVENTE: lo que separa un viento de una cuerda no es tanto que armonicos
+## tenga como que **el viento arranca despacio y se sostiene**, mientras que un
+## piano y una guitarra atacan de golpe y decaen sin parar. Un mismo espectro con
+## las dos envolventes ya suena a dos instrumentos; dos espectros con la misma
+## envolvente suenan al mismo instrumento con otro filtro.
+const ESPECTRO := [
+	# PIANO: cuerpo, armonicos cayendo como 1/n. Nada exotico — es lo que hace
+	# que se lea como "nota de teclado" y no como un pitido.
+	[1.0, 0.55, 0.34, 0.19, 0.11, 0.06, 0.035],
+	# GUITARRA: mas brillo arriba. Una cuerda pulsada tiene mucho mas contenido
+	# agudo que una percutida, y es lo que le da el "tang" del pulgar.
+	[1.0, 0.72, 0.52, 0.40, 0.30, 0.22, 0.16, 0.11],
+	# VIENTO: casi un seno, con el TERCER armonico marcado y los pares hundidos.
+	# Es el espectro de un tubo tapado, y suena a flauta sin necesidad de ruido.
+	[1.0, 0.07, 0.30, 0.05, 0.12, 0.03],
+]
+
 
 @export var palette: Palette
 ## El modelo. Vacio = se construye uno al compas de `compas_segundos`.
@@ -135,6 +160,21 @@ const TECLAS := TECLAS_COL * TECLAS_FIL
 ## puestos atacando cinco veces por segundo el corro entero sonaba a estatica. Ocho
 ## milisegundos no se perciben como un ataque lento y quitan el clic entero.
 @export_range(0.0, 0.2, 0.001) var nota_ataque: float = 0.008
+## ATAQUE del viento, en segundos. Cien veces mas lento que el de una cuerda a
+## proposito: el aire tarda en llenar el tubo, y ESO es lo que se oye como
+## "instrumento de viento" antes que cualquier armonico.
+@export_range(0.0, 0.6, 0.005) var viento_ataque: float = 0.09
+## Cuanto SOSTIENE el viento antes de empezar a caer, en segundos. Un piano no
+## sostiene: golpea y decae. Un viento se mantiene mientras hay aire.
+@export_range(0.0, 2.0, 0.01) var viento_sostener: float = 0.32
+## Multiplicadores de duracion por familia. La guitarra se apaga antes que el
+## piano —una cuerda pulsada pierde energia mas rapido que uno de tres metros—.
+@export_range(0.2, 3.0, 0.05) var dur_piano: float = 1.25
+@export_range(0.2, 3.0, 0.05) var dur_guitarra: float = 0.85
+@export_range(0.2, 3.0, 0.05) var dur_viento: float = 0.55
+## Con que instrumento suena el TECLADO de la hoja. El piano por defecto: es el
+## timbre mas neutro para probar una nota y volver a encontrarla.
+@export var familia_teclado: Familia = Familia.PIANO
 ## Cuanto mas RESUENAN las graves que las agudas, como exponente.
 ##
 ## En un instrumento de verdad la cuerda larga vibra mas tiempo, y sin esto los
@@ -180,6 +220,8 @@ var _jugador: Node3D
 var _reproductor: AudioStreamPlayer3D
 var _playback: AudioStreamGeneratorPlayback
 var _tabla: PackedFloat32Array = []
+## Una tabla de onda por familia. Ver `ESPECTRO`.
+var _tablas: Array[PackedFloat32Array] = []
 ## Una voz por asiento: nota sonando, o apagada.
 var _voces: Array[Dictionary] = []
 ## COPIA DE ESTE LADO de donde esta cada musico y cuanto brilla. Regla dura #23:
@@ -335,7 +377,7 @@ func tocar(i: int) -> void:
 	var pan: float = 0.0
 	if asientos > 1:
 		pan = sin(TAU * float(i) / float(asientos)) * ancho_estereo
-	_sonar(hz, vol, pan)
+	_sonar(hz, vol, pan, familia_de(i))
 
 
 ## Mete una nota en la mezcla, cogiendo una VOZ del pool.
@@ -343,7 +385,7 @@ func tocar(i: int) -> void:
 ## El pool es comun a los musicos y al teclado: probar una tecla mientras el corro
 ## toca no le roba la voz a nadie ni monta un segundo sintetizador. Cuando no queda
 ## ninguna libre se pisa la mas floja, que es la que menos se va a echar de menos.
-func _sonar(hz: float, vol: float, pan: float) -> void:
+func _sonar(hz: float, vol: float, pan: float, familia: int = Familia.PIANO) -> void:
 	var libre := 0
 	var mas_floja := 9.0
 	for v in _voces.size():
@@ -355,20 +397,40 @@ func _sonar(hz: float, vol: float, pan: float) -> void:
 		if a < mas_floja:
 			mas_floja = a
 			libre = v
+	var f: int = clampi(familia, 0, _tablas.size() - 1)
 	# LAS GRAVES RESUENAN MAS. Una cuerda larga vibra mas tiempo, y sin esto los
 	# ocho registros se apagaban a la vez y el corro no tenia suelo.
 	var dur: float = nota_duracion * pow(
 		clampf(tonica / maxf(hz, 1.0), 0.35, 3.0), decaimiento_grave)
-	var subida: int = maxi(1, int(nota_ataque * mix_rate))
+	var ataque := nota_ataque
+	var sostener := 0.0
+	match f:
+		Familia.PIANO:
+			dur *= dur_piano
+		Familia.GUITARRA:
+			# La guitarra ataca AUN mas seco que el piano: el martillo tiene fieltro
+			# y el dedo no.
+			ataque *= 0.4
+			dur *= dur_guitarra
+		Familia.VIENTO:
+			ataque = viento_ataque
+			sostener = viento_sostener
+			dur *= dur_viento
+	var subida: int = maxi(1, int(ataque * mix_rate))
+	var tabla: PackedFloat32Array = _tablas[f]
 	_voces[libre] = {
-		"paso": hz * float(_tabla.size()) / maxf(mix_rate, 1.0),
+		"paso": hz * float(tabla.size()) / maxf(mix_rate, 1.0),
 		"cursor": 0.0,
 		"amp": 0.0,
 		"tope": vol,
+		"tabla": f,
 		# El ataque es LINEAL y en muestras: un incremento fijo por muestra, que es
 		# una suma en el bucle interno. Una curva costaria una potencia por muestra
 		# y no se distinguiria en ocho milisegundos.
 		"sube": float(vol) / float(subida),
+		# MESETA. Solo el viento la tiene, y es la mitad de lo que lo identifica:
+		# muestras sonando al tope antes de empezar a caer.
+		"meseta": float(sostener * mix_rate),
 		"caida": pow(0.001, 1.0 / maxf(dur * mix_rate, 1.0)),
 		"izq": clampf(0.5 - pan * 0.5, 0.0, 1.0),
 		"der": clampf(0.5 + pan * 0.5, 0.0, 1.0),
@@ -480,7 +542,7 @@ func nota_de_tecla(t: int) -> float:
 
 ## Toca una tecla AHORA. Es la audicion: suena y no escribe nada.
 func pulsar_tecla(t: int) -> void:
-	_sonar(nota_de_tecla(t), 0.8, 0.0)
+	_sonar(nota_de_tecla(t), 0.8, 0.0, familia_teclado)
 
 
 ## CAMBIAR EL COMPAS EN VIVO, sin reconstruir nada.
@@ -540,6 +602,32 @@ func nota_raiz_de(i: int) -> float:
 		paso = int(roundf(float(registro_grados) * float(i) / float(asientos - 1)))
 	var semis: int = escala[posmod(paso, n)] + 12 * (paso / n)
 	return tonica * pow(2.0, float(semis) / 12.0)
+
+
+## QUE INSTRUMENTO TOCA el musico `i`.
+##
+## SALE DEL PUESTO, no del grado, y esto costo una vuelta. Colgarlo de `grado_de()`
+## era mas ordenado sobre el papel —un solo numero para el color, la silueta y el
+## timbre— pero el reparto que produce es malo: medido, los ocho puestos daban
+## **PIANO, GUIT, PIANO, GUIT, GUIT, VIENTO, GUIT, PIANO**, o sea cuatro guitarras
+## y un solo viento. Una banda no es un sorteo con sesgo.
+##
+## Asi que son DOS criterios y cada uno dice una cosa distinta:
+##
+##   grado en la escala  -> el COLOR, y el rombo o circulo de la rejilla. Es el
+##                          papel MUSICAL: donde apoya el acorde.
+##   puesto en el corro  -> el INSTRUMENTO, y por tanto su silueta. Es quien es.
+##
+## Que sean dos no contradice la regla de "un solo criterio": la regla prohibe dos
+## numeros contestando la MISMA pregunta, y aqui contestan dos preguntas que no se
+## parecen. Lo que si esta prohibido es que la silueta salga de uno y el sonido del
+## otro — por eso `_malla_instrumento()` recibe la familia, no el grado.
+func familia_de(i: int) -> int:
+	return posmod(i, ESPECTRO.size())
+
+
+func nombre_de_familia(i: int) -> String:
+	return NOMBRE_FAMILIA[familia_de(i)]
 
 
 ## EL NOMBRE DE UNA FRECUENCIA, en solfeo y con octava: "SOL3", "LA#4".
@@ -706,7 +794,7 @@ func _montar_corro() -> void:
 		# que hay que distinguir son los GRADOS, no los individuos.
 		var inst := MeshInstance3D.new()
 		inst.name = "Instrumento%d" % i
-		inst.mesh = _malla_instrumento(grado_de(i), cuerpo)
+		inst.mesh = _malla_instrumento(familia_de(i), cuerpo)
 		inst.material_override = _mat(palette.piedra_sombra, 0.75)
 		var hacia := (Vector3(-p.x, 0.0, -p.z)).normalized() * 0.42
 		inst.position = p + hacia + Vector3.UP * 0.34
@@ -731,26 +819,30 @@ func _color_de_grado(g: int) -> Color:
 	return tonos[posmod(g, tonos.size())]
 
 
-## La silueta del instrumento. Tres formas repartidas por grado.
-func _malla_instrumento(g: int, escala_cuerpo: float) -> Mesh:
-	match posmod(g, 3):
-		0:
-			# Tambor: ancho y bajo.
-			var t := CylinderMesh.new()
-			t.top_radius = 0.20 * escala_cuerpo
-			t.bottom_radius = 0.22 * escala_cuerpo
-			t.height = 0.26 * escala_cuerpo
+## LA SILUETA DEL INSTRUMENTO, y cada una es la de lo que suena.
+##
+## No son tres formas decorativas repartidas: el que suena a piano lleva un cajon
+## de teclado, el de guitarra una caja con mastil y el de viento un tubo. De lejos,
+## cuando el color se pierde en la niebla, la silueta sigue diciendo que vas a oir.
+func _malla_instrumento(familia: int, escala_cuerpo: float) -> Mesh:
+	match posmod(familia, ESPECTRO.size()):
+		Familia.PIANO:
+			# Cajon de teclado: ancho, plano y horizontal.
+			var t := BoxMesh.new()
+			t.size = Vector3(0.52, 0.12, 0.24) * escala_cuerpo
 			return t
-		1:
-			# Caja de cuerda: plana y alta.
+		Familia.GUITARRA:
+			# Caja de cuerda: plana y alta, de canto.
 			var c := BoxMesh.new()
-			c.size = Vector3(0.30, 0.44, 0.10) * escala_cuerpo
+			c.size = Vector3(0.30, 0.46, 0.09) * escala_cuerpo
 			return c
 		_:
-			# Cuenco: una esfera achatada.
-			var e := SphereMesh.new()
-			e.radius = 0.17 * escala_cuerpo
-			e.height = 0.22 * escala_cuerpo
+			# Tubo: fino y vertical. Es la silueta que mas se distingue de las otras
+			# dos a treinta metros, y por eso se la queda el viento.
+			var e := CylinderMesh.new()
+			e.top_radius = 0.055 * escala_cuerpo
+			e.bottom_radius = 0.075 * escala_cuerpo
+			e.height = 0.62 * escala_cuerpo
 			return e
 
 
@@ -771,13 +863,29 @@ func _mat(color: Color, rugosidad: float) -> StandardMaterial3D:
 ## indice en un array, y el resultado es identico.
 func _montar_tabla() -> void:
 	const N := 1024
-	_tabla.resize(N)
-	for i in N:
-		var f := TAU * float(i) / float(N)
-		# Segundo y tercer armonico. Un seno puro es una flauta de juguete; con
-		# esto suena a algo golpeado.
-		var v := sin(f) + armonicos * 0.5 * sin(f * 2.0) + armonicos * 0.25 * sin(f * 3.0)
-		_tabla[i] = v / (1.0 + armonicos * 0.75)
+	_tablas.clear()
+	for fam in ESPECTRO.size():
+		var espectro: Array = ESPECTRO[fam]
+		var t := PackedFloat32Array()
+		t.resize(N)
+		# Se normaliza por la SUMA de amplitudes y no por el pico real: el pico de
+		# una suma de senos depende de las fases y calcularlo costaria otra pasada.
+		# Por la suma es una cota superior, asi que nunca satura — a cambio las
+		# familias con muchos armonicos salen un pelin mas flojas, que es justo lo
+		# que hace falta para que la guitarra no se coma al viento.
+		var suma := 0.0
+		for a in espectro:
+			suma += absf(float(a))
+		for i in N:
+			var f := TAU * float(i) / float(N)
+			var v := 0.0
+			for n in espectro.size():
+				v += float(espectro[n]) * sin(f * float(n + 1))
+			t[i] = v / maxf(suma, 0.001)
+		_tablas.append(t)
+	# `_tabla` sigue existiendo y apunta a la primera: es lo que mira el test para
+	# saber que el sintetizador se monto, y no merece un cambio de contrato.
+	_tabla = _tablas[0]
 
 
 func _montar_audio() -> void:
@@ -807,7 +915,7 @@ func _rellenar_audio() -> void:
 	var libres := _playback.get_frames_available()
 	if libres <= 0:
 		return
-	var n := _tabla.size()
+	var n := _tablas[0].size()
 	var buf := PackedVector2Array()
 	buf.resize(libres)
 	for s in libres:
@@ -823,17 +931,22 @@ func _rellenar_audio() -> void:
 				_voces[i] = {}
 				continue
 			var cur: float = v["cursor"]
-			var m: float = _tabla[int(cur) % n] * amp
+			var tabla: PackedFloat32Array = _tablas[int(v["tabla"])]
+			var m: float = tabla[int(cur) % n] * amp
 			izq += m * float(v["izq"])
 			der += m * float(v["der"])
 			v["cursor"] = fposmod(cur + float(v["paso"]), float(n))
 			if sube > 0.0:
-				# Rampa de ataque: sube hasta el tope y a partir de ahi decae.
+				# Rampa de ataque: sube hasta el tope y a partir de ahi, meseta.
 				amp += sube
 				if amp >= float(v["tope"]):
 					amp = v["tope"]
 					v["sube"] = 0.0
 				v["amp"] = amp
+			elif v["meseta"] > 0.0:
+				# MESETA: el viento se sostiene. Solo tiene que descontar muestras;
+				# la amplitud ya esta en su tope.
+				v["meseta"] = float(v["meseta"]) - 1.0
 			else:
 				v["amp"] = amp * float(v["caida"])
 		# Techo blando: ocho voces al unisono se pasan de 1.0 y eso recorta feo.

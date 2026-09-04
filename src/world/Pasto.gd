@@ -1,3 +1,4 @@
+@tool
 class_name Pasto
 extends Node3D
 ## CAMPO DE HIERBA en MultiMesh, con viento e interaccion.
@@ -28,31 +29,61 @@ const SHADER := preload("res://src/art/shaders/hierba.gdshader")
 
 @export var palette: Palette
 ## Lado del parche, en metros. Se siembra centrado en el nodo.
-@export var area: Vector2 = Vector2(26.0, 26.0)
+@export var area: Vector2 = Vector2(26.0, 26.0):
+	set(v):
+		area = v
+		_pedir_rehacer()
 ## Briznas por metro cuadrado. Es EL numero de coste: todo lo demas es constante.
-@export_range(0.5, 120.0, 0.5) var densidad: float = 34.0
+@export_range(0.5, 120.0, 0.5) var densidad: float = 34.0:
+	set(v):
+		densidad = v
+		_pedir_rehacer()
 ## EL BORDE DEL PARCHE, en fraccion del semilado, donde la siembra se apaga.
 ##
 ## Sin esto el campo termina en una LINEA RECTA y el parche se lee como una
 ## alfombra puesta encima del suelo, no como un claro. Es lo que mas delataba la
 ## primera version a ojo, mas que la densidad.
-@export_range(0.0, 0.9, 0.05) var borde_difuso: float = 0.4
+@export_range(0.0, 0.9, 0.05) var borde_difuso: float = 0.4:
+	set(v):
+		borde_difuso = v
+		_pedir_rehacer()
 ## Cuanto se rompe ese borde con ruido. Un desvanecido perfectamente elíptico
 ## sigue siendo una figura geometrica; lo que hace que parezca vegetacion es que
 ## el limite sea IRREGULAR.
-@export_range(0.0, 0.6, 0.02) var borde_ruido: float = 0.26
+@export_range(0.0, 0.6, 0.02) var borde_ruido: float = 0.26:
+	set(v):
+		borde_ruido = v
+		_pedir_rehacer()
 ## Semilla del reparto. Fija a proposito: un campo que cambia entre arranques
 ## rompe el screenshot test y no aporta nada.
-@export var semilla: int = 424242
-@export_range(0.1, 3.0, 0.05) var alto: float = 0.78
-@export_range(0.005, 0.3, 0.005) var ancho: float = 0.035
+@export var semilla: int = 424242:
+	set(v):
+		semilla = v
+		_pedir_rehacer()
+@export_range(0.1, 3.0, 0.05) var alto: float = 0.78:
+	set(v):
+		alto = v
+		_pedir_rehacer()
+@export_range(0.005, 0.3, 0.005) var ancho: float = 0.035:
+	set(v):
+		ancho = v
+		_pedir_rehacer()
 ## Segmentos de la brizna. Cuatro bastan para que el doblado cuadratico se lea
 ## como una curva; con dos se ve el codo.
-@export_range(2, 8, 1) var segmentos: int = 4
+@export_range(2, 8, 1) var segmentos: int = 4:
+	set(v):
+		segmentos = v
+		_pedir_rehacer()
 ## Cuanto se arquea la brizna de serie, sin viento. Una hoja recta parece un palo.
-@export_range(0.0, 1.0, 0.01) var curva: float = 0.32
+@export_range(0.0, 1.0, 0.01) var curva: float = 0.32:
+	set(v):
+		curva = v
+		_pedir_rehacer()
 ## Variacion de tamaño planta a planta, en fraccion.
-@export_range(0.0, 0.9, 0.01) var variacion: float = 0.35
+@export_range(0.0, 0.9, 0.01) var variacion: float = 0.35:
+	set(v):
+		variacion = v
+		_pedir_rehacer()
 ## TU MALLA DE BLENDER, si la tienes. Vacio = la brizna procedural de aqui abajo.
 ##
 ## Lo unico que el shader le pide, y no es negociable: **`UV.y = 1` en la base y
@@ -61,14 +92,20 @@ const SHADER := preload("res://src/art/shaders/hierba.gdshader")
 ## la hierba se dobla desde la punta y crece hacia abajo.
 ##
 ## `alto`, `ancho`, `segmentos` y `curva` dejan de usarse en cuanto pones una.
-@export var malla: Mesh
+@export var malla: Mesh:
+	set(v):
+		malla = v
+		_pedir_rehacer()
 
 @export_group("Suelo")
 ## Desde cuanto por encima del nodo se busca el suelo, y hasta cuanto por debajo.
 @export var sonda_arriba: float = 30.0
 @export var sonda_abajo: float = 30.0
 ## Pendiente maxima donde crece hierba, en grados. En una pared no crece.
-@export_range(0.0, 89.0, 1.0) var pendiente_max: float = 42.0
+@export_range(0.0, 89.0, 1.0) var pendiente_max: float = 42.0:
+	set(v):
+		pendiente_max = v
+		_pedir_rehacer()
 
 @export_group("Rastro")
 ## De quien se sigue el rastro. NodePath y no `@export var x: Node3D` — regla #10.
@@ -96,6 +133,18 @@ const SHADER := preload("res://src/art/shaders/hierba.gdshader")
 ## corto — la silueta cambia y el color no.
 @export_range(0.0, 1.0, 0.01) var aplaste_sombra: float = 0.35
 
+@export_group("Pixel art")
+## ESCALONES del gradiente de cada brizna. 0 = degradado continuo.
+##
+## Con 3 o 4 la brizna tiene franjas en vez de una rampa, que es lo que la hace
+## leerse como pixel art aunque el juego corra a resolucion completa. Y es lo que
+## impide que el filtro de pixel (`src/art/PixelArt.gd`) invente sus propios
+## escalones donde no tocan.
+@export_range(0.0, 8.0, 1.0) var bandas: float = 4.0:
+	set(v):
+		bandas = v
+		_aplicar_bandas()
+
 var multimesh: MultiMeshInstance3D
 var _mat: ShaderMaterial
 var _jugador: Node3D
@@ -105,6 +154,8 @@ var _ultima_huella: Vector3 = Vector3(1e9, 1e9, 1e9)
 var _reloj: float = 0.0
 var _sembrado: bool = false
 var _buffer: PackedVector4Array = PackedVector4Array()
+## Hay una resiembra pedida para el final de este frame. Ver `_pedir_rehacer()`.
+var _pendiente: bool = false
 
 
 func _ready() -> void:
@@ -112,10 +163,40 @@ func _ready() -> void:
 		palette = GameState.palette
 	_buffer.resize(HUELLAS)
 	_montar()
+	if Engine.is_editor_hint():
+		# EN EL EDITOR SE SIEMBRA YA. `_physics_process` espera al primer tick de
+		# fisica, que en el editor no llega hasta que se pulsa play: sin esto el
+		# nodo se ve vacio y no hay nada que ajustar en el inspector.
+		sembrar()
+		return
 	if jugador_path.is_empty():
 		EventBus.player_spawned.connect(_adoptar)
 	else:
 		_jugador = get_node_or_null(jugador_path) as Node3D
+
+
+## RESIEMBRA DIFERIDA, y diferida a proposito.
+##
+## Cada `set` del inspector llega por separado, asi que arrastrar un deslizador
+## dispara uno por frame y tocar dos valores seguidos dispara dos. Sembrar cuesta
+## un rayo por brizna —miles—, y hacerlo en el propio setter congela el editor.
+## Con la bandera, N cambios en el mismo frame son UNA siembra.
+func _pedir_rehacer() -> void:
+	if _pendiente or not is_inside_tree():
+		return
+	_pendiente = true
+	_rehacer.call_deferred()
+
+
+func _rehacer() -> void:
+	_pendiente = false
+	if not is_inside_tree():
+		return
+	if multimesh != null and is_instance_valid(multimesh):
+		multimesh.queue_free()
+		multimesh = null
+	_montar()
+	sembrar()
 
 
 func _adoptar(p: Node3D) -> void:
@@ -186,14 +267,24 @@ func sembrar() -> void:
 		var abajo := global_position + Vector3(x, -sonda_abajo, z)
 		var q := PhysicsRayQueryParameters3D.create(arriba, abajo, Layers.SUELO_JUGADOR)
 		var r := espacio.intersect_ray(q)
+		var punto: Vector3
 		if r.is_empty():
-			continue
-		# EN UNA PARED NO CRECE HIERBA. Sin esta pregunta el campo trepa por los
-		# muros y el parche se lee como pintura, no como vegetacion.
-		var n: Vector3 = r["normal"]
-		if rad_to_deg(Vector3.UP.angle_to(n)) > pendiente_max:
-			continue
-		var punto: Vector3 = r["position"]
+			# SIN SUELO DEBAJO, EN EL EDITOR, SE SIEMBRA EN EL PLANO DEL NODO.
+			#
+			# En una partida esto es correcto —donde no hay suelo no hay hierba—,
+			# pero en el editor el Gym no existe todavia: sus bloques los construye
+			# `Gym.gd` al arrancar. Sin esta salida, soltar un `Pasto` en una escena
+			# vacia da un campo de cero briznas y nada que ajustar en el inspector.
+			if not Engine.is_editor_hint():
+				continue
+			punto = global_position + Vector3(x, 0.0, z)
+		else:
+			# EN UNA PARED NO CRECE HIERBA. Sin esta pregunta el campo trepa por los
+			# muros y el parche se lee como pintura, no como vegetacion.
+			var n: Vector3 = r["normal"]
+			if rad_to_deg(Vector3.UP.angle_to(n)) > pendiente_max:
+				continue
+			punto = r["position"]
 		# Y ademas MENGUA hacia el borde. Apagar solo la cantidad deja briznas de
 		# altura completa sueltas por fuera, que se leen como pelos; menguando, el
 		# campo se hunde en el suelo.
@@ -247,6 +338,7 @@ func _montar() -> void:
 	_mat.set_shader_parameter(&"aplaste_empuje", aplaste_empuje)
 	_mat.set_shader_parameter(&"aplaste_hundir", aplaste_hundir)
 	_mat.set_shader_parameter(&"aplaste_sombra", aplaste_sombra)
+	_mat.set_shader_parameter(&"bandas", bandas)
 	multimesh.material_override = _mat
 	# SIN SOMBRA PROPIA. Diez mil briznas en el mapa de sombras cuestan mas que
 	# todo lo demas junto y aportan ruido, no forma: la sombra que importa aqui es
@@ -373,6 +465,13 @@ func rastro() -> PackedVector4Array:
 
 func briznas() -> int:
 	return multimesh.multimesh.instance_count if multimesh != null else 0
+
+
+## Solo el escalonado, sin resembrar: es un parametro del material y no de la
+## forma del campo, asi que rehacer miles de rayos por moverlo seria absurdo.
+func _aplicar_bandas() -> void:
+	if _mat != null:
+		_mat.set_shader_parameter(&"bandas", bandas)
 
 
 func _color(nombre: StringName) -> Color:

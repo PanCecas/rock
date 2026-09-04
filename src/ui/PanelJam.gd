@@ -36,6 +36,7 @@ var _palette: Palette
 var _teclado: Rejilla
 var _hoja: Rejilla
 var _cabecera: Rejilla
+var _instrumentos: Rejilla
 var _compas: Label
 var _tono: Label
 var _raiz: Control
@@ -141,6 +142,15 @@ func _construir() -> void:
 	der.add_theme_constant_override("separation", 8)
 	fila.add_child(der)
 	der.add_child(_rotulo("ESCRIBIR — una columna por musico"))
+	# QUE INSTRUMENTO ES CADA COLUMNA. Con tres timbres en el corro, saber que la
+	# columna 3 es el viento es tan util como saber que nota da: se escribe distinto
+	# para un pulso de guitarra que para una nota sostenida.
+	_instrumentos = Rejilla.new()
+	_instrumentos.preparar(_palette, estacion.asientos, 1, 38.0, 6.0)
+	_instrumentos.solo_texto = true
+	_instrumentos.etiqueta = func(c: int, _f: int) -> String:
+		return estacion.nombre_de_familia(c)
+	der.add_child(_instrumentos)
 	# CABECERA: la nota RAIZ de cada columna, que es la identidad del musico. La
 	# nota que toca sube y baja con su ciclo; esta no cambia, y es la que permite
 	# decir "la columna del SOL2".

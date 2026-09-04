@@ -16,6 +16,8 @@ var _t: float = 0.0
 var _reloj: float = 0.0
 var _guion: Array = []
 var _fallos: PackedStringArray = []
+## La vista original de cada enemigo mientras dura una medida. Ver `_pacificar()`.
+var _vista_guardada: Dictionary = {}
 var _visto: Dictionary = {}
 var _aux: float = 0.0
 var _origen: Vector3 = Vector3.ZERO
@@ -66,6 +68,33 @@ func _ready() -> void:
 	_l = _p.lanza
 	_an = _p.dagas[0] if not _p.dagas.is_empty() else null
 	_construir()
+
+
+## CIEGA A LOS ENEMIGOS DEL GYM, Y LOS DESCIEGA.
+##
+## `CLAUDE.md` ya lo tenia escrito para `TestFase2` —"un test no puede depender de
+## la IA"— y a esta suite le faltaba. El sintoma fue el de siempre: intermitente y
+## sin relacion aparente. La pertiga fallaba 2 de cada 5 pasadas, y lo que se medía
+## no era una altura corta —el margen es enorme, 8.55 m contra un umbral de 4.5—
+## sino **`alto_max = 0.018`**: el jugador ni despegaba. Una sonda dijo por que en
+## una linea: `estado=Hitstun`. Alguien le habia pegado en mitad de un salto.
+##
+## SE CIEGA Y SE DEVUELVE LA VISTA, y no de una vez para siempre: cegarlos a todos
+## en `_ready()` fue el primer intento y **rompio dos comprobaciones** que si
+## necesitan que un enemigo reaccione. La ceguera dura lo que dura la medida.
+func _pacificar(ciegos: bool) -> void:
+	for n in get_tree().get_nodes_in_group(&"enemigos"):
+		var e := n as Enemigo
+		if e == null or not is_instance_valid(e):
+			continue
+		if ciegos:
+			if not _vista_guardada.has(e):
+				_vista_guardada[e] = e.vista
+			e.vista = 0.0
+		elif _vista_guardada.has(e):
+			e.vista = _vista_guardada[e]
+	if not ciegos:
+		_vista_guardada.clear()
 
 
 func _construir() -> void:
@@ -473,6 +502,10 @@ func _construir() -> void:
 		# cuenta como en el aire y el salto saldria como salto aereo.
 		_chequeo_("colocarse junto a la lanza clavada", 0.5,
 			func() -> void:
+				# CIEGOS YA AQUI, un paso antes de medir. Cegarlos justo al empezar
+				# el salto no basta: un enemigo que ya habia iniciado su ataque lo
+				# termina igual, y el golpe cae dentro de la ventana medida.
+				_pacificar(true)
 				_l.global_position = Vector3(0.0, 2.0, 30.0)
 				_l.fsm.cambiar(&"Embedded", {
 					"punto": _l.global_position, "normal": Vector3.UP})
@@ -484,6 +517,18 @@ func _construir() -> void:
 
 		_chequeo_("saltar junto a la lanza clavada te impulsa", 1.4,
 			func() -> void:
+				# SOLTAR ANTES DE PULSAR. El `InputBuffer` registra el FLANCO, no la
+				# tecla mantenida: si `jump` viene pulsada de un paso anterior, poner
+				# `_salto = 80` no genera ninguna pulsacion nueva y el salto no
+				# ocurre. Medido cuando salio intermitente: `alto_max` no era 4.4
+				# —cerca del umbral— sino **0.018**, o sea el jugador ni despego.
+				# Un paso que depende de como acabo el anterior es un test fragil.
+				_soltar_todo()
+				# Y SE SALE DE `Hitstun` A MANO si ya venia tocado. Cegarlos impide
+				# el golpe SIGUIENTE, no deshace el anterior, y desde `Hitstun` no se
+				# salta: `alto_max` salia 0.018 con el jugador plantado en el suelo.
+				_p.fsm.cambiar(&"Idle")
+				_p.velocity = Vector3.ZERO
 				_alto_max = -99.0
 				# Mantenida todo el ascenso: este juego tiene jump cut, asi que
 				# soltar mientras subes recorta el salto y la pertiga no se
@@ -505,6 +550,12 @@ func _construir() -> void:
 
 		_chequeo_("y sin lanza cerca el salto es el de siempre", 1.4,
 			func() -> void:
+				# Ver el paso de la pertiga: el mismo motivo, y aqui el fallo seria
+				# aun peor porque un salto que no ocurre pasa el `< 3.6` sin haber
+				# probado nada.
+				_soltar_todo()
+				_p.fsm.cambiar(&"Idle")
+				_p.velocity = Vector3.ZERO
 				_alto_max = -99.0
 				# Mantenida todo el ascenso: este juego tiene jump cut, asi que
 				# soltar mientras subes recorta el salto y la pertiga no se
@@ -517,6 +568,9 @@ func _construir() -> void:
 		# del viaje en dos cosas distintas: atravesar o impactar.
 		_chequeo_("preparar un enemigo en el camino", 0.6,
 			func() -> void:
+				# Se acabaron los saltos medidos: los enemigos vuelven a ver, porque
+				# lo que viene si los necesita despiertos.
+				_pacificar(false)
 				_l.global_position = Vector3(11.0, 6.0, -20.0)
 				_l.fsm.cambiar(&"Embedded", {
 					"punto": _l.global_position, "normal": Vector3.UP})

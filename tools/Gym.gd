@@ -38,6 +38,10 @@ extends Node3D
 @export var con_claro: bool = true
 ## ¿Se monta la ESTACION DE JAM? Ver `_jam()`.
 @export var con_jam: bool = true
+## ¿Arranca con el FILTRO DE PIXEL puesto? **F8 lo alterna en caliente**, que es la
+## unica forma de juzgarlo. Apagado por defecto: es un cambio de direccion de arte
+## de todo el juego y reescribe las 14 referencias del screenshot test de una vez.
+@export var con_pixel_art: bool = false
 ## Donde se planta y cuanto ocupa.
 ##
 ## El sitio se eligio MIRANDO, y el primer intento —(-10, 0, -30)— lo tumbo el
@@ -78,6 +82,7 @@ const PASTO := preload("res://src/world/Pasto.gd")
 const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
 const BANDADA := preload("res://src/world/Bandada.gd")
 const ESTACION_JAM := preload("res://src/world/EstacionJam.gd")
+const PIXEL_ART := preload("res://src/art/PixelArt.gd")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -119,6 +124,7 @@ func construir() -> void:
 	_piscina()
 	_claro()
 	_jam()
+	_pixel_art()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -619,6 +625,19 @@ func _jam() -> void:
 	e.palette = palette
 	_raiz.add_child(e)
 	e.global_position = jam_centro
+
+
+## EL FILTRO DE PIXEL, siempre montado y por defecto apagado.
+##
+## Se monta aunque arranque apagado porque lo que hace falta es poder ALTERNARLO
+## con F8: dos capturas no deciden esto, alternar mientras te mueves si.
+func _pixel_art() -> void:
+	if Engine.is_editor_hint():
+		return
+	var px := PIXEL_ART.new()
+	px.name = "PixelArt"
+	px.activo = con_pixel_art
+	_raiz.add_child(px)
 
 
 # --- Utilidades --------------------------------------------------------------

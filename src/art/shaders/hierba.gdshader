@@ -1,5 +1,10 @@
 shader_type spatial;
-render_mode cull_disabled, world_vertex_coords, diffuse_burley, specular_disabled;
+// `diffuse_toon` y no `diffuse_burley`: el sombreado sale en escalones duros en
+// vez de en degradado, que es el look de ilustracion de §1 y lo unico que aguanta
+// el filtro de pixel. Un degradado suave a un cuarto de resolucion se convierte en
+// banding sucio — el mismo escalonado, pero elegido por el error de cuantizacion
+// en vez de por nosotros.
+render_mode cull_disabled, world_vertex_coords, diffuse_toon, specular_disabled;
 
 // HIERBA EN MULTIMESH. Implementa `docs/07_SHADERS.md §4`, que a su vez responde
 // a `docs/01_DIRECCION_ARTE.md §4.5`: gradiente de altura del musgo a la punta y
@@ -61,6 +66,12 @@ uniform float aplaste_empuje = 0.55;
 uniform float aplaste_hundir = 0.8;
 // Cuanto oscurece el aplastado. Ver el comentario en `fragment()`.
 uniform float aplaste_sombra : hint_range(0.0, 1.0) = 0.35;
+// ESCALONES del gradiente de la brizna. 0 = degradado continuo, como estaba.
+//
+// Con 3 o 4, la brizna deja de ser una rampa de color y pasa a tener franjas: es
+// lo que hace que se lea como pixel art incluso a resolucion completa, y lo que
+// evita que el filtro de pixel invente sus propios escalones donde no toca.
+uniform float bandas : hint_range(0.0, 8.0) = 4.0;
 
 // RELOJ CONGELABLE. Negativo = el reloj de verdad.
 //
@@ -176,7 +187,15 @@ void vertex() {
 void fragment() {
 	// El gradiente de §4.5, de `musgo_medio` en la base a `hierba_highlight` en la
 	// punta, y la variacion planta a planta que trae la instancia en COLOR.
-	vec3 c = mix(color_base.rgb, color_punta.rgb, v_altura) * COLOR.rgb;
+	// EN BANDAS. Se cuantiza la ALTURA, no el color: escalonar el resultado final
+	// tocaria tambien la variacion planta a planta y el aplastado, y las tres cosas
+	// acabarian pisandose en los mismos escalones. Cuantizando la coordenada, cada
+	// brizna tiene sus franjas en el mismo sitio y el campo se lee como un dibujo.
+	float h = v_altura;
+	if (bandas >= 1.0) {
+		h = floor(h * bandas) / max(bandas - 1.0, 1.0);
+	}
+	vec3 c = mix(color_base.rgb, color_punta.rgb, clamp(h, 0.0, 1.0)) * COLOR.rgb;
 	// La cresta de la onda aclara. Es la mitad de "que las ondas se vean desde
 	// lejos": sin esto el viento solo se nota en la silueta y de lejos no llega.
 	c *= 1.0 + v_onda * brillo_onda * v_altura;

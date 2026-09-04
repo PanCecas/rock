@@ -41,6 +41,7 @@ func _ready() -> void:
 	_el_corro()
 	_las_notas()
 	_el_compas()
+	_los_timbres()
 	_la_hoja()
 	_la_sincronizacion()
 	_el_marcapasos()
@@ -211,7 +212,76 @@ func _el_compas() -> void:
 		"%d puestos sin un solo ataque en 30 s" % mudos)
 
 
-# --- 3bis) La hoja de notas ---------------------------------------------------
+# --- 3bis) Los tres timbres ---------------------------------------------------
+
+## PIANO, GUITARRA Y VIENTO, y los tres salen del MISMO numero que el color y la
+## silueta. Lo que se comprueba aqui no es que suenen bien —eso es de oido— sino
+## que son de verdad tres cosas distintas y que nadie las ha desacoplado.
+func _los_timbres() -> void:
+	var vistas := {}
+	for i in _e.asientos:
+		vistas[_e.familia_de(i)] = true
+	_afirmar(vistas.size() == 3,
+		"el corro usa las TRES familias, no una",
+		"%d familias entre los ocho puestos: %s" % [
+			vistas.size(),
+			", ".join(range(_e.asientos).map(func(i): return _e.nombre_de_familia(i)))])
+
+	# Y EL REPARTO ESTA EQUILIBRADO. Esta comprobacion nacio de un fallo real: la
+	# familia colgaba de `grado_de()` —mas ordenado sobre el papel— y el reparto
+	# salia PIANO, GUIT, PIANO, GUIT, GUIT, VIENTO, GUIT, PIANO: cuatro guitarras y
+	# **un solo viento**. Sonaba a banda de guitarras con un invitado.
+	var cuantos := [0, 0, 0]
+	for i in _e.asientos:
+		cuantos[_e.familia_de(i)] += 1
+	var menos: int = mini(cuantos[0], mini(cuantos[1], cuantos[2]))
+	_afirmar(menos >= 2,
+		"y el reparto esta equilibrado, no cuatro de una y uno de otra",
+		"piano %d, guitarra %d, viento %d de %d puestos" % [
+			cuantos[0], cuantos[1], cuantos[2], _e.asientos])
+
+	# TRES ESPECTROS DISTINTOS. Si dos tablas fueran iguales, dos familias serian
+	# la misma con otro nombre.
+	var iguales := 0
+	for a in 3:
+		for b in range(a + 1, 3):
+			var dif := 0.0
+			for k in 0:
+				pass
+			for k in _e._tablas[a].size():
+				dif = maxf(dif, absf(_e._tablas[a][k] - _e._tablas[b][k]))
+			if dif < 0.02:
+				iguales += 1
+	_afirmar(iguales == 0, "y cada familia tiene su propia onda",
+		"ninguna pareja de tablas se parece a menos de 0.02")
+
+	# LA ENVOLVENTE ES LA MITAD DEL INSTRUMENTO, y la que mas se oye: el viento
+	# arranca despacio y SOSTIENE; el piano y la guitarra atacan de golpe y caen.
+	# Se leen las voces recien disparadas, que es donde vive la envolvente.
+	var sube := {}
+	var meseta := {}
+	for f in 3:
+		for v in _e._voces.size():
+			_e._voces[v] = {}
+		_e._sonar(220.0, 1.0, 0.0, f)
+		for v in _e._voces.size():
+			if not _e._voces[v].is_empty():
+				sube[f] = float(_e._voces[v]["sube"])
+				meseta[f] = float(_e._voces[v]["meseta"])
+				break
+	_afirmar(sube[2] < sube[0] * 0.2 and sube[2] < sube[1] * 0.2,
+		"el VIENTO ataca mucho mas despacio que las cuerdas",
+		"rampa por muestra: piano %.5f, guitarra %.5f, viento %.5f" % [
+			sube[0], sube[1], sube[2]])
+	_afirmar(meseta[2] > 0.0 and meseta[0] == 0.0 and meseta[1] == 0.0,
+		"y es el UNICO que sostiene antes de caer",
+		"meseta en muestras: piano %.0f, guitarra %.0f, viento %.0f" % [
+			meseta[0], meseta[1], meseta[2]])
+	for v in _e._voces.size():
+		_e._voces[v] = {}
+
+
+# --- 3ter) La hoja de notas ---------------------------------------------------
 
 ## LA REJILLA que se escribe, y lo que la separa de un secuenciador pegado al
 ## lado: **el cabezal corre con la fase MEDIA del enjambre**, no con un reloj

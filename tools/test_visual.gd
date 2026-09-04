@@ -690,6 +690,12 @@ func _asentar_mundo_vivo() -> bool:
 		return false
 	_gym_vivo_listo = true
 	pasto.congelar(3.0)
+	# EL CIELO TAMBIEN SE MUEVE, y sale en las CATORCE tomas. Las nubes derivan con
+	# `TIME`, asi que sin congelarlas ninguna referencia converge nunca — es el
+	# mismo problema que el agua y el cordon, y se arregla igual.
+	var mood := _main.get_node_or_null("WorldMood") as WorldMood
+	if mood != null:
+		mood.congelar_nubes(7.0)
 	var ban := gym.find_child("Bandada", true, false) as Bandada
 	if ban != null:
 		_congelar_enjambre(ban.enjambre, 11.0)
