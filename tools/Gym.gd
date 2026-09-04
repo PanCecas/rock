@@ -53,10 +53,19 @@ extends Node3D
 ## con la decoracion.
 @export var claro_centro: Vector3 = Vector3(9.0, 0.0, -13.0)
 @export var claro_lado: float = 12.0
-## Donde se planta el corro de musicos. Al otro lado del spawn que el claro, para
-## que se puedan oir por separado: dos sistemas que respiran encima del mismo sitio
-## se estorban al juzgarlos.
-@export var jam_centro: Vector3 = Vector3(-16.0, 0.0, 14.0)
+## Donde se planta el corro de musicos. **Elegido midiendo, no a ojo**: se barrio
+## el suelo del Gym con una consulta de caja por encima del terreno y este es el
+## hueco mas grande que queda —14 m de lado libre— descontando el claro y el
+## estanque, que no aparecen en una consulta de formas porque no tienen colision.
+## Plantarlo encima de cualquiera de los dos seria poner dos sistemas que respiran
+## en el mismo sitio, y no se podria juzgar ninguno.
+##
+## Y hay una cosa mas que una consulta de formas tampoco ve: LO QUE SE MUEVE. El
+## primer sitio elegido —(-26, -2), el hueco mas grande de todos— caia dentro de la
+## ronda del `GuardianPatrulla`, que va y viene por (-30, 6) con cuatro metros de
+## radio. Lo canto la propia partida: el soft-lock ya lo tenia fijado nada mas
+## abrir la hoja. Un enemigo cruzando el corro mientras compones no es un hueco.
+@export var jam_centro: Vector3 = Vector3(-10.0, 0.0, 22.0)
 
 const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
 const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
@@ -602,7 +611,7 @@ func _piscina() -> void:
 func _jam() -> void:
 	if not con_jam or Engine.is_editor_hint():
 		return
-	_etiqueta("LA JAM — acercate y algunos te cogeran el compas",
+	_etiqueta("LA JAM — E abre la hoja de notas",
 		jam_centro + Vector3(0.0, 0.06, 6.0))
 
 	var e := ESTACION_JAM.new()

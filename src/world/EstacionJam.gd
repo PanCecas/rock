@@ -57,6 +57,11 @@ extends Node3D
 ## una vibracion o una luz no deberia tener que preguntarle al sintetizador.
 signal golpe(indice: int, hz: float)
 
+## El teclado del instrumento: 5 columnas x 3 filas, como en la referencia.
+const TECLAS_COL := 5
+const TECLAS_FIL := 3
+const TECLAS := TECLAS_COL * TECLAS_FIL
+
 
 @export var palette: Palette
 ## El modelo. Vacio = se construye uno al compas de `compas_segundos`.
@@ -91,6 +96,10 @@ signal golpe(indice: int, hz: float)
 ## Golpes por compas. A 1 el corro suena a campanas; a 2 o 3 empieza a sonar a
 ## banda tocando algo.
 @export_range(1, 8, 1) var golpes_por_compas: int = 2
+## Pasos de la HOJA: cuantas filas tiene la rejilla que se escribe. 16 es un
+## compas de cuatro por cuatro a semicorcheas, que es lo que la rejilla de la
+## referencia deja escribir de una pasada.
+@export_range(4, 64, 1) var pasos: int = 16
 ## La escala, en semitonos desde la tonica. Por defecto la PENTATONICA MAYOR
 ## —0, 2, 4, 7, 9—, que es la que no puede sonar mal consigo misma.
 @export var escala: PackedInt32Array = PackedInt32Array([0, 2, 4, 7, 9])
@@ -146,6 +155,8 @@ signal golpe(indice: int, hz: float)
 @export_range(0.0, 1.0, 0.05) var fraccion_curiosa: float = 0.5
 
 var enjambre: Enjambre
+## LA HOJA DE NOTAS. Se monta con la estacion y arranca oculta.
+var panel: PanelJam
 
 var _jugador: Node3D
 var _reproductor: AudioStreamPlayer3D
@@ -161,6 +172,14 @@ var _subpaso: PackedInt32Array = []
 var _ultima_nota: PackedFloat32Array = []
 var _mat_musico: Array[StandardMaterial3D] = []
 var _golpes_totales: int = 0
+## LA HOJA: `_hoja[paso][asiento]` vale 1 si ese musico ataca en ese paso.
+## Vacia = los ocho improvisan, que es como nace la estacion.
+var _hoja: Array[PackedByteArray] = []
+var _encendidas: int = 0
+## Cabezal de la hoja. Corre con la fase MEDIA del enjambre, no con la de nadie.
+var _reloj_hoja: float = 0.0
+var _fase_media_ant: float = 0.0
+var _paso_hoja: int = 0
 
 
 func _ready() -> void:
@@ -186,6 +205,13 @@ func _ready() -> void:
 	# todos" salga de la ecuacion y no de un sorteo.
 	enjambre.marcapasos_omega = tuning.frecuencia_base
 
+	_hoja.resize(pasos)
+	for f in pasos:
+		var fila := PackedByteArray()
+		fila.resize(asientos)
+		fila.fill(0)
+		_hoja[f] = fila
+
 	_subpaso.resize(asientos)
 	_ultima_nota.resize(asientos)
 	_brillos.resize(asientos)
@@ -194,10 +220,33 @@ func _ready() -> void:
 		_ultima_nota[i] = 0.0
 		_brillos[i] = 0.0
 
+	panel = PanelJam.new(self)
+	panel.name = "PanelJam"
+	add_child(panel)
+
 	if jugador_path.is_empty():
 		EventBus.player_spawned.connect(_adoptar)
 	else:
 		_jugador = get_node_or_null(jugador_path) as Node3D
+
+
+## LA HOJA SE ABRE CON `interact` Y SOLO ESTANDO AL LADO.
+##
+## La distancia importa: el mismo boton abre otras cosas en otros sitios, y una
+## interfaz que se abre desde el otro lado del mapa es una tecla robada. Se mide
+## al corro —no a un musico— por lo mismo que la llamada.
+func _unhandled_input(evento: InputEvent) -> void:
+	if panel == null or not InputMap.has_action(InputActions.INTERACT):
+		return
+	if not evento.is_action_pressed(InputActions.INTERACT):
+		return
+	if not panel.visible:
+		if _jugador == null or not is_instance_valid(_jugador):
+			return
+		if _jugador.global_position.distance_to(global_position) > radio_llamada:
+			return
+	panel.alternar()
+	get_viewport().set_input_as_handled()
 
 
 func _adoptar(p: Node3D) -> void:
@@ -214,7 +263,13 @@ func seguir(nodo: Node3D) -> void:
 
 func _physics_process(delta: float) -> void:
 	_llamar()
-	_revisar_golpes()
+	# LA HOJA MANDA SI HAY ALGO ESCRITO. Con la rejilla vacia los ocho improvisan
+	# —cada uno con su fase, que es como nace la estacion—; en cuanto escribes una
+	# nota, tocan lo tuyo. No hay modo que elegir: lo dice el contenido.
+	if _encendidas > 0:
+		_revisar_hoja()
+	else:
+		_revisar_golpes()
 	_animar(delta)
 
 
@@ -262,7 +317,27 @@ func tocar(i: int) -> void:
 	var pan: float = 0.0
 	if asientos > 1:
 		pan = sin(TAU * float(i) / float(asientos)) * ancho_estereo
-	_voces[i] = {
+	_sonar(hz, vol, pan)
+
+
+## Mete una nota en la mezcla, cogiendo una VOZ del pool.
+##
+## El pool es comun a los musicos y al teclado: probar una tecla mientras el corro
+## toca no le roba la voz a nadie ni monta un segundo sintetizador. Cuando no queda
+## ninguna libre se pisa la mas floja, que es la que menos se va a echar de menos.
+func _sonar(hz: float, vol: float, pan: float) -> void:
+	var libre := 0
+	var mas_floja := 9.0
+	for v in _voces.size():
+		var dd: Dictionary = _voces[v]
+		if dd.is_empty():
+			libre = v
+			break
+		var a: float = dd["amp"]
+		if a < mas_floja:
+			mas_floja = a
+			libre = v
+	_voces[libre] = {
 		"paso": hz * float(_tabla.size()) / maxf(mix_rate, 1.0),
 		"cursor": 0.0,
 		"amp": vol,
@@ -296,6 +371,86 @@ func nota_de(i: int) -> float:
 	var idx := paso + grado
 	var semis: int = escala[posmod(idx, n)] + 12 * (idx / n)
 	return tonica * pow(2.0, float(semis) / 12.0)
+
+
+## EL CABEZAL DE LA HOJA CORRE CON LA FASE MEDIA DEL ENJAMBRE.
+##
+## Y no con un temporizador, que es lo que haria un secuenciador cualquiera. Es la
+## decision que FUSIONA las dos mitades en vez de ponerlas una al lado de la otra:
+## el reloj de la hoja ES el del corro, asi que **cuanto mas juntos van, mejor
+## tocan lo que escribiste**. Desordenados, la fase media se bambolea y el compas
+## sale torcido; al unisono, va como un reloj.
+##
+## Se lleva desenrollada porque `fase_media` da vueltas de 0 a TAU: sumar el salto
+## envuelto en cada frame es lo unico que convierte un angulo en un contador.
+func _revisar_hoja() -> void:
+	if enjambre == null:
+		return
+	var media := enjambre.fase_media
+	_reloj_hoja += wrapf(media - _fase_media_ant, -PI, PI)
+	_fase_media_ant = media
+	var por_paso: float = TAU / float(maxi(golpes_por_compas, 1))
+	var p: int = posmod(int(floorf(_reloj_hoja / por_paso)), maxi(pasos, 1))
+	if p == _paso_hoja:
+		return
+	_paso_hoja = p
+	var fila: PackedByteArray = _hoja[p]
+	for i in asientos:
+		if fila[i] != 0:
+			tocar(i)
+
+
+## Enciende o apaga una celda de la hoja. Devuelve como queda.
+func alternar_celda(paso: int, asiento: int) -> bool:
+	if paso < 0 or paso >= pasos or asiento < 0 or asiento >= asientos:
+		return false
+	var fila: PackedByteArray = _hoja[paso]
+	var nuevo: int = 0 if fila[asiento] != 0 else 1
+	_encendidas += 1 if nuevo == 1 else -1
+	fila[asiento] = nuevo
+	_hoja[paso] = fila
+	return nuevo == 1
+
+
+func celda(paso: int, asiento: int) -> bool:
+	if paso < 0 or paso >= pasos or asiento < 0 or asiento >= asientos:
+		return false
+	return _hoja[paso][asiento] != 0
+
+
+## Borra la hoja entera y devuelve a los ocho a improvisar.
+func borrar_hoja() -> void:
+	for f in pasos:
+		var fila: PackedByteArray = _hoja[f]
+		fila.fill(0)
+		_hoja[f] = fila
+	_encendidas = 0
+
+
+func notas_escritas() -> int:
+	return _encendidas
+
+
+## Por que paso va el cabezal. Lo pinta la rejilla.
+func paso_actual() -> int:
+	return _paso_hoja
+
+
+## LA NOTA DE LA TECLA `t`, en Hz. Quince teclas en 5x3, tres octavas de la
+## pentatonica: la misma escala que tocan los musicos, para que probar una nota a
+## mano no pueda sonar mal contra lo que ya esta sonando.
+func nota_de_tecla(t: int) -> float:
+	if escala.is_empty():
+		return tonica
+	var n := escala.size()
+	var idx: int = clampi(t, 0, TECLAS - 1)
+	var semis: int = escala[posmod(idx, n)] + 12 * (idx / n)
+	return tonica * pow(2.0, float(semis) / 12.0)
+
+
+## Toca una tecla AHORA. Es la audicion: suena y no escribe nada.
+func pulsar_tecla(t: int) -> void:
+	_sonar(nota_de_tecla(t), 0.8, 0.0)
 
 
 ## Cuantos musicos llevan TU compas ahora mismo.
@@ -428,7 +583,13 @@ func _montar_corro() -> void:
 		add_child(musico)
 		_musicos.append(musico)
 		_mat_musico.append(mat)
-		_voces.append({})
+
+	# POOL DE VOCES, y mas que asientos: una fila de la hoja con seis musicos
+	# marcados son seis ataques en el mismo frame, y encima el teclado puede estar
+	# sonando. Con una voz por asiento, el acorde se comia a si mismo.
+	_voces.resize(asientos * 2 + 4)
+	for v in _voces.size():
+		_voces[v] = {}
 
 
 func _mat(color: Color, rugosidad: float) -> StandardMaterial3D:
@@ -510,6 +671,6 @@ func _rellenar_audio() -> void:
 
 
 func debug_line() -> String:
-	return "jam  r=%.2f  %d/%d contigo  %d golpes" % [
+	return "jam  r=%.2f  %d/%d contigo  %d golpes  hoja %d notas, paso %d" % [
 		enjambre.orden if enjambre != null else 0.0,
-		enganchados(), asientos, _golpes_totales]
+		enganchados(), asientos, _golpes_totales, _encendidas, _paso_hoja]

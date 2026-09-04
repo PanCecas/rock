@@ -41,6 +41,7 @@ func _ready() -> void:
 	_el_corro()
 	_las_notas()
 	_el_compas()
+	_la_hoja()
 	_la_sincronizacion()
 	_el_marcapasos()
 	_informe()
@@ -209,6 +210,88 @@ func _el_compas() -> void:
 		"%d puestos sin un solo ataque en 30 s" % mudos)
 
 
+# --- 3bis) La hoja de notas ---------------------------------------------------
+
+## LA REJILLA que se escribe, y lo que la separa de un secuenciador pegado al
+## lado: **el cabezal corre con la fase MEDIA del enjambre**, no con un reloj
+## propio. Es lo que fusiona las dos mitades — cuanto mas juntos van los ocho,
+## mejor tocan lo que escribiste.
+func _la_hoja() -> void:
+	# EL TECLADO: quince teclas, y todas en la escala. Es la audicion, y si una
+	# sola cayera fuera se podria estropear un acorde que ya estaba sonando bien.
+	var fuera := 0
+	for t in EstacionJam.TECLAS:
+		var semis: int = int(roundf(
+			12.0 * log(_e.nota_de_tecla(t) / _e.tonica) / log(2.0)))
+		if not _e.escala.has(posmod(semis, 12)):
+			fuera += 1
+	_afirmar(fuera == 0 and EstacionJam.TECLAS == 15,
+		"el teclado son 15 teclas (5x3) y ninguna se sale de la escala",
+		"%d teclas, %d fuera; tres octavas de la pentatonica" % [
+			EstacionJam.TECLAS, fuera])
+	_afirmar(_e.nota_de_tecla(EstacionJam.TECLAS - 1) > _e.nota_de_tecla(0) * 3.9,
+		"y recorren tres octavas de grave a agudo",
+		"%.1f Hz -> %.1f Hz" % [
+			_e.nota_de_tecla(0), _e.nota_de_tecla(EstacionJam.TECLAS - 1)])
+
+	# LA HOJA VACIA NO CAMBIA NADA. Es la invariante que permite que la estacion
+	# nazca improvisando y solo obedezca cuando le escribes algo.
+	_e.borrar_hoja()
+	_afirmar(_e.notas_escritas() == 0, "la hoja nace vacia y los ocho improvisan",
+		"sin nada escrito no hay modo que elegir: lo dice el contenido")
+
+	# ESCRIBIR Y BORRAR una celda.
+	_e.alternar_celda(3, 2)
+	var puesta := _e.celda(3, 2)
+	_e.alternar_celda(3, 2)
+	_afirmar(puesta and not _e.celda(3, 2) and _e.notas_escritas() == 0,
+		"una celda se enciende y se apaga, y la cuenta cuadra",
+		"encender, leer, apagar y volver a cero")
+
+	# CON LA HOJA ESCRITA MANDA LA HOJA. Se marca UN solo musico en UN solo paso y
+	# se comprueba que los demas se callan: si siguieran improvisando, la rejilla
+	# seria decoracion.
+	_ataques.clear()
+	_e.borrar_hoja()
+	_e.alternar_celda(0, 5)
+	_e.alternar_celda(8, 5)
+	var antes := _e.golpes()
+	_avanzar(40.0)
+	var cuenta := {}
+	for a in _ataques:
+		cuenta[int(a.y)] = int(cuenta.get(int(a.y), 0)) + 1
+	var ajenos := 0
+	for k in cuenta:
+		if k != 5:
+			ajenos += int(cuenta[k])
+	_afirmar(_e.golpes() > antes and ajenos == 0,
+		"con la hoja escrita, SOLO tocan los musicos marcados",
+		"%d ataques del puesto 5 y %d de los otros siete en 40 s" % [
+			int(cuenta.get(5, 0)), ajenos])
+
+	# Y EL CABEZAL VA AL COMPAS DEL CORRO. Dos celdas en 16 pasos separadas por
+	# medio ciclo de hoja: la hoja entera dura `pasos / golpes_por_compas` compases.
+	var vueltas: float = 40.0 / (_e.compas_segundos * float(_e.pasos)
+		/ float(_e.golpes_por_compas))
+	var esperados: float = vueltas * 2.0
+	var razon: float = float(cuenta.get(5, 0)) / maxf(esperados, 1.0)
+	_afirmar(razon > 0.6 and razon < 1.6,
+		"y el cabezal corre al compas del corro, no a un reloj suyo",
+		"%d ataques en 40 s, esperados ~%.0f (%d pasos a %.2f s de compas)" % [
+			int(cuenta.get(5, 0)), esperados, _e.pasos, _e.compas_segundos])
+
+	# BORRAR DEVUELVE A IMPROVISAR.
+	_ataques.clear()
+	_e.borrar_hoja()
+	_avanzar(12.0)
+	var tocaron := {}
+	for a in _ataques:
+		tocaron[int(a.y)] = true
+	_afirmar(tocaron.size() >= _e.asientos - 1,
+		"y borrar la hoja los devuelve a improvisar a los ocho",
+		"%d de %d puestos volvieron a sonar en 12 s" % [tocaron.size(), _e.asientos])
+
+
 # --- 4) La sincronizacion -----------------------------------------------------
 
 ## LA AFIRMACION AUDIBLE, y la unica que se puede medir sin oidos: **cuando el
@@ -323,8 +406,8 @@ func _el_marcapasos() -> void:
 	var lejos := _e.enganchados()
 
 	_visitante.global_position = _e.global_position
-	_avanzar(30.0)
-	var cerca := _e.enganchados()
+	var quienes := _observar_enganches(30.0)
+	var cerca := quienes.size()
 
 	_afirmar(lejos == 0, "de lejos no te sigue nadie",
 		"%d puestos enganchados con el visitante a 400 m" % lejos)
@@ -352,11 +435,9 @@ func _el_marcapasos() -> void:
 	var sordos := 0.0
 	var n_c := 0
 	var n_s := 0
-	var quienes: Array[int] = []
 	for i in _e.asientos:
 		var c := _e.tuning.curiosidad(i, _e.asientos)
-		if _e.enjambre.enganche_de(i) > 0.6:
-			quienes.append(i)
+		if quienes.has(i):
 			curiosos += c
 			n_c += 1
 		else:
@@ -369,34 +450,33 @@ func _el_marcapasos() -> void:
 		"curiosidad media %.2f los que vienen contra %.2f los que no" % [
 			media_c, media_s])
 
-	# Y SALEN SIEMPRE DE LA MISMA MITAD DEL CORRO.
+	# Y SON SIEMPRE LOS MISMOS, y esto costo aprenderlo dos veces.
 	#
-	# Esta comprobacion nacio pidiendo el mismo conjunto EXACTO en dos pasadas, y
-	# es falso: [0,2,4] la primera vez y [4,5] la segunda. No es aleatorio —el
-	# sistema es determinista, `omega()` y `curiosidad()` son funciones del indice—
-	# sino dependiente del ESTADO: que un curioso enganche o no depende de en que
-	# fase le pilles y de por donde vaya la histeresis del acoplamiento. Llegar en
-	# otro momento te da otro subconjunto, y eso esta bien: el corro no es una
-	# maquina expendedora.
+	# La comprobacion nacio pidiendo el mismo conjunto exacto en dos pasadas y salio
+	# roja: [0,2,4] contra [4,5]. La conclusion que saque fue que el conjunto
+	# dependia del estado —de en que fase les pillaras— y rebaje la afirmacion a
+	# "salen de la mitad curiosa". **Era mentira mia, no del sistema.**
 	#
-	# Lo que si es invariante, y es lo que hace que el reparto se pueda aprender,
-	# es de DONDE salen: solo los curiosos reciben tiron, asi que nadie fuera de esa
-	# mitad puede acabar siguiendote por mucho que se acople el grupo.
+	# Lo que fallaba era el VISTAZO: miraba el enganche al final de la ventana, y el
+	# acoplamiento respira, asi que hay instantes en los que el corro se esta
+	# deshaciendo y nadie pasa del umbral aunque medio minuto antes te siguieran
+	# cuatro. Mirando MIENTRAS pasa (`_observar_enganches`), las dos pasadas dan
+	# [0, 2, 4, 5, 7] identico desde puntos de partida distintos.
+	#
+	# Y eso es lo que hace que el corro se pueda aprender: los mismos musicos te
+	# hacen caso siempre, porque la curiosidad es un rasgo fijo. Es mejor que un
+	# sorteo, y ahora esta afirmado en vez de rebajado.
 	_visitante.global_position = Vector3(0.0, 0.0, 400.0)
 	_e.enjambre.reiniciar()
 	_avanzar(20.0)
 	_visitante.global_position = _e.global_position
-	_avanzar(30.0)
-	var otra_vez: Array[int] = []
-	for i in _e.asientos:
-		if _e.enjambre.enganche_de(i) > 0.6:
-			otra_vez.append(i)
+	var otra_vez := _observar_enganches(30.0)
 	var intrusos := 0
 	for i in (quienes + otra_vez):
 		if _e.tuning.curiosidad(i, _e.asientos) > _e.fraccion_curiosa + 0.06:
 			intrusos += 1
-	_afirmar(intrusos == 0 and not otra_vez.is_empty(),
-		"y salen SIEMPRE de la mitad curiosa, llegues cuando llegues",
+	_afirmar(otra_vez == quienes and not otra_vez.is_empty() and intrusos == 0,
+		"y son SIEMPRE los mismos, desde otro punto de partida",
 		"%s en una pasada, %s en otra; %d fuera de la mitad que escucha" % [
 			str(quienes), str(otra_vez), intrusos])
 
@@ -407,6 +487,29 @@ func _el_marcapasos() -> void:
 
 
 # --- Informe ------------------------------------------------------------------
+
+## QUIENES ENGANCHAN EN ESTA VENTANA, mirando MIENTRAS pasa y no al final.
+##
+## Un vistazo al segundo 30 no vale: el acoplamiento respira con histeresis, asi
+## que hay instantes en los que el corro se esta deshaciendo y NADIE pasa del
+## umbral aunque medio minuto antes te siguieran cuatro. Nacio asi y la segunda
+## pasada salio con la lista vacia — no porque no engancharan, sino porque se miro
+## en el momento equivocado. Es el mismo problema de los latches del rastro de la
+## hierba en `TestMundoVivo`: cuando el chequeo termina, lo que interesaba ya paso.
+func _observar_enganches(segundos: float) -> Array[int]:
+	var vistos := {}
+	var trozos := int(segundos / 0.5)
+	for _t in trozos:
+		_avanzar(0.5)
+		for i in _e.asientos:
+			if _e.enjambre.enganche_de(i) > 0.6:
+				vistos[i] = true
+	var lista: Array[int] = []
+	for k in vistos:
+		lista.append(int(k))
+	lista.sort()
+	return lista
+
 
 func _afirmar(bien: bool, nombre: String, porque: String) -> void:
 	_cuenta += 1

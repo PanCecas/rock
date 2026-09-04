@@ -80,7 +80,7 @@ Cinco estados, y la diferencia entre ellos importa:
 El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
 es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 
-### Parche 3.15 — la estación de jam
+### Parche 3.15 — la estación de jam y su hoja de notas
 
 | Qué | Cómo se comprueba |
 |---|---|
@@ -95,6 +95,11 @@ es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 | **Y hicieron falta LAS DOS cosas** — bajar `A` al orden de la dispersión (a 1.1 enganchaban los ocho) **y** la `curiosidad`, porque el acoplamiento del grupo arrastra detrás a quien solo no podría | `TestJam` — curiosidad media 0.24 los que vienen contra 0.52 los que no |
 | **Un solo altavoz, no ocho** — la estación es el instrumento; la mezcla ocurre antes. Síntesis por tabla de onda: ~2.900 vueltas de bucle por frame en vez de 5.900 `sin()` | `TestJam` — se monta sin tarjeta de sonido (driver Dummy) |
 | **Y no lleva colisión** — tarima, taburetes y músicos son escenografía: un obstáculo en medio del Gym rompería las medidas de movimiento sin avisar | `TestFase1` 12/12 y `MedirMovimiento` sin cambios |
+| **LA HOJA DE NOTAS** (`src/ui/PanelJam.gd`), con **E**. Rejilla de rombos y círculos dibujada con `_draw()`: teclado 5×3 que suena y no escribe, y hoja de **una columna por músico y una fila por paso** | `TestJam`, 7 chequeos |
+| **El cabezal corre con la fase MEDIA del enjambre**, no con un temporizador propio. Cuanto más juntos van, mejor tocan lo escrito | `TestJam` — 6 ataques en 40 s contra ~6 esperados |
+| **Con la hoja escrita callan los que no marcaste**, y borrarla los devuelve a improvisar | `TestJam` — 0 ataques ajenos en 40 s; 8 de 8 vuelven en 12 s |
+| **Y son SIEMPRE los mismos los que te siguen** — `[0, 2, 4, 5, 7]` desde dos puntos de partida distintos | `TestJam`. Estuvo rebajado a "salen de la mitad curiosa" por un vistazo mal puesto: se miraba el enganche AL FINAL de la ventana y el acoplamiento respira |
+| **El sitio se eligió midiendo** — barrido del suelo con consulta de caja. El hueco más grande caía en la ronda del `GuardianPatrulla`, que una consulta de formas no ve | Lo cantó la partida: el soft-lock lo tenía fijado al abrir la hoja |
 
 ---
 

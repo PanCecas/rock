@@ -23,7 +23,7 @@ extends Node3D
 const ESTACION := preload("res://src/world/EstacionJam.gd")
 
 ## Donde se planta, en coordenadas de mundo.
-@export var centro: Vector3 = Vector3(-16.0, 0.0, 14.0)
+@export var centro: Vector3 = Vector3(-10.0, 0.0, 22.0)
 ## ¿Monta tambien el mundo alrededor —el Gym con su jugador y su camara—?
 ## Mismo interruptor que el Claro y el Jardin, y por lo mismo: en falso queda solo
 ## la estacion, para poder soltarla dentro de otra escena sin cargar un segundo
@@ -52,7 +52,7 @@ func _ready() -> void:
 		# ACERCARSE y oir como cambia.
 		p.global_position = centro + Vector3(0.0, 0.3, 14.0)
 
-	DebugOverlay.set_line("banco", "JAM — acercate al corro · 1..8 golpea · R caos")
+	DebugOverlay.set_line("banco", "JAM — E abre la hoja · 1..8 golpea · R caos")
 
 
 func _unhandled_input(event: InputEvent) -> void:

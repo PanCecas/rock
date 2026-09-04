@@ -448,6 +448,33 @@ movimiento sin avisar.
    porque el acoplamiento del grupo arrastra detrás a quien por sí solo no podría
    seguirte.
 
+**La hoja de notas** se abre con **E** estando al lado del corro. Son dos rejillas
+y hacen cosas distintas:
+
+| | |
+|---|---|
+| **TECLADO** 5×3 | Suena *ahora*. Es la audición: pruebas una nota y ya, no escribe nada, así que puedes trastear encima de lo que está sonando. |
+| **HOJA** 8 × 16 | Se escribe. **Una columna por músico, una fila por paso**: marcar una celda es decirle a *ese* de los ocho que ataque en *ese* momento. |
+
+Y el cabezal **no lo lleva un temporizador de la interfaz: lo lleva la fase media
+del enjambre**. Eso es lo que fusiona las dos mitades en vez de ponerlas una al
+lado de la otra — cuanto más juntos van los ocho, mejor tocan lo que escribiste;
+desordenados, el compás sale torcido. Con la hoja vacía vuelven a improvisar
+solos: no hay modo que elegir, lo dice el contenido.
+
+Desde código:
+
+```gdscript
+jam.alternar_celda(paso, asiento)   # enciende o apaga
+jam.pulsar_tecla(t)                 # audición, 0..14
+jam.borrar_hoja()                   # todos a improvisar otra vez
+jam.panel.abrir()                   # sin acercarse
+```
+
+**El rombo y el círculo no son decoración**: el rombo marca los grados *pilares*
+de la pentatónica —la tónica y la quinta— y el círculo los demás. Sin eso son
+quince cuadrados iguales y no hay dónde apoyar la vista.
+
 **Colgar algo de cada golpe** —una luz, una vibración, una partícula— sin tocar el
 sintetizador:
 

@@ -302,6 +302,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | **Resortera** — con lanza Y anclaje puestos, la misma **Z** tensa | **Z** (mantener) | D-pad der. |
 | | *Tira hacia atras con el stick y SUELTA: sales catapultado* | |
 | Recuperar (aparte) | Y | D-pad izq. |
+| **Hoja de notas** (junto a la jam) | **E** | Y |
+| | *rejilla de rombos y circulos: una columna por musico, una fila por paso* | |
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · **F7 gizmos 3D** · F5 tuning · F6 paleta · F4 respawn arena | |
 
@@ -349,8 +351,8 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA, la daga y que la Z existe estando adherido. 53 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
-| `tools/Jam.tscn` | **El banco de la estacion de musica.** Ocho puestos en corro tocando el mismo Kuramoto: se ESCUCHA, no se mira. Acercate y unos cuantos te cogen el compas · **1..8** golpea un puesto a mano · **R** al caos · **F7** dibuja el orden y quien te sigue. `godot --path . --resolution 960x540 tools/Jam.tscn` |
-| `tools/TestJam.tscn` | Test de la estacion: que las notas caen en la pentatonica siempre, que el compas es el pedido, que al unisono los ataques se juntan (41 ms contra 59) y que el marcapasos engancha a algunos y no a todos. 22 comprobaciones. |
+| `tools/Jam.tscn` | **El banco de la estacion de musica.** Ocho puestos en corro tocando el mismo Kuramoto: se ESCUCHA, no se mira. **E abre la hoja de notas** · acercate y unos cuantos te cogen el compas · **1..8** golpea un puesto a mano · **R** al caos · **F7** dibuja el orden y quien te sigue. `godot --path . --resolution 960x540 tools/Jam.tscn` |
+| `tools/TestJam.tscn` | Test de la estacion y su hoja: que las notas caen en la pentatonica siempre, que el compas es el pedido, que al unisono los ataques se juntan (41 ms contra 59), que escribir en la rejilla calla a los que no marcaste y que el marcapasos engancha a algunos y no a todos —y siempre a los mismos—. 29 comprobaciones. |
 | `tools/TestMundoVivo.tscn` | Test de la capa atmosferica, en las mismas dos mitades que `TestEnjambre`: en SECO comprueba que el campo medio es una identidad exacta y que `a_ritmo()` es un cambio de reloj; EN VIVO, que la hierba nace pegada al suelo y no en las paredes, que el rastro sigue al jugador y se desvanece, que el destello es un pulso y no un brillo, que las cintas miran hacia donde vuelan, y la ESCOLTA entera —algunas y no todas, que rodean de verdad, y que vuelven solas cuando te vas—. 27 comprobaciones. |
 | `tools/TestEnjambre.tscn` | Test del sistema generativo, en dos mitades: el MODELO en seco —a pasos de dt fijo, minutos de simulacion en milisegundos— y la MANIFESTACION en vivo. Mide la respiracion caos↔orden, la perturbacion y su resincronizacion, el control sin acoplamiento, y que nadie rota ni un frame. 31 comprobaciones. |
 | `tools/TestMenu.tscn` | Test del menu de controles: comprueba que toda accion que el menu nombra existe de verdad en el InputMap. 4 comprobaciones. |
@@ -556,6 +558,18 @@ que `Enjambre` publicaba desde el 3.11 sin oyente. Esta plantada en el Gym
   para una cosa que siempre se escucha como un conjunto.
 - **Sin colision.** Tarima, taburetes y musicos son escenografia: un obstaculo en
   medio del Gym rompe las medidas de movimiento sin avisar.
+- **LA HOJA DE NOTAS** (`src/ui/PanelJam.gd`), que se abre con **E** estando al
+  lado. Es la rejilla de rombos y circulos de la referencia, dibujada con `_draw()`
+  y no con 143 botones. Dos rejillas: el TECLADO de 5x3 suena y no escribe —es la
+  audicion—, y la HOJA es **una columna por musico y una fila por paso**, asi que
+  marcar una celda es decirle a ESE de los ocho que ataque en ESE momento.
+  · **El cabezal corre con la fase MEDIA del enjambre**, no con un temporizador
+    propio. Eso fusiona las dos mitades en vez de ponerlas una al lado de la otra:
+    cuanto mas juntos van los ocho, mejor tocan lo que escribiste. Con la hoja
+    vacia vuelven a improvisar solos — no hay modo que elegir, lo dice el contenido.
+  · **El rombo y el circulo no son decoracion**: el rombo marca los grados PILARES
+    de la pentatonica —tonica y quinta— y el circulo los demas. Sin eso son
+    cuadrados iguales y no hay donde apoyar la vista.
 
 Siguiente paso original: **Fase 3** — lanza y lazo. La lanza clavada como `ClimbAnchor` +
 `PlatformSurface` es la herramienta de progresion vertical del juego.
