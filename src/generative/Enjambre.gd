@@ -35,6 +35,14 @@ signal ciclo(pitches: PackedFloat32Array, amplitudes: PackedFloat32Array, orden:
 ## Alguien ha perturbado a una criatura. Lo escucha el VFX y el audio.
 signal perturbado(indice: int)
 
+## EL ENJAMBRE HA LLEGADO AL ACUERDO Y SE CANSA, una vez por respiracion.
+##
+## Es el unico hito de ESTRUCTURA que el modelo genera solo: no hay compas, no hay
+## barra, no hay reloj — hay un grupo que converge y se deshace. Publicarlo permite
+## colgar de ahi cosas que necesitan una escala de tiempo larga sin inventarse un
+## temporizador que competiria con el modelo.
+signal respiro(numero: int)
+
 @export var tuning: EnjambreTuning
 @export var palette: Palette
 ## Semitonos que el usuario suma al pitch base. Es el único mando que se le da.
@@ -83,6 +91,8 @@ var _enganche: PackedFloat32Array = []
 var _sordera: PackedFloat32Array = []
 ## ¿Está el sistema tirando hacia el orden, o deshaciéndose? Es la histéresis.
 var _buscando_orden: bool = true
+## Cuantas veces ha respirado el enjambre desde que arranco.
+var respiros: int = 0
 
 
 func _ready() -> void:
@@ -216,6 +226,13 @@ func _medir_orden() -> void:
 func _avanzar_acoplamiento(delta: float) -> void:
 	if _buscando_orden and orden >= tuning.orden_saciedad:
 		_buscando_orden = false
+		# LA RESPIRACION SE ANUNCIA. El enjambre llega al acuerdo y se cansa: ese
+		# instante es el unico hito que el modelo produce por si solo, y por eso
+		# vale como pulso de ESTRUCTURA. La estacion de jam lo usa para mover el
+		# centro armonico — la armonia cambia cuando el grupo se pone de acuerdo,
+		# no cuando lo dice un temporizador.
+		respiro.emit(respiros)
+		respiros += 1
 	elif not _buscando_orden and orden <= tuning.orden_hambre:
 		_buscando_orden = true
 

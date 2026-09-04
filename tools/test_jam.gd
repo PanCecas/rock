@@ -240,6 +240,53 @@ func _los_timbres() -> void:
 		"piano %d, guitarra %d, viento %d de %d puestos" % [
 			cuantos[0], cuantos[1], cuantos[2], _e.asientos])
 
+	# PERO EL REPARTO ES UN PUNTO DE PARTIDA, NO UNA LEY. Se puede reasignar en
+	# vivo, y el sonido y la silueta cambian A LA VEZ: si solo cambiara uno, el
+	# corro ensenaria un tubo y sonaria a guitarra.
+	var antes := _e.familia_de(2)
+	var malla_antes: Mesh = _e.get_node("Instrumento2").mesh
+	var nueva := _e.ciclar_familia(2)
+	_afirmar(nueva != antes and _e.familia_de(2) == nueva,
+		"y el instrumento de cada puesto se puede reasignar",
+		"el puesto 2 pasa de %s a %s" % [
+			EstacionJam.NOMBRE_FAMILIA[antes], EstacionJam.NOMBRE_FAMILIA[nueva]])
+	_afirmar(_e.get_node("Instrumento2").mesh != malla_antes,
+		"y la silueta cambia con el sonido, no despues",
+		"la malla del instrumento se rehace en la misma llamada")
+	_e.asignar_familia(2, antes)
+
+	# LA ARMONIA SE MUEVE, y la mueve el enjambre al respirar. Con un centro fijo,
+	# ocho voces en la misma pentatonica repiten el mismo acorde para siempre.
+	# LOS DOS CENTROS SE FIJAN A MANO. Leer "el de ahora" y compararlo con el 1 no
+	# vale: para cuando esta comprobacion corre, el enjambre YA ha respirado varias
+	# veces en los pasos anteriores, asi que el centro actual podia ser justo el 1 y
+	# la comparacion salia contra si misma.
+	_e.centro_armonico = 0
+	var raiz_antes := _e.nota_raiz_de(0)
+	_e.centro_armonico = 1
+	var raiz_despues := _e.nota_raiz_de(0)
+	_e.centro_armonico = 0
+	_afirmar(absf(raiz_despues - raiz_antes) > 1.0,
+		"y la ARMONIA se mueve con la progresion",
+		"la raiz del puesto 0 pasa de %.1f a %.1f Hz al cambiar de centro" % [
+			raiz_antes, raiz_despues])
+
+	# Y SIGUE EN LA ESCALA en todos los centros: el desplazamiento es en GRADOS, no
+	# en semitonos, asi que la pentatonica no se puede romper por aqui.
+	var fuera_centros := 0
+	for c in _e.progresion.size():
+		_e.centro_armonico = c
+		for i in _e.asientos:
+			var semis: int = int(roundf(
+				12.0 * log(_e.nota_raiz_de(i) / _e.tonica) / log(2.0)))
+			if not _e.escala.has(posmod(semis, 12)):
+				fuera_centros += 1
+	_e.centro_armonico = 0
+	_afirmar(fuera_centros == 0,
+		"sin salirse de la escala en ningun centro",
+		"%d notas fuera en %d centros x %d puestos" % [
+			fuera_centros, _e.progresion.size(), _e.asientos])
+
 	# TRES ESPECTROS DISTINTOS. Si dos tablas fueran iguales, dos familias serian
 	# la misma con otro nombre.
 	var iguales := 0

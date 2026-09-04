@@ -175,6 +175,29 @@ const ESPECTRO := [
 ## Con que instrumento suena el TECLADO de la hoja. El piano por defecto: es el
 ## timbre mas neutro para probar una nota y volver a encontrarla.
 @export var familia_teclado: Familia = Familia.PIANO
+
+@export_group("Armonia")
+## LA PROGRESION, en grados de la escala. Cada vez que el enjambre RESPIRA —llega
+## al acuerdo y se cansa— el corro avanza un paso de esta lista y toda la banda se
+## muda de centro a la vez.
+##
+## Es lo que le faltaba para no sonar a maquina. Con un centro fijo, ocho voces en
+## la misma pentatonica repiten el mismo acorde para siempre: correcto, consonante
+## y muerto. Lo que hace que una progresion suene a musica es que CAMBIE, y aqui el
+## cambio no lo dispara un compas ni un temporizador — lo dispara que el grupo se
+## ponga de acuerdo. **Kuramoto decide cuando cambia la armonia.**
+##
+## `0, 3, 1, 4` en pentatonica son cuatro centros que se turnan sin repetir vecino:
+## suena a ir y volver, no a subir una escalera.
+@export var progresion: PackedInt32Array = PackedInt32Array([0, 3, 1, 4])
+## Cuanto se DESPEINAN los ataques entre si, en segundos.
+##
+## Ocho notas en la misma muestra no suenan a ocho musicos: suenan a un acorde de
+## sampler. Cada puesto llega unos milisegundos antes o despues segun su
+## `curiosidad` —un rasgo FIJO, asi que el desorden es siempre el mismo y no un
+## temblor aleatorio—, y eso es lo que en una banda de verdad se llama tener un
+## sitio. A cero vuelve a sonar a maquina.
+@export_range(0.0, 0.12, 0.001) var humanizar: float = 0.022
 ## Cuanto mas RESUENAN las graves que las agudas, como exponente.
 ##
 ## En un instrumento de verdad la cuerda larga vibra mas tiempo, y sin esto los
@@ -240,6 +263,11 @@ var _encendidas: int = 0
 var _reloj_hoja: float = 0.0
 var _fase_media_ant: float = 0.0
 var _paso_hoja: int = 0
+## En que paso de la progresion va el corro. Lo mueve el enjambre al respirar.
+var centro_armonico: int = 0
+## El instrumento de cada puesto. Se puede reasignar en vivo.
+var _familias: PackedInt32Array = []
+var _instrumentos: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -264,6 +292,10 @@ func _ready() -> void:
 	# Es la misma eleccion que la bandada, y por el mismo motivo: que "algunos, no
 	# todos" salga de la ecuacion y no de un sorteo.
 	enjambre.marcapasos_omega = tuning.frecuencia_base
+	# LA ARMONIA LA MUEVE EL MODELO, no un compas. Ver `progresion`.
+	enjambre.respiro.connect(func(n: int) -> void:
+		if not progresion.is_empty():
+			centro_armonico = posmod(n + 1, progresion.size()))
 
 	_hoja.resize(pasos)
 	for f in pasos:
@@ -272,10 +304,12 @@ func _ready() -> void:
 		fila.fill(0)
 		_hoja[f] = fila
 
+	_familias.resize(asientos)
 	_subpaso.resize(asientos)
 	_ultima_nota.resize(asientos)
 	_brillos.resize(asientos)
 	for i in asientos:
+		_familias[i] = posmod(i, ESPECTRO.size())
 		_subpaso[i] = _paso_de(i)
 		_ultima_nota[i] = 0.0
 		_brillos[i] = 0.0
@@ -377,7 +411,11 @@ func tocar(i: int) -> void:
 	var pan: float = 0.0
 	if asientos > 1:
 		pan = sin(TAU * float(i) / float(asientos)) * ancho_estereo
-	_sonar(hz, vol, pan, familia_de(i))
+	# CADA UNO LLEGA CUANDO LLEGA. El retardo sale de la `curiosidad`, que es un
+	# rasgo FIJO: el mismo puesto se adelanta siempre lo mismo, asi que el corro
+	# tiene un sitio reconocible en vez de un temblor distinto cada vez.
+	var retardo: float = tuning.curiosidad(i, asientos) * humanizar
+	_sonar(hz, vol, pan, familia_de(i), retardo)
 
 
 ## Mete una nota en la mezcla, cogiendo una VOZ del pool.
@@ -385,7 +423,8 @@ func tocar(i: int) -> void:
 ## El pool es comun a los musicos y al teclado: probar una tecla mientras el corro
 ## toca no le roba la voz a nadie ni monta un segundo sintetizador. Cuando no queda
 ## ninguna libre se pisa la mas floja, que es la que menos se va a echar de menos.
-func _sonar(hz: float, vol: float, pan: float, familia: int = Familia.PIANO) -> void:
+func _sonar(hz: float, vol: float, pan: float, familia: int = Familia.PIANO,
+		retardo: float = 0.0) -> void:
 	var libre := 0
 	var mas_floja := 9.0
 	for v in _voces.size():
@@ -424,6 +463,8 @@ func _sonar(hz: float, vol: float, pan: float, familia: int = Familia.PIANO) -> 
 		"amp": 0.0,
 		"tope": vol,
 		"tabla": f,
+		# MUESTRAS DE ESPERA antes de empezar a sonar. Ver `humanizar`.
+		"espera": maxf(0.0, retardo) * mix_rate,
 		# El ataque es LINEAL y en muestras: un incremento fijo por muestra, que es
 		# una suma en el bucle interno. Una curva costaria una potencia por muestra
 		# y no se distinguiria en ocho milisegundos.
@@ -458,7 +499,7 @@ func nota_de(i: int) -> float:
 	var paso: int = 0
 	if asientos > 1:
 		paso = int(roundf(float(registro_grados) * float(i) / float(asientos - 1)))
-	var idx := paso + grado
+	var idx := paso + grado + _desplazamiento()
 	# NOTA: `grado_de()` recalcula solo el `paso`; los dos salen de la misma linea
 	# a proposito. Si esto cambia, cambia alli.
 	var semis: int = escala[posmod(idx, n)] + 12 * (idx / n)
@@ -600,8 +641,19 @@ func nota_raiz_de(i: int) -> float:
 	var paso: int = 0
 	if asientos > 1:
 		paso = int(roundf(float(registro_grados) * float(i) / float(asientos - 1)))
-	var semis: int = escala[posmod(paso, n)] + 12 * (paso / n)
+	var idx := paso + _desplazamiento()
+	var semis: int = escala[posmod(idx, n)] + 12 * (idx / n)
 	return tonica * pow(2.0, float(semis) / 12.0)
+
+
+## EL CENTRO ARMONICO DE AHORA, en grados de la escala.
+##
+## Se suma al registro y al grado ANTES de convertir a semitonos, asi que sigue
+## siendo aritmetica de grados: la pentatonica no se puede romper por aqui.
+func _desplazamiento() -> int:
+	if progresion.is_empty():
+		return 0
+	return progresion[posmod(centro_armonico, progresion.size())]
 
 
 ## QUE INSTRUMENTO TOCA el musico `i`.
@@ -623,7 +675,39 @@ func nota_raiz_de(i: int) -> float:
 ## parecen. Lo que si esta prohibido es que la silueta salga de uno y el sonido del
 ## otro — por eso `_malla_instrumento()` recibe la familia, no el grado.
 func familia_de(i: int) -> int:
+	if i >= 0 and i < _familias.size():
+		return _familias[i]
 	return posmod(i, ESPECTRO.size())
+
+
+## CAMBIA EL INSTRUMENTO DE UN PUESTO, en vivo.
+##
+## El reparto de fabrica alterna piano-guitarra-viento, pero es un punto de
+## PARTIDA y no una ley: media banda de vientos o un corro entero de guitarras son
+## configuraciones legitimas, y decidirlo es parte de tocar esto. Cambia el sonido
+## y la silueta A LA VEZ — nunca uno sin el otro, que es como se llega a que el
+## corro ensene un tubo y suene a guitarra.
+func asignar_familia(i: int, familia: int) -> void:
+	if i < 0 or i >= _familias.size():
+		return
+	_familias[i] = posmod(familia, ESPECTRO.size())
+	_rehacer_instrumento(i)
+
+
+## Pasa al siguiente instrumento. Es lo que llama la cabecera de la hoja.
+func ciclar_familia(i: int) -> int:
+	asignar_familia(i, familia_de(i) + 1)
+	return familia_de(i)
+
+
+func _rehacer_instrumento(i: int) -> void:
+	if i < 0 or i >= _instrumentos.size():
+		return
+	var inst := _instrumentos[i]
+	if not is_instance_valid(inst):
+		return
+	var t: float = float(i) / float(maxi(asientos - 1, 1))
+	inst.mesh = _malla_instrumento(familia_de(i), lerpf(1.30, 0.72, t))
 
 
 func nombre_de_familia(i: int) -> String:
@@ -794,11 +878,12 @@ func _montar_corro() -> void:
 		# que hay que distinguir son los GRADOS, no los individuos.
 		var inst := MeshInstance3D.new()
 		inst.name = "Instrumento%d" % i
-		inst.mesh = _malla_instrumento(familia_de(i), cuerpo)
+		inst.mesh = _malla_instrumento(posmod(i, ESPECTRO.size()), cuerpo)
 		inst.material_override = _mat(palette.piedra_sombra, 0.75)
 		var hacia := (Vector3(-p.x, 0.0, -p.z)).normalized() * 0.42
 		inst.position = p + hacia + Vector3.UP * 0.34
 		add_child(inst)
+		_instrumentos.append(inst)
 
 	# POOL DE VOCES, y mas que asientos: una fila de la hoja con seis musicos
 	# marcados son seis ataques en el mismo frame, y encima el teclado puede estar
@@ -924,6 +1009,10 @@ func _rellenar_audio() -> void:
 		for i in _voces.size():
 			var v: Dictionary = _voces[i]
 			if v.is_empty():
+				continue
+			# Todavia no le toca entrar.
+			if v["espera"] > 0.0:
+				v["espera"] = float(v["espera"]) - 1.0
 				continue
 			var amp: float = v["amp"]
 			var sube: float = v["sube"]

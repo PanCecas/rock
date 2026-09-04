@@ -150,6 +150,13 @@ func _construir() -> void:
 	_instrumentos.solo_texto = true
 	_instrumentos.etiqueta = func(c: int, _f: int) -> String:
 		return estacion.nombre_de_familia(c)
+	# Y SE PUEDE CAMBIAR: un clic en la cabecera pasa ese puesto al siguiente
+	# instrumento. El reparto de fabrica alterna los tres, pero es un punto de
+	# partida — media banda de vientos es una configuracion legitima, y decidirlo
+	# es parte de tocar esto.
+	_instrumentos.pulsada.connect(func(c: int, _f: int) -> void:
+		estacion.ciclar_familia(c)
+		_instrumentos.queue_redraw())
 	der.add_child(_instrumentos)
 	# CABECERA: la nota RAIZ de cada columna, que es la identidad del musico. La
 	# nota que toca sube y baja con su ciclo; esta no cambia, y es la que permite
