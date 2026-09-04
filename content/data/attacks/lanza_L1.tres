@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_L2.tres" id="2_n"]
+
+[resource]
+script = ExtResource("1_s")
+etiquetas = Array[StringName]([&"perforante"])
+nombre = "Lanza ligero 1"
+frames_windup = 2
+frames_activo = 3
+frames_recuperacion = 9
+dano = 9.0
+dano_poise = 10.0
+empuje = Vector3(0, 0, 4)
+stagger = 0.22
+fuerza_muerte = 7.0
+alcance = 2.9
+radio = 0.32
+altura = 1.0
+arco_grados = 45.0
+max_objetivos = 1
+avance = 4.0
+estocada = true
+estocada_velocidad = 14.0
+movilidad = 0.6
+hitstop = 0.04
+shake = 0.26
+color_vfx = &"caliza_sol"
+siguiente = ExtResource("2_n")
+frame_cadena = 4

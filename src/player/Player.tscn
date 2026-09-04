@@ -1,4 +1,4 @@
-[gd_scene load_steps=67 format=3]
+[gd_scene load_steps=77 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -28,6 +28,12 @@
 [ext_resource type="Resource" path="res://content/data/attacks/agua_ligero.tres" id="a_agualig"]
 [ext_resource type="Resource" path="res://content/data/attacks/agua_pesado.tres" id="a_aguapes"]
 [ext_resource type="Resource" path="res://content/data/attacks/contra.tres" id="a_contra"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_L1.tres" id="a_lanza_l"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_barrido.tres" id="a_lanza_p"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_aereo.tres" id="a_lanza_al"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_giro.tres" id="a_lanza_ap"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_carga_ligera.tres" id="a_cargal"]
+[ext_resource type="Resource" path="res://content/data/attacks/lanza_carga_pesada.tres" id="a_cargap"]
 [ext_resource type="Script" path="res://src/player/states/StateMachine.gd" id="fsm"]
 [ext_resource type="Script" path="res://src/player/states/GroupGrounded.gd" id="g_ground"]
 [ext_resource type="Script" path="res://src/player/states/GroupAirborne.gd" id="g_air"]
@@ -45,6 +51,10 @@
 [ext_resource type="Script" path="res://src/player/states/StateLedgeHang.gd" id="st_hang"]
 [ext_resource type="Script" path="res://src/player/states/StateLedgeClimb.gd" id="st_lclimb"]
 [ext_resource type="Script" path="res://src/player/states/StateClimb.gd" id="st_climb"]
+[ext_resource type="Script" path="res://src/player/states/StateSpearZip.gd" id="st_zip"]
+[ext_resource type="Script" path="res://src/player/states/StateSpearSwing.gd" id="st_swing"]
+[ext_resource type="Script" path="res://src/player/states/StateSlingshot.gd" id="st_sling"]
+[ext_resource type="Script" path="res://src/player/states/StateWhirl.gd" id="st_whirl"]
 [ext_resource type="Script" path="res://src/player/states/StateDash.gd" id="st_dash"]
 [ext_resource type="Script" path="res://src/player/states/StateSurf.gd" id="st_surf"]
 [ext_resource type="Script" path="res://src/player/states/StateCrouch.gd" id="st_crouch"]
@@ -104,6 +114,12 @@ ataque_slide_kick = ExtResource("a_kick")
 ataque_agua_ligero = ExtResource("a_agualig")
 ataque_agua_pesado = ExtResource("a_aguapes")
 ataque_contra = ExtResource("a_contra")
+ataque_lanza_ligero = ExtResource("a_lanza_l")
+ataque_lanza_pesado = ExtResource("a_lanza_p")
+ataque_lanza_aereo_ligero = ExtResource("a_lanza_al")
+ataque_lanza_aereo_pesado = ExtResource("a_lanza_ap")
+ataque_carga_ligera = ExtResource("a_cargal")
+ataque_carga_pesada = ExtResource("a_cargap")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
@@ -239,6 +255,18 @@ script = ExtResource("st_hang")
 
 [node name="LedgeClimb" type="Node" parent="StateMachine/Attached"]
 script = ExtResource("st_lclimb")
+
+[node name="SpearZip" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_zip")
+
+[node name="SpearSwing" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_swing")
+
+[node name="Slingshot" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_sling")
+
+[node name="Whirl" type="Node" parent="StateMachine/Attached"]
+script = ExtResource("st_whirl")
 
 [node name="Climb" type="Node" parent="StateMachine/Attached"]
 script = ExtResource("st_climb")

@@ -127,7 +127,7 @@ experiencia percibida que dos semanas de sistema nuevo.
 
 Nada de esto es contenido. Todo esto es lo que impide que el contenido salga bien.
 
-**P0.1 · Extraer la FSM de `Guardian.gd`** — *el cuello de botella real*
+**P0.1 · Extraer la FSM de `Guardian.gd`** — *el cuello de botella real* · **HECHO (3.03)**
 
 `Guardian.gd` mezcla hoy tres cosas en un archivo: la IA (dormido, acercarse,
 telegrafiar, atacar, recuperar), la física (`is_on_floor()`, gravedad manual) y la
@@ -564,6 +564,165 @@ la comprobacion asumia suelo.
   Estrenados en esta misma correccion: cazaron el cambio de geometria de las rampas y
   el mapa de diff confirmo que solo cambiaban sus bordes.
 - Pipeline de Blender a Godot documentado al detalle en `02_PIPELINE_PERSONAJES_ANIM.md §7`.
+
+
+### Parche 3.01 — los dos clavados dejan de ser el mismo, y el ritmo de la cadena
+
+Parte del parche pedido. Lo que NO entra y por que, al final de la entrada.
+
+- **El clavado ligero es ahora un CLAVADO.** Estaba en 21 m/s horizontales y -7 de
+  vertical, y el pesado en 25/-11: la misma parabola tendida con otro nombre, y sin
+  forma de distinguirlos jugando. El ligero pasa a 13/-17 —cae mas de lo que
+  avanza— y el pesado se queda como el que viaja.
+- **Rebote con HANG TIME y sin doble salto.** Al pisar la cabeza de un enemigo se
+  suspende la gravedad `dive_hangtime` (0.30 s) y se levanta la espera del clavado,
+  para poder encadenar sobre otra cabeza. Se devuelve el DASH pero **no** el salto
+  aereo: reponerlo convertiria la cadena en vuelo infinito —siempre habria forma de
+  corregir el error de calculo— y sin el, cada rebote es un compromiso.
+  El hang time vive en `LocomotionMotor.aplicar_gravedad`, asi que vale en Fall,
+  Jump y Glide sin que ninguno tenga que saber que existe.
+- **EMBESTIDA EN PRIMERA PERSONA.** ~~Retirada entera en la 3.03: no gusto
+  jugandola.~~ El pesado lanzado por encima de
+  `fps_velocidad_min` (7.5 m/s) mete la camara en la cabeza y **bloquea el rumbo al
+  frente de camara** durante `fps_duracion`. El bloqueo es la mecanica —te
+  comprometes a una direccion y ya no la corriges—; la primera persona es lo que lo
+  hace legible. Parado sale el pesado de siempre.
+  No hace falta una segunda camara: `CameraRig` ya interpola entre modos, asi que
+  un modo `Primera` con `dist 0` y `altura 1.42` da la transicion suavizada gratis.
+  Se apaga en `exit()` pase lo que pase: un modo de camara del que te quedas
+  atrapado si el ataque se cancela es peor que no tenerlo.
+- **RITMO DE LA CADENA.** El combate se sentia generico porque los tres golpes
+  duraban casi lo mismo (windup 5/5/8, recuperacion 10/11/20): una cadena sin ritmo
+  es una animacion repetida. Ahora es **corto-corto-LARGO** —L1 14 frames, L2 14 y
+  mas rapido de entrada, L3 39 con windup de 11 que se ve venir— y el hitstop
+  escala de 0.04 a 0.14 para que el finisher aterrice con peso.
+
+**PLUGINS INSTALADOS.** Los cuatro, fijados a release y no a `main`:
+`phantom_camera` v0.11.0.3 · `cyclops_level_builder` v1.5.0_dev_2 ·
+`dialogic` 2.0-alpha-20 · `inventory-system` addon-2.13.0.
+
+Tres son GDScript puro y cero binarios. El de inventario es un GDExtension en C++
+cuyo release trae **125 MB** de `.dll`/`.so` para seis plataformas; en el repo se
+dejan solo los 19 MB de Windows. Se comprobo que la extension carga de verdad:
+`Inventory` e `ItemDefinition` aparecen en el `ClassDB`.
+
+Los autoloads que los plugins registran en `_enable_plugin()` estan escritos a mano
+en `project.godot`, porque instalar por linea de comandos no ejecuta ese metodo.
+
+Quedan **instalados y activos, pero sin integrar**: ninguna funcionalidad del juego
+los usa todavia. Integrarlos es trabajo aparte, y en el caso de Phantom Camera
+implica migrar un `CameraRig` propio que deduce el modo de la categoria del estado
+—una decision de arquitectura buena— al sistema de prioridades del plugin.
+
+**Lo que NO entra en este parche, y por que:**
+- **El inventario BotW.** `src/ui/` esta vacio: no hay una sola linea de UI, ni HUD,
+  ni navegacion de menus, ni gestion de foco. Un inventario paginado con arrastrar y
+  soltar no es una funcionalidad, es la primera capa de UI del proyecto entero.
+- **Los dos enemigos nuevos** (volador y embestidor). Bloqueados por el **P0** de
+  este mismo roadmap: `Guardian.gd` son 372 lineas que mezclan IA, fisica y
+  presentacion, con la FSM como un `match` dentro de `_physics_process`. Escribir
+  dos enemigos encima significa triplicar ese archivo. Extraer la FSM primero los
+  hace baratos; no hacerlo los hace deuda por triplicado.
+
+### Parche 3.03 — la FSM de enemigos, tres bestias nuevas y dos clavados distintos
+
+**LA PRIMERA PERSONA SE VA ENTERA.** Era la pieza estrella de la 3.01 y jugandola
+no gustaba: espamear el pesado en el aire dejaba al personaje clavado con la camara
+pegada a la nuca. La causa era que el modo se pedia por frame y se apagaba en
+`exit()`, asi que dos pulsaciones seguidas lo encendian dos veces y solo lo apagaban
+una. Se podia arreglar; no se ha arreglado. Una mecanica que hay que blindar contra
+el jugador para que no se rompa, y que ademas no gusta, no merece el blindaje.
+Fuera `fps_velocidad_min`, `fps_duracion`, el modo `Primera` del `CameraRig` y la
+rama de `StateAttack`.
+
+**LOS DOS CLAVADOS SE REPARTEN EL TRABAJO.** En la 3.01 los dos rebotaban; ahora
+cada uno hace una mitad del juego aereo:
+
+- **Ligero = el AGIL.** Es el que rebota. Rebotar tiene que ser el gesto que mas
+  repites, asi que va en el boton barato. Sigue sin devolver el doble salto —cada
+  rebote es un compromiso— y su onda pasa a azul para leerse distinta de un vistazo.
+- **Pesado = el CONTUNDENTE.** No rebota: se planta y **manda al enemigo por los
+  aires**. Su `AttackData` cambia de `empuje (0,-6,8)` —que lo clavaba contra el
+  suelo— a `lanzamiento = 20` con `stagger 1.6`. Uno sube al enemigo, el otro te
+  mantiene a ti arriba; juntos son el bucle aereo, y por separado ninguno lo era.
+
+**LOS TRES ENEMIGOS, Y LA EXTRACCION QUE LOS DESBLOQUEO.** `Guardian.gd` pasa de
+372 lineas a ~100. Lo que era un `match` dentro de `_physics_process` ahora es
+`Enemigo` (cuerpo y orquestador) + `EnemyMotor` (fisica) + `EnemyStateMachine` con
+un nodo por estado, el mismo patron que el jugador. **Cada enemigo declara sus
+estados en su propia escena**, que es justo lo que hace baratos a los nuevos.
+
+Criterio de terminado del P0.1 —«escribir un enemigo que nade sin tocar el script
+del Guardian terrestre»— cumplido: el Volador comparte cero lineas de IA con el, y
+su unica diferencia de fisica es `vuela = true`.
+
+- **Embestidor.** Cono de vision con producto escalar **y raycast**: el dot solo te
+  ve a traves de las paredes, que es el bug clasico y hace que esconderse no sirva.
+  Al terminar la anticipacion **fija el rumbo y ya no lo corrige**. Eso es lo que la
+  hace esquivable: si persiguiera seria un misil teledirigido y la unica respuesta
+  posible seria correr. Contra un muro queda abierto 2.4 s, que es la recompensa por
+  apartarse —no solo evitar el dano—.
+- **Volador.** Rafaga de tres (uno suelto se esquiva sin pensar; tres te obligan a
+  comprometerte con una direccion de esquiva) y recarga **huyendo en zigzag de tres
+  tramos**, alternando lados y con el primero echado a suertes. La ventana de
+  vulnerabilidad esta disenada para VERSE desde lejos: «esta haciendo el zigzag»
+  pasa a significar «ahora puedo alcanzarlo». Un enemigo a distancia que recarga
+  escondido solo ensena a buscar cobertura; este ensena a perseguir.
+  Su `Proyectil` usa la misma `Hitbox` por consulta de forma que el resto del
+  combate, mas un rayo del tramo recorrido este frame: a 22 m/s, un frame de
+  retraso son 37 cm y una pared fina se atraviesa entera.
+- **ColosoMediano.** Grande, lento (1.1 m/s) y **no ataca**, a proposito. Su unico
+  trabajo ahora es que agarrarse a algo que se mueve resulte comodo; meterle un
+  ataque convertiria cada prueba de escalada en una pelea y no sabriamos si el
+  problema esta en el agarre o en que te estan pegando. Escalable con dos lineas
+  —collider en la capa CLIMBABLE— porque el `WallSensor` ya la busca desde la Fase 1.
+  Lo lento no es personalidad: la escalada mueve la posicion del jugador a mano
+  contra la superficie, y un cuerpo rapido lo dejaria atras.
+
+**LOS TRES VIVEN EN EL GYM, NO EN LA ARENA.** Meterlos en la Arena puso `TestFase2`
+en rojo: alguno alcanzaba al jugador en mitad del test de la cadena de golpes —acabo
+en `Hitstun`— y el collider de 7 m del coloso lo detectaba el sensor de pared del
+jugador durante el test del pivote del dash, que no tiene nada que ver con el.
+**La poblacion de la Arena es load-bearing.** Tienen corral propio en
+`Gym._corral()`, con un muro corto para que la carga fallida del Embestidor tenga
+consecuencia: sin algo contra lo que estrellarse, la mecanica no se entiende.
+
+**CAMINAR ESTABA ARRASTRADO.** 3.0 -> 4.2 m/s (y trotar 5.4 -> 6.4). Es la velocidad
+con la que empiezas siempre, antes de que la carrerilla haga nada: es la primera
+impresion del movimiento y no puede ser la mas floja.
+
+**Lo que NO entra, y por que:**
+- **La camara cinematografica.** `CameraTuning.gd` —valores, **influencias** (0-1
+  para apagar un efecto sin perder sus ajustes) y **curvas** (`Curve` con la X
+  normalizada a `velocidad_referencia`)—, `PhantomDirector.gd` y `PhantomRig.tscn`
+  estan escritos, pero **sin cablear**. Cablearlos tal cual pone **18 tests en
+  rojo**, y la causa esta medida: Phantom Camera se queda con el `transform` de la
+  camara y todo el movimiento deduce la direccion de `player.camara()`. La
+  migracion es darle a Phantom el rig entero manteniendo un `Camera3D` valido en
+  `player.camara()`, no colgar el plugin al lado del rig propio. Es el siguiente
+  trabajo, y es un trabajo entero.
+- **La guia de ProtonScatter.** El plugin ya compila en 4.7 desde la 3.02; falta el
+  ejemplo de uso.
+
+**LOS TRES ENEMIGOS SE ESCALABAN COMO EL GUARDIAN.** Cazado despues, y solo por
+una imagen: el generador de escenas reemplazaba `radius`/`height` con `count=1`,
+asi que tocaba el `CapsuleShape3D` y dejaba el `CapsuleMesh` con las medidas del
+Guardian. El coloso tenia collider de 7 m y **malla de 2 m**: un muro invisible
+con una capsula pequena pintada en medio. Collider y hurtbox eran correctos, asi
+que los 150 tests funcionales pasaron sin inmutarse —miden colisiones, no
+pixeles—. Corregidas las tres mallas y sacada la marca del frente al radio real.
+
+Con ello el `TestVisual` pasa de 7 a **10 tomas**: `corral_enemigos` (los tres en
+fila con el jugador al lado de regla), `coloso_escalada` (la pose de agarre
+contra el torso, que el funcional solo comprobaba con un booleano) y
+`volador_alcance` (la separacion vertical que hoy lo hace inalcanzable, leyendo
+`altura_vuelo` del propio nodo).
+
+Tests: Fase 1 **12/12** · Fase 2 **129/129** · Enemigos **9/9** · visual **10/10** ·
+humo 0 infracciones. La baseline `gym_general` se regenero por el corral nuevo,
+despues de mirar el diff en `user://visual/` y comprobar que lo rojo era **solo** el
+muro, su cartel y las tres capsulas: capsula del jugador, rampas y plataformas sin
+tocar.
 
 ## BACKLOG DE FÍSICAS — **no implementar todavía**
 Active Ragdoll (reacciones procedurales al entorno) y grappler con cuerda física

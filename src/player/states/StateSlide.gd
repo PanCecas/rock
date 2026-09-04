@@ -74,6 +74,12 @@ func physics_update(delta: float) -> void:
 			fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
 
 
+## Deslizarse contra un muro tampoco es pedir trepar por el: el slide se entra
+## con velocidad y termina donde termina. Mismo criterio que el surf y el dash.
+func adherencia_automatica() -> bool:
+	return false
+
+
 func maneja_ataques() -> bool:
 	return true
 

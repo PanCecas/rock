@@ -33,6 +33,56 @@ extends Node3D
 @export var huecos: PackedFloat32Array = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
 @export var alturas_repisa: PackedFloat32Array = [1.0, 2.0, 3.0, 4.2]
 @export var tamano_suelo: float = 70.0
+## EL CLARO: hierba con viento e interaccion, luciernagas y bandada. Se planta en
+## el Gym para que el mundo vivo se vea JUGANDO y no solo en su banco.
+@export var con_claro: bool = true
+## ¿Se monta la ESTACION DE JAM? Ver `_jam()`.
+@export var con_jam: bool = true
+## ¿Arranca con el FILTRO DE PIXEL puesto? **F8 lo alterna en caliente**, que es la
+## unica forma de juzgarlo. Apagado por defecto: es un cambio de direccion de arte
+## de todo el juego y reescribe las 14 referencias del screenshot test de una vez.
+@export var con_pixel_art: bool = false
+## Donde se planta y cuanto ocupa.
+##
+## El sitio se eligio MIRANDO, y el primer intento —(-10, 0, -30)— lo tumbo el
+## screenshot test: caia a un metro de las rampas de calibracion de escalada, y
+## una luciernaga a dos metros de la camara es una mancha aditiva de 100 px que
+## tapa media toma. `escalada_muro_90` salio con un 8.47% de diferencia.
+##
+## Aqui esta acotado por: las rampas normales terminan en x = 0, el pasillo de
+## wall-run ocupa |x| < 2.3, las repisas empiezan en x = 17 y el corral en
+## z = -26. Y ademas se corrio hasta z = -13 para quedar DETRAS de la camara del
+## corral: unas luciernagas colandose por el borde de esa toma no la rompen, pero
+## su trabajo es vigilar la silueta de tres enemigos y no tiene por que compartirlo
+## con la decoracion.
+@export var claro_centro: Vector3 = Vector3(9.0, 0.0, -13.0)
+@export var claro_lado: float = 12.0
+## Donde se planta el corro de musicos. **Elegido midiendo, no a ojo**: se barrio
+## el suelo del Gym con una consulta de caja por encima del terreno y este es el
+## hueco mas grande que queda —14 m de lado libre— descontando el claro y el
+## estanque, que no aparecen en una consulta de formas porque no tienen colision.
+## Plantarlo encima de cualquiera de los dos seria poner dos sistemas que respiran
+## en el mismo sitio, y no se podria juzgar ninguno.
+##
+## Y hay una cosa mas que una consulta de formas tampoco ve: LO QUE SE MUEVE. El
+## primer sitio elegido —(-26, -2), el hueco mas grande de todos— caia dentro de la
+## ronda del `GuardianPatrulla`, que va y viene por (-30, 6) con cuatro metros de
+## radio. Lo canto la propia partida: el soft-lock ya lo tenia fijado nada mas
+## abrir la hoja. Un enemigo cruzando el corro mientras compones no es un hueco.
+@export var jam_centro: Vector3 = Vector3(-10.0, 0.0, 22.0)
+
+const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
+const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
+const VOLADOR := preload("res://src/enemies/Volador.tscn")
+const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
+const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
+const LANZA := preload("res://src/weapons/Spear.tscn")
+const ANCLAJE := preload("res://src/weapons/Anclaje.tscn")
+const PASTO := preload("res://src/world/Pasto.gd")
+const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
+const BANDADA := preload("res://src/world/Bandada.gd")
+const ESTACION_JAM := preload("res://src/world/EstacionJam.gd")
+const PIXEL_ART := preload("res://src/art/PixelArt.gd")
 
 var _raiz: Node3D
 var _mat_suelo: StandardMaterial3D
@@ -67,8 +117,14 @@ func construir() -> void:
 	_pared_escalable()
 	_rampas_escalada()
 	_domo()
+	_corral()
+	_patrulla()
+	_muro_lanza()
 	_tunel()
 	_piscina()
+	_claro()
+	_jam()
+	_pixel_art()
 
 
 # --- Materiales --------------------------------------------------------------
@@ -292,6 +348,207 @@ func _domo() -> void:
 	_etiqueta("DOMO — el anillo es el limite (%d°)" % int(limite), centro + Vector3(0, 0.06, r + 2.0))
 
 
+## CORRAL DE ENEMIGOS. Los tres del parche 3.03, cada uno en su sitio y lejos de
+## los demas.
+##
+## Aparte de la Arena a proposito: la Arena es el patio de combate de los tres
+## Guardianes y **su poblacion es load-bearing** para los tests de la Fase 2.
+## Anadir tres enemigos alli hacia que alguno alcanzara al jugador en mitad de la
+## prueba de la cadena de golpes. Un banco de pruebas no puede alterar otro.
+##
+## Y separados entre si porque cada uno ensena una cosa distinta: mezclarlos
+## convierte el corral en un caos donde no se puede estudiar ninguno.
+## MURO DE LA LANZA: un paredón liso y alto contra el que probar el bucle
+## completo —tirarla, que se clave, subirse encima—. Liso a proposito: sin
+## salientes que confundan "me subi a la lanza" con "me subi a una repisa".
+##
+## Y aqui es donde nace LA lanza, una sola, atada al jugador (`docs/03 §4`).
+func _muro_lanza() -> void:
+	# Sitio elegido MIRANDO el resto del Gym, no a ojo. Los dos intentos previos
+	# fallaron por eso: (-9,0,-20) asomaba por detras de las rampas y contaminaba
+	# las tomas de escalada, y (-26,0,20) caia DENTRO de la base de la torre
+	# —x -28.5..-19.5, z 17.5..26.5— asi que la lanza se clavaba en la torre a
+	# ochenta centimetros de salir.
+	#
+	# Al fondo del +Z, DETRAS de la camara de `gym_general` —que esta en
+	# (14, 9, 22) mirando al origen—, lejos del domo (28,0,30) y CON SUELO debajo
+	# —el Gym mide 70x70 centrado en el origen, asi que pasado z=35 no hay nada—. Los dos intentos
+	# previos fallaron por no mirar el resto del Gym: (-26,0,20) caia DENTRO de la
+	# base de la torre y (6,0,16) se plantaba en mitad del espacio de juego,
+	# tapando medio encuadre general con un paredon de 12x9.
+	#
+	# Y mide 7x5, no 12x9: para tirarle una lanza no hace falta mas, y cuanto
+	# menos ocupa menos estorba.
+	var centro := Vector3(0.0, 0.0, 26.0)
+	_etiqueta("MURO DE LA LANZA — tirala, clavala, subete", centro + Vector3(0, 0.06, 4.0))
+	_bloque("MuroLanza", Vector3(7.0, 5.0, 1.0), centro + Vector3(0, 2.5, 0), _mat_piedra_osc)
+
+	# En el editor no hay jugador ni autoloads listos: el muro se dibuja para
+	# poder colocarlo, pero la lanza es cosa del juego corriendo.
+	if LANZA == null or Engine.is_editor_hint():
+		return
+	# El jugador puede no existir todavia: quien construye primero depende del
+	# orden en `Main.tscn`, y eso no es algo sobre lo que se deba apostar.
+	if GameState.player != null:
+		_dar_lanza(GameState.player)
+	elif not EventBus.player_spawned.is_connected(_dar_lanza):
+		EventBus.player_spawned.connect(_dar_lanza, CONNECT_ONE_SHOT)
+
+
+## Crea LA lanza y se la entrega al jugador. Una sola en todo el juego.
+func _dar_lanza(jugador: Node3D) -> void:
+	if jugador == null or _raiz == null or not is_instance_valid(_raiz):
+		return
+	if jugador.get("lanza") != null:
+		return
+	var l := LANZA.instantiate() as Spear
+	l.name = "Lanza"
+	l.palette = palette
+	l.ataque = load("res://content/data/attacks/lanza_vuelo.tres")
+	_raiz.add_child(l)
+	l.dueno = jugador
+	l.global_position = jugador.global_position + Vector3.UP
+	jugador.set("lanza", l)
+
+	# Y LA DAGA. Una sola: la lanza tambien se clava en lo agarrable, asi que con
+	# un arma de cada tipo se llega a todo —resortera con las dos en mundo,
+	# zarandeo con cualquiera en carne— sin llevar la cuenta de dos objetos iguales.
+	var dagas: Array[Anclaje] = []
+	for i in 1:
+		var a := ANCLAJE.instantiate() as Anclaje
+		a.name = "Daga%d" % i
+		a.palette = palette
+		a.dueno = jugador
+		_raiz.add_child(a)
+		a.global_position = jugador.global_position + Vector3.UP
+		dagas.append(a)
+	jugador.set("dagas", dagas)
+
+
+func _corral() -> void:
+	var centro := Vector3(11.0, 0.0, -32.0)
+	_etiqueta("CORRAL — embestidor · volador · coloso", centro + Vector3(0, 0.06, 5.0))
+
+	# Un muro corto detras del embestidor: sin algo contra lo que estrellarse, su
+	# carga fallida no tiene consecuencia y la mecanica no se entiende.
+	_bloque("Corral_Muro", Vector3(9.0, 3.0, 0.8), centro + Vector3(0, 1.5, -6.0), _mat_piedra_osc)
+
+	for datos in [
+		{"escena": EMBESTIDOR, "nombre": "Embestidor", "pos": Vector3(-4.0, 0.2, 0.0),
+			"ataque": "res://content/data/attacks/embestida.tres"},
+		{"escena": VOLADOR, "nombre": "Volador", "pos": Vector3(4.0, 5.0, 0.0),
+			"ataque": "res://content/data/attacks/volador_disparo.tres"},
+		# El coloso NO lleva ataque: su unico trabajo es dejarse escalar.
+		{"escena": COLOSO, "nombre": "ColosoMediano", "pos": Vector3(0.0, 3.6, 3.5), "ataque": ""},
+	]:
+		var escena: PackedScene = datos["escena"]
+		if escena == null:
+			continue
+		var e := escena.instantiate() as Enemigo
+		e.name = datos["nombre"]
+		e.palette = palette
+		var ruta: String = datos["ataque"]
+		if not ruta.is_empty():
+			e.ataque = load(ruta)
+		if e is Volador:
+			(e as Volador).proyectil = PROYECTIL
+		_raiz.add_child(e)
+		e.global_position = centro + (datos["pos"] as Vector3)
+
+
+## PUESTO DE PATRULLA. Un guardián rondando cuatro puntos, con dos columnas en
+## medio.
+##
+## Va LEJOS del corral a propósito. El corral sale en la toma `corral_enemigos`
+## del screenshot test, y un enemigo que se mueve dentro del encuadre haría esa
+## referencia distinta en cada pasada: sería exactamente el flake que costó
+## arreglar en `TestFase2` y en la toma `cordon`.
+##
+## **Y lejos de las rampas de calibración de escalada.** La primera versión se
+## puso en (-13, 0, -32), que cae justo encima de ellas: las rampas van de x = -33
+## a x = -5.8 en z = -30, así que las dos columnas aterrizaron sobre la de 90° y
+## el guardián patrullaba por dentro. Se vio con `escalada_muro_90` al **22%** de
+## píxeles distintos —el tope es 0.40%—, y no lo habría cazado ningún test
+## funcional: los 28 de enemigos seguían en verde.
+##
+## Las columnas no son decoración: son lo que hace visible la mitad del arquetipo
+## a distancia. Sin nada que interponer, "no dispara si no te ve" no se puede ver.
+func _patrulla() -> void:
+	var centro := Vector3(-30.0, 0.0, 6.0)
+	_etiqueta("PATRULLA — ronda, y no dispara si no te ve", centro + Vector3(0, 0.06, 6.0))
+
+	for i in 2:
+		var lado := -1.0 if i == 0 else 1.0
+		_bloque("Patrulla_Columna_%d" % i, Vector3(1.4, 4.0, 1.4),
+			centro + Vector3(lado * 2.0, 2.0, 0.0), _mat_piedra_osc)
+
+	var g := GUARDIAN.instantiate() as Enemigo
+	g.name = "GuardianPatrulla"
+	g.palette = palette
+	g.ataque = load("res://content/data/attacks/guardian_lancero.tres")
+	# La ronda: un rectángulo alrededor de las dos columnas, para que el jugador
+	# pueda perderse de vista y recuperarla.
+	g.ruta = PackedVector3Array([
+		centro + Vector3(-4.0, 0.2, -4.0),
+		centro + Vector3(4.0, 0.2, -4.0),
+		centro + Vector3(4.0, 0.2, 4.0),
+		centro + Vector3(-4.0, 0.2, 4.0),
+	])
+	_raiz.add_child(g)
+	g.global_position = g.ruta[0]
+
+
+## EL CLARO: el mundo vivo, dentro del Gym.
+##
+## Hierba que se aplasta al pasar, luciernagas que parpadean al unisono y una
+## bandada de criaturas de tela planeando encima. Los tres tienen su banco propio
+## en `tools/Claro.tscn` para afinarlos sin abrir una partida, pero **tienen que
+## estar tambien aqui**: un sistema que solo existe en su banco es un sistema que
+## nadie ve jugando, y entonces no esta puesto.
+##
+## No corre en el editor. `Pasto` lanza un rayo por brizna para pegarla al suelo y
+## `Bandada` y `Luciernagas` construyen un `Enjambre`, y las tres cosas necesitan
+## los autoloads y el espacio de fisica de una partida corriendo.
+func _claro() -> void:
+	if not con_claro or Engine.is_editor_hint():
+		return
+	_etiqueta("EL CLARO — corre por la hierba y mirala detras de ti",
+		claro_centro + Vector3(0.0, 0.06, claro_lado * 0.5 + 2.5))
+
+	var p := PASTO.new()
+	p.name = "Pasto"
+	p.area = Vector2(claro_lado, claro_lado)
+	_raiz.add_child(p)
+	p.global_position = claro_centro
+
+	var l := LUCIERNAGAS.new()
+	l.name = "Luciernagas"
+	l.cuantas = 140
+	l.area = Vector3(claro_lado * 0.95, 4.5, claro_lado * 0.95)
+	_raiz.add_child(l)
+	l.global_position = claro_centro + Vector3.UP * 0.6
+
+	# El circuito de la bandada, encogido para que quepa sobre el claro. Los
+	# valores de fabrica de `Bandada` son para cielo abierto: 26 m de radio.
+	var b := BANDADA.new()
+	b.name = "Bandada"
+	b.criaturas = 14
+	# Trece segundos por vuelta y no los veinte de fabrica. No es velocidad: es lo
+	# que tarda la bandada en DARSE CUENTA de que estas ahi. El enganche se mide
+	# promediando sobre el ciclo del oscilador —hace falta al menos una vuelta para
+	# distinguir "va enganchada" de "pasaba por delante"—, asi que a veinte
+	# segundos por vuelta se acercaban a los diez de que llegases, y eso se lee
+	# como que no reaccionan.
+	b.vuelta_segundos = 13.0
+	b.radio = 9.5
+	b.vaiven = 3.6
+	b.dispersion_tubo = 2.3
+	b.largo = 2.0
+	b.ancho = 0.34
+	_raiz.add_child(b)
+	b.global_position = claro_centro + Vector3.UP * 10.0
+
+
 ## Tunel de 1.2 m: por debajo de la altura del jugador (1.8 m). Solo se cruza
 ## agachado o surfeando, y una vez dentro NO se puede uno levantar: el
 ## CeilingSensor obliga a seguir agachado hasta salir.
@@ -349,6 +606,38 @@ func _piscina() -> void:
 	agua.position = centro + Vector3(0, (alto - 0.5) * 0.5, 0)
 
 	_etiqueta("ESTANQUE — clavate desde la torre", centro + Vector3(0, 0.06, ancho * 0.5 + 2.5))
+
+
+## LA ESTACION DE JAM: ocho puestos en corro que tocan juntos.
+##
+## Vive AQUI y no solo en `tools/Jam.tscn` por la misma razon que el claro: un
+## sistema que solo existe en su banco es un sistema que nadie ve jugando, y
+## entonces no esta puesto. A dieciseis metros del spawn y al otro lado que el
+## claro, para que se oiga sola.
+func _jam() -> void:
+	if not con_jam or Engine.is_editor_hint():
+		return
+	_etiqueta("LA JAM — E abre la hoja de notas",
+		jam_centro + Vector3(0.0, 0.06, 6.0))
+
+	var e := ESTACION_JAM.new()
+	e.name = "EstacionJam"
+	e.palette = palette
+	_raiz.add_child(e)
+	e.global_position = jam_centro
+
+
+## EL FILTRO DE PIXEL, siempre montado y por defecto apagado.
+##
+## Se monta aunque arranque apagado porque lo que hace falta es poder ALTERNARLO
+## con F8: dos capturas no deciden esto, alternar mientras te mueves si.
+func _pixel_art() -> void:
+	if Engine.is_editor_hint():
+		return
+	var px := PIXEL_ART.new()
+	px.name = "PixelArt"
+	px.activo = con_pixel_art
+	_raiz.add_child(px)
 
 
 # --- Utilidades --------------------------------------------------------------

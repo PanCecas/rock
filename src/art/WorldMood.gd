@@ -21,7 +21,41 @@ extends WorldEnvironment
 		sol_path = v
 		_reconstruir()
 
+@export_group("Nubes")
+## Cuanto cielo tapan. 0 despejado, 1 cubierto.
+@export_range(0.0, 1.0, 0.01) var nubes_cobertura: float = 0.46:
+	set(v):
+		nubes_cobertura = v
+		_reconstruir()
+## ESCALONES del borde. 1 es una silueta de recorte; 4 casi un degradado. Es el
+## mando que decide si el cielo parece pintado o renderizado.
+@export_range(1, 8, 1) var nubes_bandas: int = 3:
+	set(v):
+		nubes_bandas = v
+		_reconstruir()
+## Tamano. Mas alto = nubes mas pequenas y mas numerosas.
+@export_range(0.1, 12.0, 0.1) var nubes_escala: float = 1.9:
+	set(v):
+		nubes_escala = v
+		_reconstruir()
+## Deriva. Muy lenta a proposito: una nube que se ve moverse deja de ser fondo.
+@export_range(0.0, 0.5, 0.001) var nubes_velocidad: float = 0.014:
+	set(v):
+		nubes_velocidad = v
+		_reconstruir()
+
 var sol: DirectionalLight3D
+var _cielo_mat: ShaderMaterial
+
+
+## Congela las nubes en una fase fija, o las suelta con un valor negativo.
+##
+## Mismo gancho que `ZonaAgua.congelar_olas()` y `Cordon.asentar()`, y por la misma
+## razon: una superficie animada nunca es una referencia estable si cada pasada la
+## fotografia en otro momento.
+func congelar_nubes(t: float) -> void:
+	if _cielo_mat != null:
+		_cielo_mat.set_shader_parameter(&"tiempo_fijo", t)
 
 
 func _ready() -> void:
@@ -38,20 +72,35 @@ func _reconstruir() -> void:
 
 	var env := Environment.new()
 
-	# --- Cielo: una lavada plana de crema, no un degradado de postal ---------
-	var cielo_mat := ProceduralSkyMaterial.new()
-	cielo_mat.sky_top_color = palette.crema_medio.lerp(palette.lavanda_gris, 0.35)
-	cielo_mat.sky_horizon_color = palette.crema_bruma
-	cielo_mat.sky_curve = 0.18
-	cielo_mat.sky_energy_multiplier = 1.0
-	cielo_mat.ground_bottom_color = palette.musgo_sombra
-	cielo_mat.ground_horizon_color = palette.crema_bruma
-	cielo_mat.ground_curve = 0.04
-	cielo_mat.sun_angle_max = 25.0
-	cielo_mat.sun_curve = 0.12
+	# --- Cielo: nubes pintadas, no un degradado de postal --------------------
+	#
+	# `ProceduralSkyMaterial` solo sabe hacer un degradado: correcto y vacio. Las
+	# nubes son parte del cielo y se mueven solas, y salen EN BANDAS por la misma
+	# razon que todo lo demas —§1 del doc de shaders—: un cielo suave debajo de un
+	# mundo cuantizado se lee como dos juegos pegados.
+	var cielo_mat := ShaderMaterial.new()
+	cielo_mat.shader = load("res://src/art/shaders/cielo.gdshader")
+	# UNA NUBE BLANCA SOBRE UN CIELO CREMA ES UNA NUBE INVISIBLE, y es la tercera
+	# vez que este proyecto tropieza con lo mismo: `blanco_tiza` (#F2F0E6) contra
+	# `crema_bruma` (#EFE8D8) es el mismo color, igual que le pasaba a la bandada.
+	# El cenit tira a lavanda para que la nube tenga contra que recortarse; el
+	# horizonte se queda en crema, que es donde la niebla lo va a fundir de todas
+	# formas.
+	cielo_mat.set_shader_parameter(
+		&"color_cenit", palette.lavanda_profundo.lerp(palette.lavanda_gris, 0.28))
+	cielo_mat.set_shader_parameter(&"color_horizonte", palette.crema_bruma)
+	cielo_mat.set_shader_parameter(&"color_nube", palette.blanco_tiza)
+	cielo_mat.set_shader_parameter(
+		&"color_nube_sombra", palette.lavanda_gris.lerp(palette.lavanda_profundo, 0.5))
+	cielo_mat.set_shader_parameter(&"color_sol", palette.luz_solar)
+	cielo_mat.set_shader_parameter(&"cobertura", nubes_cobertura)
+	cielo_mat.set_shader_parameter(&"bandas", float(nubes_bandas))
+	cielo_mat.set_shader_parameter(&"escala", nubes_escala)
+	cielo_mat.set_shader_parameter(&"velocidad", nubes_velocidad)
 
 	var cielo := Sky.new()
 	cielo.sky_material = cielo_mat
+	_cielo_mat = cielo_mat
 	env.background_mode = Environment.BG_SKY
 	env.sky = cielo
 

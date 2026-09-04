@@ -1,26 +1,32 @@
 [gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://cqcpc35iveixk"]
 
 [ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+[ext_resource type="Resource" path="res://content/data/attacks/espada_remate.tres" id="2_r"]
 
 [resource]
 script = ExtResource("1_s")
-anim = &"combat/atk_H_release"
-nombre = "Pesado"
-frames_windup = 14
-frames_activo = 6
-frames_recuperacion = 22
-dano = 20.0
-dano_poise = 32.0
-empuje = Vector3(0, 0.4, 10)
-stagger = 0.9
-fuerza_muerte = 26.0
+anim = &"combat/atk_H1_spin"
+nombre = "Giro"
+frames_windup = 12
+frames_recuperacion = 20
+golpes = 2
+frames_entre_golpes = 6
+dano = 12.0
+dano_poise = 18.0
+empuje = Vector3(0, 0, 6)
+stagger = 0.55
+fuerza_muerte = 18.0
 torque_muerte = 11.0
-rompe_guardia = true
-alcance = 2.5
-radio = 1.25
-avance = 4.5
-movilidad = 0.15
-hitstop = 0.1
-shake = 1.0
+etiquetas = Array[StringName]([&"contundente"])
+alcance = 2.6
+radio = 1.3
+arco_grados = 180.0
+max_objetivos = 6
+avance = 3.0
+movilidad = 0.25
+hitstop = 0.075
+shake = 0.8
 color_vfx = &"oro_palido"
-frame_cadena = 99
+siguiente = ExtResource("2_r")
+boton_cadena = 1
+frame_cadena = 20

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+nombre = "Barrido de lanza"
+frames_windup = 17
+frames_activo = 6
+frames_recuperacion = 28
+dano = 26.0
+dano_poise = 45.0
+empuje = Vector3(0, 2, 7)
+stagger = 0.9
+fuerza_muerte = 22.0
+torque_muerte = 14.0
+rompe_guardia = true
+alcance = 2.6
+radio = 1.7
+altura = 0.9
+arco_grados = 180.0
+max_objetivos = 6
+avance = 2.0
+frenazo = true
+movilidad = 0.1
+hitstop = 0.12
+shake = 0.9
+color_vfx = &"oro_palido"
+frame_cadena = 999
