@@ -16,12 +16,19 @@ render_mode use_half_res_pass;
 // convertirse en un degradado sucio, porque un degradado suave a un cuarto de
 // resolucion es exactamente donde aparece el banding feo que nadie eligio.
 //
-// LA PROYECCION es la de siempre para nubes de cielo: se divide `EYEDIR.xz` por
-// `EYEDIR.y`, o sea se proyecta la mirada sobre un plano horizontal a altura fija.
-// Eso da perspectiva gratis —las nubes se aprietan hacia el horizonte— y cuesta
-// una division. El `max()` del denominador es obligatorio: en el horizonte `y`
-// tiende a cero y sin el la coordenada explota a infinito y el ruido se convierte
-// en ruido blanco.
+// LA PROYECCION ES UN DOMO, NO UN PLANO, y esa es la diferencia entre nubes y
+// churretes.
+//
+// Lo estandar para nubes de cielo es dividir `EYEDIR.xz` por `EYEDIR.y`: proyectar
+// la mirada sobre un plano horizontal. Da perspectiva gratis y es fisicamente lo
+// que hace una capa de nubes... y se ve HORRIBLE. En el horizonte `y` tiende a
+// cero, asi que la coordenada se multiplica por 18 y las nubes se estiran en
+// tiras horizontales que cruzan la pantalla. No parecen nubes: parecen papel
+// marmolado.
+//
+// Dividiendo por `y*0.85 + 0.35` la compresion pasa de 18x a 2.9x: queda
+// perspectiva —las de lejos son mas pequenas— y no hay estiron. Es menos correcto
+// y se ve mucho mejor, que en un cielo estilizado es la unica metrica.
 
 // Colores. Regla dura #9: entran desde `Palette.tres`, nunca escritos aqui. Los
 // valores por defecto solo existen para poder abrir el shader y ver algo.
@@ -32,7 +39,7 @@ uniform vec4 color_nube_sombra : source_color = vec4(0.71, 0.69, 0.75, 1.0);
 uniform vec4 color_sol : source_color = vec4(1.0, 0.95, 0.85, 1.0);
 
 // Cuanto cielo tapan las nubes. 0 = despejado, 1 = cubierto.
-uniform float cobertura : hint_range(0.0, 1.0) = 0.46;
+uniform float cobertura : hint_range(0.0, 1.0) = 0.32;
 // ESCALONES del borde de la nube. 1 = silueta dura de recorte; 4 = casi suave.
 // Es el mando que decide si esto parece pintado a mano o renderizado.
 uniform float bandas : hint_range(1.0, 8.0) = 3.0;
@@ -41,19 +48,36 @@ uniform float bandas : hint_range(1.0, 8.0) = 3.0;
 uniform float suavidad : hint_range(0.001, 0.5) = 0.13;
 // Tamano de las nubes. Mas alto = nubes mas pequenas y mas numerosas.
 uniform float escala : hint_range(0.1, 12.0) = 1.9;
-// Deriva, en unidades por segundo. Muy lenta a proposito: una nube que se ve
-// moverse deja de ser fondo y pide atencion.
-uniform float velocidad : hint_range(0.0, 0.5) = 0.014;
+// Deriva del viento, en unidades por segundo.
+uniform float velocidad : hint_range(0.0, 0.5) = 0.090;
+// Direccion del viento en el plano.
+uniform vec2 viento_dir = vec2(1.0, 0.35);
+// CUANTO EVOLUCIONA EL CAMPO, aparte de desplazarse.
+//
+// Es la diferencia entre una TEXTURA QUE SE DESLIZA y unas nubes. Con solo
+// deriva, el campo de ruido es rigido: pasa por delante como una diapositiva y el
+// ojo lo caza en dos segundos. Dandole a la deformacion de dominio su propio
+// reloj, las nubes NACEN Y SE DESHACEN mientras cruzan — y eso es lo que hace que
+// se note que estan calculadas y no pintadas.
+uniform float evolucion : hint_range(0.0, 0.5) = 0.060;
+// Cuanto se ESPONJAN. Sube el contraste del ruido antes de cuantizar, asi que las
+// nubes tienen nucleo denso y borde deshilachado en vez de ser manchas planas.
+uniform float esponjado : hint_range(0.5, 4.0) = 1.7;
+// Cuanto se reescala el ruido despues de esponjarlo. Es el mando que decide si
+// queda cielo VISIBLE entre las nubes: a 1.9 casi todo el campo pasaba el umbral y
+// el cielo salia cubierto de gris uniforme — nubes sin contra que recortarse no
+// son nubes, son niebla alta.
+uniform float ganancia : hint_range(0.5, 3.0) = 1.35;
 // Cuanto se deforma el ruido consigo mismo. Es lo que convierte manchas redondas
 // en nubes con forma; a cero se ven como salpicaduras.
 uniform float deformacion : hint_range(0.0, 2.0) = 0.75;
 // Por debajo de esta altura de mirada no hay nubes: se funden con el horizonte.
-uniform float suelo_nubes : hint_range(0.0, 0.6) = 0.06;
+uniform float suelo_nubes : hint_range(0.0, 0.6) = 0.04;
 // Disco del sol y su halo.
 uniform float sol_tamano : hint_range(0.0, 0.2) = 0.018;
 uniform float sol_halo : hint_range(0.0, 1.0) = 0.30;
 // Cuanto se aclara la cara de la nube que mira al sol.
-uniform float luz_nube : hint_range(0.0, 1.0) = 0.55;
+uniform float luz_nube : hint_range(0.0, 1.0) = 0.85;
 
 // RELOJ CONGELABLE, igual que en `agua.gdshader` y por lo mismo: una superficie
 // animada no puede ser una referencia estable si cada pasada la fotografia en una
@@ -106,17 +130,32 @@ void sky() {
 	vec3 fondo = mix(color_horizonte.rgb, color_cenit.rgb, alto);
 
 	// --- Las nubes ------------------------------------------------------------
-	vec2 p = d.xz / max(abs(d.y), 0.055) * escala;
-	vec2 deriva = vec2(t * velocidad, t * velocidad * 0.4);
-	// DEFORMACION DE DOMINIO: se evalua el ruido, y con ESE resultado se desplaza
-	// la coordenada antes de volver a evaluarlo. Cuesta una segunda pasada y es lo
-	// unico que separa una mancha de una nube.
-	vec2 q = vec2(fbm(p + deriva), fbm(p + deriva + vec2(5.2, 1.3)));
+	// DOMO, no plano. Ver la nota de arriba: dividir por `y` a secas estira las
+	// nubes en tiras hacia el horizonte.
+	vec2 p = d.xz / (clamp(d.y, 0.0, 1.0) * 0.85 + 0.35) * escala;
+	vec2 deriva = normalize(viento_dir + vec2(0.0001)) * (t * velocidad);
+
+	// DEFORMACION DE DOMINIO CON RELOJ PROPIO. Se evalua el ruido, y con ESE
+	// resultado se desplaza la coordenada antes de volver a evaluarlo — eso es lo
+	// que separa una mancha de una nube. Y los dos muestreos de la deformacion
+	// avanzan por su cuenta (`evolucion`), en direcciones distintas de la del
+	// viento: asi el campo no solo pasa por delante, sino que se rehace mientras
+	// pasa. Sin esto son una diapositiva deslizandose.
+	float te = t * evolucion;
+	vec2 q = vec2(
+		fbm(p + deriva + vec2(0.0, te)),
+		fbm(p + deriva + vec2(4.7, 2.1) + vec2(-te * 0.63, te * 0.31)));
 	float n = fbm(p + deriva + q * deformacion);
 
-	// El horizonte se despeja: sin esto las nubes se apelmazan en una linea negra
-	// justo donde el ruido se estira al infinito.
-	float velo = smoothstep(suelo_nubes, suelo_nubes + 0.18, abs(d.y));
+	// ESPONJADO: sube el contraste del ruido antes de cuantizar. Sin el, la banda
+	// cae siempre por el mismo sitio del degradado y todas las nubes salen con el
+	// mismo grosor de borde — que es lo que las hacia parecer papel marmolado.
+	n = clamp(pow(clamp(n, 0.0, 1.0), esponjado) * ganancia, 0.0, 1.0);
+
+	// El horizonte se despeja, y ahora ANTES: con el domo ya no hay estiron, pero
+	// el ultimo palmo de cielo es donde la niebla se come todo y una nube ahi solo
+	// ensucia la linea del horizonte.
+	float velo = smoothstep(suelo_nubes, suelo_nubes + 0.30, clamp(d.y, 0.0, 1.0));
 	float bruto = smoothstep(1.0 - cobertura - suavidad, 1.0 - cobertura + suavidad, n);
 
 	// EN BANDAS. `floor` sobre el valor ya suavizado: la silueta sale escalonada en
@@ -130,10 +169,16 @@ void sky() {
 	// muestreo da exactamente la sensacion de volumen iluminado por un lado.
 	vec3 sol = normalize(LIGHT0_DIRECTION);
 	vec2 hacia = normalize(sol.xz + vec2(0.0001)) * 0.35;
-	float n2 = fbm(p + deriva + q * deformacion - hacia);
-	float cara = clamp((n - n2) * 4.0, -1.0, 1.0) * 0.5 + 0.5;
+	float n2 = clamp(pow(clamp(
+		fbm(p + deriva + q * deformacion - hacia), 0.0, 1.0), esponjado) * ganancia, 0.0, 1.0);
+	float cara = clamp((n - n2) * 5.0, -1.0, 1.0) * 0.5 + 0.5;
 	cara = floor(cara * pasos) / max(pasos - 1.0, 1.0);
-	vec3 tinta = mix(color_nube_sombra.rgb, color_nube.rgb, mix(0.35, 1.0, cara * luz_nube + (1.0 - luz_nube)));
+	// LA MEZCLA, SIN COMPRIMIR. La primera version encadenaba dos `mix` y el
+	// resultado solo recorria de 0.64 a 1.0: la nube salia plana porque su cara
+	// oscura y su cara clara se diferenciaban en un tercio de lo que deberian.
+	// Ahora `luz_nube` dice cuanto se abre el rango, y se abre de verdad.
+	float sombra = mix(1.0 - luz_nube, 1.0, cara);
+	vec3 tinta = mix(color_nube_sombra.rgb, color_nube.rgb, sombra);
 
 	vec3 c = mix(fondo, tinta, nube);
 

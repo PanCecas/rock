@@ -23,7 +23,7 @@ extends WorldEnvironment
 
 @export_group("Nubes")
 ## Cuanto cielo tapan. 0 despejado, 1 cubierto.
-@export_range(0.0, 1.0, 0.01) var nubes_cobertura: float = 0.46:
+@export_range(0.0, 1.0, 0.01) var nubes_cobertura: float = 0.32:
 	set(v):
 		nubes_cobertura = v
 		_reconstruir()
@@ -39,9 +39,15 @@ extends WorldEnvironment
 		nubes_escala = v
 		_reconstruir()
 ## Deriva. Muy lenta a proposito: una nube que se ve moverse deja de ser fondo.
-@export_range(0.0, 0.5, 0.001) var nubes_velocidad: float = 0.014:
+@export_range(0.0, 0.5, 0.001) var nubes_velocidad: float = 0.090:
 	set(v):
 		nubes_velocidad = v
+		_reconstruir()
+## Cuanto se REHACE el campo mientras se desplaza. Es la diferencia entre una
+## textura deslizandose y unas nubes que nacen y se deshacen.
+@export_range(0.0, 0.5, 0.001) var nubes_evolucion: float = 0.060:
+	set(v):
+		nubes_evolucion = v
 		_reconstruir()
 
 var sol: DirectionalLight3D
@@ -86,17 +92,24 @@ func _reconstruir() -> void:
 	# El cenit tira a lavanda para que la nube tenga contra que recortarse; el
 	# horizonte se queda en crema, que es donde la niebla lo va a fundir de todas
 	# formas.
-	cielo_mat.set_shader_parameter(
-		&"color_cenit", palette.lavanda_profundo.lerp(palette.lavanda_gris, 0.28))
+	# EL CENIT, SIN ACLARAR. La primera version lo llevaba un 28% hacia
+	# `lavanda_gris` y el resultado era una nube casi del mismo valor que el cielo:
+	# formas correctas, contraste cero. Una nube blanca necesita un cielo OSCURO
+	# detras — es la misma leccion que la bandada, por tercera vez.
+	cielo_mat.set_shader_parameter(&"color_cenit", palette.lavanda_profundo)
 	cielo_mat.set_shader_parameter(&"color_horizonte", palette.crema_bruma)
 	cielo_mat.set_shader_parameter(&"color_nube", palette.blanco_tiza)
+	# Y LA SOMBRA DE LA NUBE, mas honda: es lo unico que le da volumen a una forma
+	# plana. A medio camino entre los dos lavandas no se distinguia de la cara
+	# iluminada.
 	cielo_mat.set_shader_parameter(
-		&"color_nube_sombra", palette.lavanda_gris.lerp(palette.lavanda_profundo, 0.5))
+		&"color_nube_sombra", palette.lavanda_profundo.lerp(palette.piedra_sombra, 0.35))
 	cielo_mat.set_shader_parameter(&"color_sol", palette.luz_solar)
 	cielo_mat.set_shader_parameter(&"cobertura", nubes_cobertura)
 	cielo_mat.set_shader_parameter(&"bandas", float(nubes_bandas))
 	cielo_mat.set_shader_parameter(&"escala", nubes_escala)
 	cielo_mat.set_shader_parameter(&"velocidad", nubes_velocidad)
+	cielo_mat.set_shader_parameter(&"evolucion", nubes_evolucion)
 
 	var cielo := Sky.new()
 	cielo.sky_material = cielo_mat
