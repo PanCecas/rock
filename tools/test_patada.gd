@@ -24,6 +24,7 @@ const GUARDIAN := preload("res://src/enemies/Guardian.tscn")
 var _main: Node
 var _p: PlayerController
 var _victima: Enemigo
+var _ancla: Ancla
 
 const ARRANQUE_MAX := 20.0
 var _arranque: float = 0.0
@@ -36,6 +37,10 @@ var _atacar: int = 0
 var _stick: float = 0.0
 ## Frames que faltan para empujar el stick, contados DENTRO del gesto.
 var _stick_tras: int = -1
+## Frames que faltan para pulsar SALTO, contados DENTRO del gesto.
+var _saltar_tras: int = -1
+var _cuerda: int = 0
+var _ancla_viva: bool = false
 
 # --- Latches. Se miden MIENTRAS pasa: al cerrar la ventana el gesto ya acabó.
 var _t_patada: float = 0.0
@@ -51,6 +56,12 @@ var _estado_prev: StringName = &""
 var _v_salida: float = 0.0
 ## Velocidad en el primer frame observable del gesto. Es la medida del startup.
 var _v_primera: float = 0.0
+## Velocidad del plano justo ANTES de entrar en el gesto. Es contra esta contra la
+## que se comprueba que la patada no resta.
+var _v_antes: float = 0.0
+var _v_plano_prev: float = 0.0
+## Vertical mas alta vista DESPUES de conectar. Es el rebote.
+var _vy_rebote: float = -99.0
 
 
 func _ready() -> void:
@@ -67,7 +78,30 @@ func _ready() -> void:
 		if e != null and is_instance_valid(e):
 			e.vista = 0.0
 
+	# Un ancla de prueba para la cadena cuerda -> patada. Se recoloca cada frame
+	# respecto a la camara, igual que en `TestCuerda`: el cono es parte de la
+	# mecanica, asi que un ancla en coordenadas fijas probaria otra cosa segun
+	# hacia donde mirase la camara ese dia.
+	_ancla = Ancla.new()
+	_ancla.name = "AnclaDePrueba"
+	_main.add_child(_ancla)
+	_ancla.global_position = Vector3(0.0, 60.0, 0.0)
+
 	_construir()
+
+
+## El ancla, colocada a 35 grados sobre la direccion de la camara y a 8 m del
+## JUGADOR. Ver `TestCuerda._recolocar_ancla()` para el porque de los dos origenes.
+func _recolocar_ancla() -> void:
+	var cam := _p.camara()
+	if cam == null:
+		return
+	var frente := -cam.global_basis.z
+	var derecha := cam.global_basis.x.normalized()
+	var arriba := frente.rotated(derecha, deg_to_rad(35.0))
+	if arriba.y < frente.y:
+		arriba = frente.rotated(derecha, -deg_to_rad(35.0))
+	_ancla.global_position = _p.global_position + arriba.normalized() * 8.0
 
 
 ## Un Guardián quieto y ciego donde se le diga. Ciego porque lo que se mide es el
@@ -171,14 +205,19 @@ func _construir() -> void:
 
 		_chequeo_("y RECARGA la cuerda y la patada", 0.1,
 			func() -> void: pass,
-			func() -> bool: return _p.cuerda_disponible and _p.patada_disponible,
+			func() -> bool: return _p.cuerda_disponible and _p.patada_cargas > 0,
 			"el enemigo es una plataforma: golpearle es SEGUIR moviéndote"),
+
+		_chequeo_("y te devuelve ARRIBA", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _vy_rebote > _p.tuning.patada_rebote * 0.7,
+			"sin rebote, golpear es el final de una linea en vez de un eslabon"),
 
 		# --- UNA POR TIEMPO DE VUELO ------------------------------------------
 		_chequeo_("en el aire solo hay una", 0.7,
 			func() -> void:
 				_colocar(Vector3(0.0, 14.0, 20.0))
-				_p.patada_disponible = false
+				_p.patada_cargas = 0
 				_visto.clear()
 				_atacar = 8,
 			func() -> bool: return not _visto.has(&"Kick"),
@@ -188,8 +227,8 @@ func _construir() -> void:
 			func() -> void:
 				_soltar_todo()
 				_colocar(Vector3(0.0, 3.0, 20.0))
-				_p.patada_disponible = false,
-			func() -> bool: return _p.patada_disponible,
+				_p.patada_cargas = 0,
+			func() -> bool: return _p.patada_cargas > 0,
 			"si no se recargara al aterrizar sería de un solo uso por partida"),
 
 		# --- EL ANTI-SPAM -----------------------------------------------------
@@ -199,13 +238,13 @@ func _construir() -> void:
 				_p.global_position = Vector3(0.0, 0.3, 20.0)
 				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Idle")
-				_p.patada_disponible = true
+				_p.patada_cargas = _p.tuning.patada_cargas
 				_visto.clear()
 				_atacar = 4,
 			func() -> bool:
 				# Se pateó —y por tanto se gastó— y el contacto continuo del suelo
 				# NO la ha devuelto: hace falta salir y volver.
-				return _visto.has(&"Kick") and not _p.patada_disponible,
+				return _visto.has(&"Kick") and _p.patada_cargas <= 0,
 			"con la recarga como NIVEL, machacar el botón sería un dash continuo"),
 
 		_chequeo_("pero saltar y caer sí", 1.8,
@@ -214,7 +253,7 @@ func _construir() -> void:
 				_p.global_position = Vector3(0.0, 3.0, 20.0)
 				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Fall"),
-			func() -> bool: return _p.patada_disponible,
+			func() -> bool: return _p.patada_cargas > 0,
 			"la recarga es un gesto —salir y volver—, no una cuenta atrás"),
 
 		# --- EL AGUA NO SE PATEA ----------------------------------------------
@@ -225,12 +264,60 @@ func _construir() -> void:
 				_p.global_position = Vector3(28.0, 6.0, -28.0)
 				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Fall")
-				_p.patada_disponible = true
+				_p.patada_cargas = _p.tuning.patada_cargas
 				_visto.clear()
 				_atacar = 10,
 			func() -> bool:
 				return _visto.has(&"Swim") and not _visto.has(&"Kick"),
 			"nadar es traversal puro: una patada dentro se salta la física del medio"),
+
+		# --- LA PATADA NO RESTA ------------------------------------------------
+		# Es el defecto que se arreglo en la segunda pasada y el que mas se notaba:
+		# escribia 18 m/s cada frame, asi que entrar lanzado y patear te QUITABA
+		# velocidad. Medido antes del arreglo: 29.8 -> 18.0.
+		_chequeo_("entrando lanzado, NO te quita velocidad", 0.7,
+			func() -> void:
+				_colocar(Vector3(0.0, 12.0, 20.0))
+				# El permiso de momentum, a mano: sin el, el clamp global (22) se
+				# comeria los 30 antes de que la patada pudiera heredarlos y la
+				# medida culparia a la patada de lo que hace el clamp.
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.momentum_libre = 6.0
+				_p.momentum_techo = 40.0
+				_atacar = 4,
+			func() -> bool:
+				return _v_antes > 25.0 and _v_max > _v_antes - 0.6,
+			"una patada que te frena convierte encadenar en un castigo"),
+
+		_chequeo_("y sale con ella puesta", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _v_salida > _v_antes - 1.5,
+			"la ley 5 del rediseño: encadenar limpio acumula velocidad"),
+
+		# --- SE PUEDE SALIR DE ELLA -------------------------------------------
+		_chequeo_("saltar a mitad la corta", 0.8,
+			func() -> void:
+				_colocar(Vector3(0.0, 12.0, 20.0))
+				_atacar = 4
+				_saltar_tras = 8,
+			func() -> bool: return _visto.has(&"Jump"),
+			"quince frames sin poder actuar son quince frames sin ser el dueño"),
+
+		# --- LA CADENA, que es el criterio de exito ---------------------------
+		_chequeo_("colgarse del ancla", 0.6,
+			func() -> void:
+				_colocar(Vector3(0.0, 12.0, 20.0))
+				_ancla_viva = true
+				_cuerda = 4,
+			func() -> bool: return _visto.has(&"Grapple"),
+			"primero hay que colgarse para poder encadenar"),
+
+		_chequeo_("y patear DESDE el arco", 0.6,
+			func() -> void:
+				_visto.clear()
+				_atacar = 4,
+			func() -> bool: return _visto.has(&"Kick"),
+			"la cadena cuerda -> patada es el criterio de exito: sin esto no existe"),
 
 		# --- SALIDA -----------------------------------------------------------
 		_chequeo_("al terminar CONSERVA la velocidad", 0.7,
@@ -251,7 +338,7 @@ func _colocar(pos: Vector3) -> void:
 	_p.stamina.llenar()
 	_p.momentum_libre = 0.0
 	_p.cuerda_disponible = true
-	_p.patada_disponible = true
+	_p.patada_cargas = _p.tuning.patada_cargas
 	_p.fsm.cambiar(&"Fall")
 	_visto.clear()
 	_t_patada = 0.0
@@ -265,7 +352,10 @@ func _colocar(pos: Vector3) -> void:
 	_frente = Vector3.ZERO
 	_v_salida = 0.0
 	_v_primera = 0.0
+	_v_antes = 0.0
+	_vy_rebote = -99.0
 	_stick_tras = -1
+	_saltar_tras = -1
 
 
 func _soltar_todo() -> void:
@@ -276,6 +366,9 @@ func _soltar_todo() -> void:
 	_atacar = 0
 	_stick = 0.0
 	_stick_tras = -1
+	_saltar_tras = -1
+	_cuerda = 0
+	_ancla_viva = false
 
 
 func _physics_process(delta: float) -> void:
@@ -294,11 +387,28 @@ func _physics_process(delta: float) -> void:
 
 	# --- Teclas. Siempre por el InputMap: forzar el estado no probaria que se
 	#     pueda LLEGAR a el.
+	# EL ANCLA SE CONGELA AL ENGANCHAR: seguir recolocandola contra la camara
+	# mientras cuelgas la mueve DEBAJO del jugador y el radio deja de significar
+	# nada. Mismo motivo que en `TestCuerda`.
+	if _ancla_viva and _p.fsm.nombre_actual() != &"Grapple":
+		_recolocar_ancla()
 	if _atacar > 0:
 		Input.action_press(&"attack_light")
 		_atacar -= 1
 		if _atacar == 0:
 			Input.action_release(&"attack_light")
+	if _cuerda > 0:
+		Input.action_press(&"rope")
+		_cuerda -= 1
+		if _cuerda == 0:
+			Input.action_release(&"rope")
+	if _saltar_tras > 0:
+		_saltar_tras -= 1
+		if _saltar_tras == 0:
+			Input.action_press(&"jump")
+	elif _saltar_tras == 0:
+		Input.action_release(&"jump")
+		_saltar_tras = -1
 	if is_zero_approx(_stick):
 		Input.action_release(&"move_right")
 	else:
@@ -307,8 +417,10 @@ func _physics_process(delta: float) -> void:
 	# --- Latches.
 	var estado := _p.fsm.nombre_actual()
 	_visto[estado] = true
+	var plano_ahora := _p.superficie.plano(_p.velocity).length()
 	if estado == &"Kick":
 		if _estado_prev != &"Kick":
+			_v_antes = _v_plano_prev
 			_t_patada = 0.0
 			_y0 = _p.global_position.y
 			_origen = _p.global_position
@@ -319,7 +431,7 @@ func _physics_process(delta: float) -> void:
 			if _stick_tras == 0:
 				_stick = 1.0
 		_t_patada += delta
-		var v := _p.velocity.length()
+		var v := plano_ahora
 		_v_min = minf(_v_min, v)
 		_v_max = maxf(_v_max, v)
 		_dy = maxf(_dy, absf(_p.global_position.y - _y0))
@@ -330,7 +442,9 @@ func _physics_process(delta: float) -> void:
 			var lado := _frente.cross(_p.superficie.up).normalized()
 			_lateral = maxf(_lateral, absf((_p.global_position - _origen).dot(lado)))
 	elif _estado_prev == &"Kick":
-		_v_salida = _p.superficie.plano(_p.velocity).length()
+		_v_salida = plano_ahora
+		_vy_rebote = maxf(_vy_rebote, _p.superficie.vertical(_p.velocity))
+	_v_plano_prev = plano_ahora
 	_estado_prev = estado
 
 	# --- El guion.

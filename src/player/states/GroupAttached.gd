@@ -36,6 +36,20 @@ func shared_update(_delta: float) -> void:
 	if intentar_cuerda():
 		return
 
+	# LA PATADA, QUE AQUI TAMPOCO ESTABA. Es el mismo fallo de la regla dura #13
+	# que la cuerda tuvo en la 3.12, visto otra vez: una ACCION COMPARTIDA que
+	# existe en `Grounded` y en `Airborne` y no aqui.
+	#
+	# Y el sintoma volvio a ser el peor posible, silencio: colgado del arco, el
+	# boton de ataque no hacia absolutamente nada. Con eso, **la cadena cuerda ->
+	# patada —que es el criterio de exito del rediseño— no se podia ejecutar**.
+	# Lo cazo una captura, no un test: el panel decia `Grapple` con
+	# `attack_light` en el buffer sin consumir.
+	#
+	# Va DETRAS de la cuerda y DELANTE del dash, igual que en los otros dos grupos.
+	if intentar_patada():
+		return
+
 	if player.puede_dashear() and buffer.consume(InputActions.DASH):
 		player.tiempo_sin_borde = 0.25
 		fsm.cambiar(&"Dash")

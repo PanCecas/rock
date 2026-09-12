@@ -52,10 +52,14 @@ var lanza: Spear = null
 ## La gasta `Grapple` al entrar y la devuelve `recargar_moveset()`, en un solo
 ## sitio. Ver ahi por que no va dentro de `recargar_aire()`.
 var cuerda_disponible: bool = true
-## ¿Y PATADA? Mismo trato y la misma moneda. Las dos se gastan al entrar y las dos
-## vuelven con el mismo contacto, asi que el jugador no tiene que llevar dos
-## cuentas: o has tocado algo, o no.
-var patada_disponible: bool = true
+## ¿CUANTAS PATADAS quedan? Mismo trato que la cuerda y la misma moneda: se gastan
+## al entrar y vuelven con el mismo contacto, asi que el jugador no lleva dos
+## cuentas — o has tocado algo, o no.
+##
+## Es un ENTERO y no un `bool` porque cuantas hay es el numero que mas cambia como
+## se siente el aire, y queria poder subirlo sin reescribir nada. Lo pone
+## `tuning.patada_cargas`.
+var patada_cargas: int = 1
 ## ¿Habia contacto el frame pasado? Ver `_recargar_por_contacto()`: la recarga es
 ## un flanco y hace falta el valor anterior para detectarlo.
 var _tocaba: bool = false
@@ -495,7 +499,7 @@ func iniciar_hangtime(segundos: float) -> void:
 ## se lee igual que la regla: tocar algo te devuelve la cuerda.
 func recargar_moveset() -> void:
 	cuerda_disponible = true
-	patada_disponible = true
+	patada_cargas = tuning.patada_cargas
 
 
 ## EL ANCLA A LA QUE ENGANCHARIA AHORA MISMO, o null.
@@ -1091,7 +1095,9 @@ func _debug() -> void:
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	if lanza != null and is_instance_valid(lanza):
 		DebugOverlay.set_line("lanza", lanza.debug_line())
-	DebugOverlay.set_line("moveset", "CUERDA %s" % ("lista" if cuerda_disponible else "gastada"))
+	DebugOverlay.set_line("moveset", "CUERDA %s   PATADA %d/%d" % [
+		"lista" if cuerda_disponible else "gastada",
+		patada_cargas, tuning.patada_cargas])
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
 

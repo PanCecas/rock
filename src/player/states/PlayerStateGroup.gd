@@ -77,7 +77,7 @@ func intentar_patada() -> bool:
 	# LA CARGA SE MIRA ANTES DE CONSUMIR. Si no queda, la pulsacion sigue viva en
 	# el buffer y sale sola al tocar suelo: es el mismo respeto que se le tiene al
 	# salto, y lo que separa "he pulsado pronto" de "el juego me ha ignorado".
-	if not player.patada_disponible:
+	if player.patada_cargas <= 0:
 		return false
 	if not buffer.consume(InputActions.ATTACK_LIGHT):
 		return false

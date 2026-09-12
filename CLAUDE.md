@@ -312,10 +312,12 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Landing slide | Aterrizar con velocidad manteniendo C | |
 | Agarrar / escalar | F (tambien desde el suelo) | Y |
 | **PATADA** — el unico movimiento ofensivo | **Click izq.** | RB |
-| | *impulso corto y dirigido, 0.25 s a 18 m/s, sin gravedad* | |
+| | *impulso corto y dirigido, 0.25 s, sin gravedad* | |
+| | *18 m/s es un SUELO, no un techo: llegas a 30, sales a 30* | |
 | | *cruza huecos aunque no haya nada que golpear* | |
 | | *el stick la dirige durante TODO el gesto, no solo al empezar* | |
-| | *si conecta, DERROTA y recarga la cuerda y la patada* | |
+| | *saltar o tirar de la cuerda la cortan: no hay compromiso* | |
+| | *si conecta, DERROTA, te REBOTA arriba y recarga las dos cargas* | |
 | | *UNA por tiempo de vuelo. Vuelve al TOCAR suelo o pared —al tocar, no mientras tocas* | |
 | Parry | Q | LT |
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
@@ -379,7 +381,9 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido y que el surf no te pega a la pared. 91 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
-| `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que va a velocidad constante y sin gravedad, que cruza un hueco sin golpear nada, que el stick la dirige A MITAD del gesto, que conectar DERROTA y recarga las dos cargas, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 15 comprobaciones. |
+| `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
+| `tools/MedirPatada.tscn` | **Cronometra la patada**, que es donde se vio que no se sentia bien: que le hace a la velocidad que ya llevabas, que le hace a la vertical, si se puede salir de ella, que pasa al conectar y cuanto terreno cubre. Las cinco lineas que dijeron los cuatro defectos de la primera version. `godot --headless --path . tools/MedirPatada.tscn` |
+| `tools/CapturaPatada.tscn` | **Ocho fotos de la patada** con el panel de debug puesto, para leer el numero y la imagen juntos. Necesita GPU. Un numero no dice si el personaje sale por donde parecia que iba a salir; cazo que la patada no existia estando colgado del arco. `godot --path . --resolution 1280x720 tools/CapturaPatada.tscn` |
 | `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo y pared la devuelven. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 15 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
@@ -526,19 +530,51 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
 Etapa 2: **LA PATADA** (`StateKick`, `content/data/attacks/patada.tres`). Un solo
 movimiento ofensivo donde habia doce entradas de combate y 26 `AttackData`.
 
-- **Es traversal antes que ataque.** 0.25 s a 18 m/s, velocidad CONSTANTE y
-  gravedad CERO: son 4.5 m de hueco cruzados en linea recta, funcione contra un
-  enemigo o contra el aire. Fisica de Mario 64, y por eso la trayectoria se puede
-  leer entera antes de pulsar.
-- **Conectar DERROTA y RECARGA** la cuerda y la propia patada. Eso convierte a un
-  enemigo en una plataforma: golpearle es una forma de SEGUIR moviendote, no una
-  interrupcion del movimiento. Es la frase entera del diseño.
+**Se escribio DOS VECES, y la segunda por una razon que conviene no olvidar.** La
+primera version cumplia el encargo sobre el papel y se sentia mal. El banco
+—`tools/MedirPatada.tscn`, escrito ANTES de tocar nada— lo dijo en cinco lineas:
+
+| | antes | ahora |
+|---|---|---|
+| entrando a 29.8 m/s | salia a **18.0** (−11.8) | sale a **29.8** (+0.0) |
+| entrando cayendo a −19.9 | salia a **0.0** | sale a **+2.0** |
+| saltar a mitad | seguia en `Kick` | `Jump` |
+| conectar | vy **0.0** | vy **+10.0** y las dos cargas |
+
+- **LA VELOCIDAD ES UN SUELO, NO UN VALOR.** Escribia 18 m/s cada frame, o sea que
+  **te quitaba velocidad por usar tu propio moveset**. Eso rompe de frente la ley 5
+  del rediseño y, peor, el principio rector. Ahora garantiza 18 y no resta nada.
+- **La gravedad se SUSPENDE y se DEVUELVE.** Ponia la vertical a cero y te soltaba
+  a cero: caias a plomo desde parado. Ahora flota durante el gesto y al salir
+  devuelve `max(la que traias, patada_salida_vertical)` — **y el respiro es solo
+  para el AIRE**: darselo a ras de suelo te despega, el contacto se rompe y se
+  rearma, y el flanco de recarga reabre el spam por la puerta de atras.
+- **SE PUEDE SALIR DE ELLA.** Saltar o tirar de la cuerda la cortan. Se miran con
+  `peek()` y no se consumen: el frame siguiente lo resuelve quien sabe hacerlo
+  —`GroupAirborne`, con su wall-jump y su coyote— en vez de duplicar aqui media
+  docena de reglas que ya existen.
+- **Es traversal antes que ataque.** 0.25 s sin gravedad: 4.5 m de hueco cruzados
+  en linea recta como minimo, y mas si venias mas rapido. Fisica de Mario 64, y
+  por eso la trayectoria se puede leer entera antes de pulsar.
+- **Conectar DERROTA, REBOTA y RECARGA.** El rebote es lo que convierte a un
+  enemigo en una plataforma: sin el, golpear era el final de una linea en vez de un
+  eslabon. El gesto TERMINA en el impacto para que puedas elegir lo siguiente
+  mientras subes.
+- **`patada_cargas` es un entero y no un `bool`.** Cuantas hay es el numero que mas
+  cambia como se siente el aire —*Pseudoregalia* anda por dos o tres con las Sun
+  Greaves— y queria poder subirlo sin reescribir nada.
 - **LA RECARGA ES UN FLANCO DE CONTACTO, NO UN NIVEL**, y ahi esta el anti-spam.
   Con un nivel —"recarga mientras haya suelo"— la patada se devuelve el mismo
   frame en que se gasta: patear a ras de suelo, seguir pisando, recargar, y
   machacar el boton es un dash continuo a 18 m/s. Con un flanco hay que SALIR y
   VOLVER, y eso convierte la recarga en un gesto. Se lee igual que la regla
   escrita: "se recarga AL TOCAR" es un evento, no un estado.
+- **Y LA PATADA TAMPOCO ESTABA EN `Attached`.** Mismo fallo de la regla dura #13
+  que la cuerda tuvo en la 3.12, visto otra vez: una accion compartida que existe
+  en `Grounded` y en `Airborne` y no en el tercero. Con eso, **colgado del arco el
+  boton de ataque no hacia nada** y la cadena cuerda → patada —que es el criterio
+  de exito del rediseño— no se podia ejecutar. Lo cazo una CAPTURA, no un test: el
+  panel decia `Grapple` con `attack_light` en el buffer sin consumir.
 - **Se quedan el parry, el wall-run y el nado**, pedidos expresamente. El parry
   perfecto ya no contraataca —ese `AttackData` se fue con los otros— sino que
   **quiebra al atacante y devuelve las dos cargas**: el premio pasa de daño a

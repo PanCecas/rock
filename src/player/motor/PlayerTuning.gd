@@ -656,10 +656,51 @@ func velocidad_dash() -> float:
 ## cruza — 0.25 s a 18 m/s son 4.5 m, que es el ancho de vano que se puede dibujar
 ## en un nivel sabiendo que se salva con una patada y no con dos.
 @export_range(0.05, 1.2, 0.01) var patada_duracion: float = 0.25
-## Velocidad de crucero, en m/s. CONSTANTE mientras dura: ni acelera ni frena, y
-## la gravedad no cuenta. Es la fisica de Mario 64 y es lo que hace que la
-## trayectoria se pueda leer entera antes de pulsar.
+## Velocidad de la patada, en m/s. **ES UN SUELO, NO UN VALOR.**
+##
+## La distincion es la mecanica entera. Escrita como valor —que es como estaba— la
+## patada BORRA la velocidad que traias: medido, entrar lanzado a 29.8 m/s y patear
+## te dejaba a 18.0, o sea **11.8 m/s menos por usar tu propio moveset**. Eso rompe
+## de frente la ley 5 del rediseño ("encadenar limpio acumula velocidad") y, peor,
+## el principio rector: la velocidad la ponia el motor, no el jugador.
+##
+## Como suelo, la patada GARANTIZA 18 y no quita nada: llegas a 30, sales a 30, y
+## el gesto cubre mas terreno porque venias mas rapido. Eso es lo que hace que
+## encadenar valga algo.
 @export_range(2.0, 40.0, 0.5) var patada_velocidad: float = 18.0
+## CARGAS por tiempo de vuelo. Una es el minimo que hace que la patada cueste algo.
+##
+## Es el numero que mas cambia como se siente el aire, y por eso esta aqui suelto y
+## no cableado: con una, el aire es un compromiso; con dos o tres —que es por donde
+## anda *Pseudoregalia* con las Sun Greaves— el aire se convierte en un sitio
+## donde se vive, y encadenar deja de exigir que cada patada acierte.
+@export_range(1, 5, 1) var patada_cargas: int = 1
+## Vertical al terminar SIN acertar, en m/s. La patada suspende la gravedad
+## mientras dura y esto es lo que devuelve al soltarte.
+##
+## Pequeño a proposito: un salto sube a 10.7 m/s, asi que esto no es un salto, es
+## un respiro. Pero tampoco es cero —que es como estaba— porque salir de una patada
+## con la vertical a cero es caer a plomo desde parado, y entonces el gesto no
+## sirve para cruzar nada que no sea plano.
+##
+## **Se aplica como maximo con la vertical de entrada**, no como sustitucion:
+## patear subiendo no te frena, patear cayendo te salva la caida. Una sola vez por
+## tiempo de vuelo.
+@export_range(0.0, 12.0, 0.1) var patada_salida_vertical: float = 2.0
+## Vertical al ACERTAR, en m/s. El rebote.
+##
+## Es lo que convierte a un enemigo en plataforma, y sin el la frase del diseño
+## —"golpear es seguir moviendote"— no se cumple: medido antes de existir, conectar
+## te dejaba a vy 0.0 y cayendo. Alto a proposito, casi un salto: el premio por
+## acertar tiene que devolverte al sitio desde donde se decide la siguiente cosa.
+@export_range(0.0, 25.0, 0.5) var patada_rebote: float = 10.0
+## Segundos de gravedad CERO tras acertar. Sin esto el rebote es un empujon y ya;
+## con esto hay una pausa en la que se elige el siguiente objetivo.
+@export_range(0.0, 1.0, 0.01) var patada_hangtime: float = 0.14
+## Segundos que la velocidad heredada sobrevive al clamp global tras la patada.
+## Mismo mecanismo que el de la cuerda y por lo mismo: si el techo muriera con el
+## estado, el suelo de velocidad no serviria de nada en cuanto pasaras de 22.
+@export_range(0.0, 4.0, 0.05) var patada_libertad: float = 0.6
 ## Con cuanta autoridad se redirige, en grados por segundo.
 ##
 ## Alta a proposito: la ley del moveset dice que el jugador manda la direccion
