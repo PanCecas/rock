@@ -210,19 +210,6 @@ extends Resource
 @export_range(0.0, 6.0, 0.1) var crouch_quieto: float = 1.5
 
 @export_subgroup("Slide kick (salto de conejo)")
-## Impulso hacia delante de la patada deslizante. Es el salto de conejo de Mario.
-@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 26.0
-@export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 6.2
-## Rozamiento de la patada YA EN EL SUELO. Era la friccion del agachado (14) y por
-## eso la patada moria en dos metros: el impulso estaba bien, lo que fallaba es
-## que se lo comia el frenado al aterrizar. Baja: la patada es un DESPLAZAMIENTO
-## que ademas hace dano, y tiene que llegar lejos.
-@export_range(0.5, 60.0, 0.5) var slide_kick_friccion: float = 3.2
-## COOLDOWN. La patada llega mas lejos que nunca, y por eso encadenarla sin pausa
-## superaba al surf: la movilidad mas rapida del juego tiene que seguir siendo el
-## surf, o el shift deja de tener sentido. El pico de la patada es mayor; su
-## velocidad SOSTENIDA, no. Esto es lo que separa las dos cosas.
-@export_range(0.0, 3.0, 0.05) var slide_kick_cooldown: float = 0.9
 
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
@@ -293,54 +280,13 @@ extends Resource
 
 # --- Dive (clavado) ----------------------------------------------------------
 @export_group("Dive")
-## Velocidad horizontal minima para el DIVE. A CERO: atacar en el aire SIEMPRE
-## es un clavado. Exigir carrera hacia que el ataque aereo mas visible del juego
-## no apareciera casi nunca, que es justo lo contrario de lo que se buscaba.
-@export_range(0.0, 20.0, 0.1) var dive_velocidad_min: float = 0.0
-## Empuje hacia delante al entrar en dive. Es lo que dibuja la parabola.
-## Velocidad horizontal del clavado. CONSTANTE durante todo el vuelo: es la
-## fisica de Mario 64 —un cuerpo con velocidad horizontal fija en caida libre—,
-## y es lo que hace que la trayectoria se pueda leer y planificar.
-## ATAQUE AEREO: empuje inicial en la direccion del golpe. Sin el, el ataque en el
-## aire era una animacion mientras el personaje caia casi en el mismo sitio; con
-## el, es una herramienta de movilidad —ganar distancia atacando, como el salto
-## largo de Mario— ademas de un golpe.
-@export_range(0.0, 40.0, 0.5) var aereo_impulso: float = 12.0
-## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
-## mano dentro del estado (numero magico, regla dura #1).
-@export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
 ## LIGERO: poco alcance y mucha caida. Es un CLAVADO, no una diagonal larga.
 ## Estaba en 21/-7 y con eso salia casi igual que el pesado: los dos eran la misma
 ## parabola tendida y el jugador no tenia forma de distinguirlos jugando. Ahora el
 ## ligero cae a plomo hacia delante y el pesado es el que viaja.
 @export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
-## LA COMPONENTE QUE FALTABA. El clavado arrancaba con velocidad vertical 0 y
-## dejaba que la gravedad hiciera el resto, asi que la trayectoria empezaba plana
-## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
-## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
-@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -17.0
-## ESPERA ENTRE CLAVADOS. Sin ella, machacar salto + ataque encadenaba QUINCE
-## clavados por segundo: saltar, clavarse, aterrizar y volver a saltar cabe en
-## cuatro frames, y el resultado era un tembleque que ademas viajaba mas rapido de
-## lo que deberia. El clavado es un compromiso, y un compromiso que se puede
-## repetir sin pausa no compromete a nada.
-@export_range(0.0, 3.0, 0.05) var dive_cooldown: float = 0.5
 
 @export_subgroup("Clavado pesado")
-## El pesado va mas lejos y mas plomo. Es el que se encadena de cabeza en cabeza.
-@export_range(0.0, 40.0, 0.5) var dive_pesado_impulso: float = 25.0
-@export_range(-30.0, 0.0, 0.5) var dive_pesado_vertical: float = -11.0
-## REBOTE. Al clavarse sobre un enemigo se pisa su cabeza y se sale despedido
-## hacia arriba, de vuelta al aire y con el clavado disponible otra vez. Es lo que
-## convierte el ataque en una cadena en vez de en un punto final.
-@export_range(0.0, 30.0, 0.5) var dive_rebote: float = 12.5
-## HANG TIME tras el rebote: gravedad CERO durante este tiempo. Es la ventana en la
-## que se encadena el siguiente clavado sobre otra cabeza. Sin ella el rebote es un
-## empujon hacia arriba y ya; con ella, es una pausa en la que decides.
-@export_range(0.0, 1.5, 0.01) var dive_hangtime: float = 0.30
-## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
-@export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
-@export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
 
 # --- Agua ---------------------------------------------------------------------
 @export_group("Agua")
@@ -363,8 +309,6 @@ extends Resource
 ## quieto y a un ritmo que convertia cualquier travesia en una cuenta atras. El
 ## agua es una via, no un castigo.
 @export_range(0.0, 60.0, 0.5) var agua_stamina: float = 1.2
-## Gasto puntual por ataque acuatico.
-@export_range(0.0, 60.0, 0.5) var agua_stamina_ataque: float = 5.0
 
 @export_subgroup("Deriva y orientacion")
 ## DERIVA: oscilacion suave al soltar los controles buceando. Sin esto el cuerpo
@@ -387,10 +331,6 @@ extends Resource
 @export_range(0.05, 2.0, 0.01) var enderezar_duracion: float = 0.35
 
 @export_subgroup("Combate acuatico")
-## Los ataques bajo el agua SON desplazamientos: no hay suelo del que empujar, asi
-## que un golpe es un impulso con hitbox. Ver project.md.
-@export_range(0.0, 40.0, 0.5) var agua_ataque_ligero_impulso: float = 12.0
-@export_range(0.0, 40.0, 0.5) var agua_ataque_pesado_impulso: float = 9.0
 
 # --- Aterrizaje -------------------------------------------------------------
 @export_group("Aterrizaje")
@@ -469,38 +409,15 @@ extends Resource
 # grupo tiene que valer mas que dar un saltito, o el traversal y el combate siguen
 # siendo dos juegos distintos que comparten personaje.
 @export_group("Picado")
-## Suspension antes de caer. No es adorno: es la telegrafia que da peso al impacto
-## y el instante en que se elige donde caer.
-@export_range(0.0, 1.0, 0.01) var plunge_suspension: float = 0.16
-## Velocidad de caida del picado. Constante y muy por encima de la gravedad: cae
-## como una piedra, no como un cuerpo.
-@export_range(-120.0, -5.0, 1.0) var plunge_velocidad_caida: float = -34.0
 
 @export_subgroup("Escalado por altura de caida")
-## Por debajo de esta caida el picado vale lo que dice su AttackData y nada mas.
-@export_range(0.0, 30.0, 0.5) var plunge_altura_min: float = 2.5
-## Caida a partir de la cual ya no crece. Sin techo, una torre de 60 m convertiria
-## el picado en un boton de borrar la pantalla.
-@export_range(1.0, 100.0, 0.5) var plunge_altura_max: float = 20.0
-## Multiplicadores en la caida maxima. A 1.0 el escalado queda desactivado.
-@export_range(1.0, 6.0, 0.05) var plunge_dano_mult: float = 2.6
-@export_range(1.0, 6.0, 0.05) var plunge_radio_mult: float = 2.1
-@export_range(1.0, 6.0, 0.05) var plunge_stagger_mult: float = 2.2
-@export_range(1.0, 6.0, 0.05) var plunge_empuje_mult: float = 2.4
-## A partir de esta caida el aturdimiento pasa a DERRIBO. Es el salto cualitativo
-## que hace que merezca la pena subir del todo en vez de un poco.
-@export_range(0.0, 100.0, 0.5) var plunge_derribo_desde: float = 12.0
 
 # --- Combate ----------------------------------------------------------------
 @export_group("Combate")
 @export_range(0.02, 0.6, 0.01) var parry_ventana: float = 0.16
 @export_range(0.01, 0.3, 0.01) var parry_ventana_perfecta: float = 0.06
 @export_range(0.0, 2.0, 0.01) var parry_recuperacion_fallo: float = 0.4
-@export_range(0.0, 0.5, 0.005) var hitstop_ligero: float = 0.05
-@export_range(0.0, 0.5, 0.005) var hitstop_pesado: float = 0.09
 @export_range(0.0, 0.5, 0.005) var hitstop_parry: float = 0.16
-@export_range(0.0, 1.0, 0.005) var hitstop_punto_debil: float = 0.25
-@export_range(0.0, 0.6, 0.01) var esquiva_iframes: float = 0.30
 ## ESCALADO POR INERCIA. Un golpe que llega lanzado empuja mas que uno parado.
 ##
 ## Vivia con los numeros de la cuerda porque el primero que lo uso fue el golpe en
@@ -520,7 +437,6 @@ extends Resource
 ## Los ataques NO gastan stamina: esto no es un souls.
 @export_range(10.0, 500.0, 1.0) var stamina_max: float = 100.0
 @export_range(0.0, 100.0, 0.5) var stamina_escalar: float = 6.0
-@export_range(0.0, 100.0, 0.5) var stamina_aguantar_sacudida: float = 24.0
 @export_range(0.0, 100.0, 0.5) var stamina_planear: float = 4.0
 @export_range(0.0, 100.0, 0.5) var stamina_sprint: float = 8.0
 @export_range(0.0, 100.0, 0.5) var stamina_dash: float = 12.0
@@ -732,3 +648,23 @@ func velocidad_dash() -> float:
 ## Es presentacion pura: la restriccion se calcula contra el origen, esto solo
 ## decide de donde parece que cuelga. A la altura del pecho, no de los pies.
 @export_range(0.0, 3.0, 0.05) var cordon_altura_mano: float = 1.15
+
+## LA PATADA. El unico movimiento ofensivo, y ademas es traversal.
+##
+## Cuanto dura, en segundos. Corta a proposito: es un GESTO, y un gesto que se
+## puede sostener deja de serlo. Con `patada_velocidad` decide ademas cuanto hueco
+## cruza — 0.25 s a 18 m/s son 4.5 m, que es el ancho de vano que se puede dibujar
+## en un nivel sabiendo que se salva con una patada y no con dos.
+@export_range(0.05, 1.2, 0.01) var patada_duracion: float = 0.25
+## Velocidad de crucero, en m/s. CONSTANTE mientras dura: ni acelera ni frena, y
+## la gravedad no cuenta. Es la fisica de Mario 64 y es lo que hace que la
+## trayectoria se pueda leer entera antes de pulsar.
+@export_range(2.0, 40.0, 0.5) var patada_velocidad: float = 18.0
+## Con cuanta autoridad se redirige, en grados por segundo.
+##
+## Alta a proposito: la ley del moveset dice que el jugador manda la direccion
+## durante TODO el movimiento, y una patada que no se puede corregir es una
+## animacion con la que se colisiona. Se gira la DIRECCION, no la velocidad: aqui
+## un `slerp` es el primitivo correcto porque lo que rota es un unitario, no un
+## vector que tendria que pasar por cero (regla dura #24).
+@export_range(60.0, 1440.0, 10.0) var patada_giro_grados_seg: float = 540.0

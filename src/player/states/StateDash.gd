@@ -44,11 +44,6 @@ func physics_update(delta: float) -> void:
 	if _pivotar():
 		return
 
-	# Ataque de dash: el golpe sale desde el esquive y hereda su dirección.
-	if player.ataque_dash != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_dash, "indice": 1})
-		return
-
 	_corregir_rumbo(delta)
 	motor.impulso(_dir, tuning.velocidad_dash())
 	motor.set_vertical(0.0)

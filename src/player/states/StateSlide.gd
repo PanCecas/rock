@@ -47,17 +47,6 @@ func physics_update(delta: float) -> void:
 		return
 	motor.set_vertical(-2.0)
 
-	# Patada deslizante tambien desde el slide, con la misma espera.
-	if player.ataque_slide_kick != null and player.cd_slide_kick <= 0.0 \
-			and buffer.consume(InputActions.ATTACK_LIGHT):
-		var d := motor.direccion_plana()
-		if d.is_zero_approx():
-			d = _dir
-		motor.impulso(d, tuning.slide_kick_impulso)
-		motor.set_vertical(tuning.slide_kick_vertical)
-		fsm.cambiar(&"SlideKick", {"direccion": d})
-		return
-
 	# Saltar desde un slide da altura extra: es el combo que hace el sistema divertido.
 	if player.consumir_salto():
 		fsm.cambiar(&"Jump", {"numero": 1, "extra": tuning.slide_salto_extra}, true)
@@ -78,10 +67,6 @@ func physics_update(delta: float) -> void:
 ## con velocidad y termina donde termina. Mismo criterio que el surf y el dash.
 func adherencia_automatica() -> bool:
 	return false
-
-
-func maneja_ataques() -> bool:
-	return true
 
 
 func debug_line() -> String:

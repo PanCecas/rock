@@ -13,7 +13,7 @@ func shared_update(delta: float) -> void:
 	# --- 1) DONDE ESTOY. Va antes que todo lo demas y no lo salta ningun guardia.
 	#
 	# Aqui vivia el bug del "floating fall": estas comprobaciones estaban DESPUES
-	# del `return` de `maneja_ataques()`, que declaran Surf, Slide, SlideKick y
+	# del `return` de `maneja_ataques()`, que declaraban Surf, Slide, SlideKick y
 	# Crouch. Salirse de una plataforma surfeando no cambiaba de estado nunca, y
 	# como Surf y Slide fuerzan `set_vertical(-2)` cada frame, el personaje se
 	# quedaba flotando y bajando a dos metros por segundo.
@@ -94,19 +94,8 @@ func shared_update(delta: float) -> void:
 		fsm.cambiar(&"Parry")
 		return
 
-	# Si la hoja gestiona sus propios ataques (Surf), el grupo no se los roba.
-	if fsm.actual != null and fsm.actual.maneja_ataques():
+	if intentar_patada():
 		return
 
-	# El moveset lo decide `PlayerController`, no este grupo: con la lanza
-	# empunada salen sus ataques, sin ella los de siempre. Un solo sitio.
-	var ligero := player.ataque_ligero_actual()
-	if ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {"datos": ligero, "indice": 1})
-		return
-	var pesado := player.ataque_pesado_actual()
-	if pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Attack", {"datos": pesado, "indice": 1})
-		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

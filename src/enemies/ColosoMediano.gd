@@ -45,7 +45,14 @@ func _ready() -> void:
 
 
 func configurar_tipo() -> void:
-	salud.maxima = 400.0
+	# UN COLOSO NO SE MATA A GOLPES, SE ABRE. Subio de 400 a 3000 en el parche
+	# 4.00 y el numero sale de la patada: con la llave hace 200 x 3.5 = 700 en el
+	# punto debil, asi que con 400 moria de UN golpe —y con el, tres
+	# comprobaciones del punto debil que necesitan que siga vivo para el segundo y
+	# el tercero—. Con 3000 aguanta los `golpes_para_abrir` que pide el remate y
+	# sigue habiendo margen. La vida de un coloso mide cuanto dura el nivel, no
+	# cuanto castigo encaja.
+	salud.maxima = 3000.0
 	poise.maxima = 200.0
 	velocidad = 1.1
 	# GIRO DE GIGANTE. Con los 360°/s por defecto, su borde —radio 2.2— barria el

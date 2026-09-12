@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AttackData" format=3]
+
+[ext_resource type="Script" uid="uid://ccx15sif6bs42" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+anim = &"combat/atk_patada"
+nombre = "Patada"
+etiquetas = Array[StringName]([&"perforante"])
+frames_windup = 0
+frames_activo = 15
+frames_recuperacion = 0
+dano = 200.0
+dano_poise = 999.0
+empuje = Vector3(0, 0, 14)
+lanzamiento = 6.0
+stagger = 0.0
+fuerza_muerte = 26.0
+torque_muerte = 14.0
+rompe_guardia = true
+alcance = 1.7
+radio = 1.25
+altura = 0.9
+arco_grados = 130.0
+max_objetivos = 1
+avance = 0.0
+movilidad = 0.0
+autoencarar = false
+hitstop = 0.08
+shake = 0.7
+color_vfx = &"azul_claro"
+frame_cadena = 999

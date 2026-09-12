@@ -113,25 +113,17 @@ func _secciones() -> Array:
 			{"nombre": "Subir desde un canto", "acciones": [InputActions.MOVE_FORWARD], "cuando": "colgado"},
 		]},
 
-		{"titulo": "PELEAR", "filas": [
-			{"nombre": "Ataque ligero · cadena", "acciones": [InputActions.ATTACK_LIGHT]},
-			{"nombre": "Ataque pesado", "acciones": [InputActions.ATTACK_HEAVY]},
+		{"titulo": "PELEAR — un solo movimiento", "filas": [
+			{"nombre": "PATADA — derrota de un golpe", "acciones": [InputActions.ATTACK_LIGHT],
+				"cuando": "impulso corto y dirigido · cruza huecos aunque no golpee nada"},
+			{"nombre": "Dirigirla", "acciones": [InputActions.MOVE_FORWARD],
+				"cuando": "el stick manda durante todo el gesto"},
+			{"nombre": "Acertar RECARGA", "acciones": [InputActions.ATTACK_LIGHT],
+				"cuando": "conectar te devuelve la cuerda Y la patada: el enemigo es plataforma"},
+			{"nombre": "Fallar la gasta", "acciones": [InputActions.ATTACK_LIGHT],
+				"cuando": "una por tiempo de vuelo · vuelve al TOCAR suelo o pared"},
 			{"nombre": "Parry", "acciones": [InputActions.PARRY],
-				"cuando": "justo antes del golpe es parry perfecto"},
-			{"nombre": "Estocada de dash", "acciones": [InputActions.ATTACK_LIGHT], "cuando": "durante el dash"},
-			{"nombre": "Estocada de surf", "acciones": [InputActions.DASH, InputActions.ATTACK_LIGHT]},
-			{"nombre": "Frenazo de surf", "acciones": [InputActions.DASH, InputActions.ATTACK_HEAVY]},
-			{"nombre": "Patada baja — derriba", "acciones": [InputActions.CROUCH, InputActions.ATTACK_LIGHT]},
-			{"nombre": "Slide kick", "acciones": [InputActions.CROUCH, InputActions.ATTACK_LIGHT], "cuando": "con velocidad"},
-		]},
-
-		{"titulo": "EN EL AIRE", "filas": [
-			{"nombre": "Clavado ligero — REBOTA en cabezas", "acciones": [InputActions.ATTACK_LIGHT],
-				"cuando": "rebotar NO devuelve el doble salto"},
-			{"nombre": "Clavado pesado — LEVANTA al enemigo", "acciones": [InputActions.ATTACK_HEAVY],
-				"cuando": "no rebota: se planta"},
-			{"nombre": "Picado vertical", "acciones": [InputActions.CROUCH, InputActions.ATTACK_HEAVY],
-				"cuando": "área y daño crecen con la altura de caída"},
+				"cuando": "justo antes del golpe es perfecto, y te devuelve las dos cargas"},
 		]},
 
 		{"titulo": "LA LANZA", "filas": [
@@ -146,20 +138,10 @@ func _secciones() -> Array:
 			{"nombre": "Soltar sin más", "acciones": [InputActions.ROPE],
 				"cuando": "y si no sueltas, el arco se acaba solo en un segundo"},
 		]},
-
-		{"titulo": "COMBO PESADO", "filas": [
-			{"nombre": "Giro — golpea DOS veces", "acciones": [InputActions.ATTACK_HEAVY],
-				"cuando": "un solo gesto, dos impactos, área alrededor"},
-			{"nombre": "Remate descendente", "acciones": [InputActions.ATTACK_HEAVY],
-				"cuando": "otra vez pesado durante el giro · un golpe, mucho empuje"},
-		]},
-
 		{"titulo": "EN EL AGUA", "filas": [
 			{"nombre": "Bucear", "acciones": [InputActions.CROUCH]},
 			{"nombre": "Subir", "acciones": [InputActions.JUMP], "cuando": "mantener"},
 			{"nombre": "Nadar rápido", "acciones": [InputActions.DASH]},
-			{"nombre": "Ataque acuático", "acciones": [InputActions.ATTACK_LIGHT],
-				"cuando": "bajo el agua un golpe es un impulso"},
 		]},
 
 		{"titulo": "DEPURACIÓN", "filas": [

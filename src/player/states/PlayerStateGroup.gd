@@ -59,6 +59,33 @@ func intentar_cuerda() -> bool:
 	return true
 
 
+## LA PATADA, compartida. Devuelve true si ha cambiado de estado.
+##
+## Misma forma que `intentar_cuerda()` y por la misma razon: es UNA regla, asi que
+## vive en un sitio y los grupos solo deciden donde preguntarla dentro de su
+## orden. Con doce entradas de combate repartidas por seis estados —que es lo que
+## habia— cada una tenia su guardia, su cooldown y su excepcion, y el boton hacia
+## una cosa distinta segun donde estuvieras.
+func intentar_patada() -> bool:
+	# Si la hoja se queda los ataques, el grupo no se los roba. Regla dura #13. Lo
+	# declara `Kick` mismo: sin eso, machacar el boton reentraria en la patada cada
+	# frame y la actual no terminaria nunca — que es literalmente el spam que este
+	# rediseño venia a quitar.
+	if fsm.actual != null and fsm.actual.maneja_ataques():
+		return false
+
+	# LA CARGA SE MIRA ANTES DE CONSUMIR. Si no queda, la pulsacion sigue viva en
+	# el buffer y sale sola al tocar suelo: es el mismo respeto que se le tiene al
+	# salto, y lo que separa "he pulsado pronto" de "el juego me ha ignorado".
+	if not player.patada_disponible:
+		return false
+	if not buffer.consume(InputActions.ATTACK_LIGHT):
+		return false
+
+	fsm.cambiar(&"Kick", {}, true)
+	return true
+
+
 ## Al entrar en cualquier hoja de este grupo.
 func on_enter_hijo(_hoja: PlayerState) -> void:
 	pass

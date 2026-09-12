@@ -19,8 +19,10 @@ const GRAB := &"grab"
 const ROPE := &"rope"
 
 # Combate
+## UN SOLO BOTON OFENSIVO desde el parche 4.00. `attack_heavy` se retiro del
+## InputMap con los once verbos que lo usaban: un boton que no hace nada es peor
+## que un boton que no existe, porque se prueba y no contesta.
 const ATTACK_LIGHT := &"attack_light"
-const ATTACK_HEAVY := &"attack_heavy"
 const PARRY := &"parry"
 const DODGE := &"dodge"
 
@@ -39,7 +41,7 @@ const DEBUG_RESET := &"debug_reset"
 ## Acciones que el InputBuffer vigila cada physics frame.
 const BUFFERED: Array[StringName] = [
 	JUMP, DASH, GLIDE, GRAB, ROPE,
-	ATTACK_LIGHT, ATTACK_HEAVY, PARRY, DODGE,
+	ATTACK_LIGHT, PARRY, DODGE,
 	THROW_SPEAR, RECALL_SPEAR, SWAP_WEAPON,
 	INTERACT, LOCK_ON, CROUCH,
 ]

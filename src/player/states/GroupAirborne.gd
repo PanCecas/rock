@@ -143,61 +143,13 @@ func shared_update(delta: float) -> void:
 	if intentar_cuerda():
 		return
 
-	# 5) Combate aereo. El plunge es el pesado: cae a plomo y revienta en area.
+	# 5) Combate aereo, que ahora es UN verbo y ademas es traversal: la patada
+	#    cruza huecos aunque no haya nada que golpear, y si golpea, recarga.
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
 		return
 
-	# Si la hoja gestiona sus propios ataques (Dive), el grupo no se los roba.
-	# Este guardia existia solo en GroupGrounded y por eso el DiveAttack no
-	# llegaba a ejecutarse: la segunda pulsacion se convertia en ataque aereo.
-	if fsm.actual != null and fsm.actual.maneja_ataques():
-		return
-	# LOS DOS ATAQUES AEREOS SON CLAVADOS, y se diferencian en el peso.
-	#
-	# El ligero era "golpe aereo si hay enemigo, clavado si no", y eso tenia dos
-	# problemas: el clavado casi nunca salia cuando importaba —justo al atacar a
-	# alguien— y el jugador no podia predecir cual de los dos iba a ejecutar. Un
-	# boton que hace dos cosas segun el contexto no se aprende, se sufre.
-	#
-	#   ligero -> DIVE: se proyecta adelante y abajo. Es movilidad ademas de golpe.
-	#   pesado -> DIVE PESADO: mas lejos y mas plomo, y REBOTA en la cabeza del
-	#             enemigo para encadenar el siguiente.
-	# EL PICADO VA PRIMERO, y fuera de la espera del clavado. Es otro verbo, con
-	# otro gesto y otro coste; meterlo detras del cooldown hacia que agachado +
-	# pesado dejara de responder durante medio segundo despues de cada clavado.
-	if buffer.is_held(InputActions.CROUCH) and player.ataque_plunge != null:
-		if buffer.consume(InputActions.ATTACK_HEAVY):
-			fsm.cambiar(&"Plunge")
-			return
-
-	# CON LA LANZA EMPUNADA, el aire tambien cambia de moveset.
-	#
-	# Va ANTES de `cd_dive` a proposito: esa espera es de los clavados y estos no
-	# lo son. Estrangular la lanza con el cooldown de otro verbo es como se llega a
-	# que un arma "no responda" sin motivo visible.
-	var lanza_aereo := player.ataque_aereo_ligero_actual()
-	if lanza_aereo != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"AirAttack", {"datos": lanza_aereo})
-		return
-	var lanza_giro := player.ataque_aereo_pesado_actual()
-	if lanza_giro != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"AirAttack", {"datos": lanza_giro})
-		return
-
-	# La espera vale para los DOS clavados: son el mismo verbo con distinto peso, y
-	# un cooldown que solo mire a uno se esquiva alternandolos. Las pulsaciones se
-	# consumen igualmente para que no se queden en el buffer y disparen solas al
-	# cumplirse la espera.
-	if player.cd_dive > 0.0:
-		buffer.consume(InputActions.ATTACK_LIGHT)
-		buffer.consume(InputActions.ATTACK_HEAVY)
-		return
-	if buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana()})
-		return
-	if buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Dive", {"direccion": motor.direccion_plana(), "pesado": true})
+	if intentar_patada():
 		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

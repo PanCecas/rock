@@ -96,22 +96,6 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Slide")
 		return
 
-	# Los DOS ataques de surf. Se gestionan aqui —y `maneja_ataques()` impide que
-	# GroupGrounded los intercepte— porque atacar surfeando tiene que dar un golpe
-	# de surf, no el ataque de suelo de siempre.
-	#
-	#   ligero -> estocada de esgrima: rapida, hacia donde miras, proyectandote
-	#             hacia delante y conservando la forma fluida del surf.
-	#   pesado -> frenazo en seco y empujon fuerte que manda al enemigo atras.
-	if player.ataque_surf_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_surf_pesado, "indice": 1, "desde_surf": true})
-		return
-	if player.ataque_surf_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {
-			"datos": player.ataque_surf_ligero, "indice": 1,
-			"desde_surf": true, "direccion": _dir,
-		})
-		return
 
 
 ## Salir del surf es volver a la locomoción normal, que arranca su rampa desde la
@@ -128,10 +112,6 @@ func _terminar() -> void:
 ## castigo que perderla por saltar, y ya decidimos que ese castigo sobra.
 func _terminar_en_aire() -> void:
 	fsm.cambiar(&"Fall")
-
-
-func maneja_ataques() -> bool:
-	return true
 
 
 func maneja_salto() -> bool:

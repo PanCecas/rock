@@ -305,32 +305,25 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Agacharse / slide | C | D-pad abajo |
 | Salto fuerte | C (quieto) + Espacio | |
 | Side jump | Correr, girar en seco y saltar (planta y luego sale) | |
-| Slide kick | C con velocidad + click izq. (con espera) | |
 | Long jump | Shift + C + Espacio | |
-| Patada baja (derriba) | C + click | |
-| **Clavado ligero (rebota en cabezas)** | **Click izq. en el aire** (siempre) | RB |
-| | *Rebotar da gravedad cero un instante, pero NO devuelve el doble salto* | |
-| **Clavado pesado (LEVANTA al enemigo)** | **Click der. en el aire** | RT |
-| | *No rebota: se planta. Manda al enemigo por los aires unos segundos* | |
-| Picado vertical (ground pound) | C + click der. en el aire | |
-| | *Su area y su dano crecen con la altura desde la que caes* | |
 | Escalar | Insistir contra el muro · Shift impulsa | |
 | Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
-| Ataque acuatico | Click izq. / der. en el agua (impulso) | |
+| | *nadar es traversal puro: en el agua no se pega* | |
 | Landing slide | Aterrizar con velocidad manteniendo C | |
 | Agarrar / escalar | F (tambien desde el suelo) | Y |
-| Ataque ligero / pesado | Click izq. / Click der. | RB / RT |
-| **Combo pesado** | Click der. **otra vez** durante el giro | RT |
-| | *Giro (2 impactos, en area) -> remate descendente (1, con empuje)* | |
-| Ataque de dash (estocada) | Click izq. durante dash | RB |
-| Estocada de surf | **Shift** + click izq. | LB + RB |
-| Frenazo de surf | **Shift** + click der. | LB + RT |
+| **PATADA** — el unico movimiento ofensivo | **Click izq.** | RB |
+| | *impulso corto y dirigido, 0.25 s a 18 m/s, sin gravedad* | |
+| | *cruza huecos aunque no haya nada que golpear* | |
+| | *el stick la dirige durante TODO el gesto, no solo al empezar* | |
+| | *si conecta, DERROTA y recarga la cuerda y la patada* | |
+| | *UNA por tiempo de vuelo. Vuelve al TOCAR suelo o pared —al tocar, no mientras tocas* | |
 | Parry | Q | LT |
+| | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
 | **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
 | **Empunar / guardar la lanza** | **Tab** | Back |
-| | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
+| | *Tirarla la desempuna. Ya no cambia como pegas: solo hay una forma* | |
 | **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** | D-pad der. |
 | | *instantanea: no hay nada que tirar ni tiempo de viaje* | |
 | | *el stick dirige el arco entero — lo abre, lo cierra, lo inclina* | |
@@ -383,9 +376,10 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 14 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada, la particion de los verbos de pared, el combo pesado y que el surf no te pega a la pared. 137 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido y que el surf no te pega a la pared. 91 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, moveset de suelo y aire empunada, pertiga e imantado. 23 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
+| `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que va a velocidad constante y sin gravedad, que cruza un hueco sin golpear nada, que el stick la dirige A MITAD del gesto, que conectar DERROTA y recarga las dos cargas, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 15 comprobaciones. |
 | `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo y pared la devuelven. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 15 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
@@ -496,7 +490,7 @@ que sentir que la velocidad la puso el, no el motor.
 - **Los aereos se gastan una vez y se RECARGAN** al tocar suelo, pared o enemigo.
 - **Encadenar limpio acumula velocidad; fallar la pierde.**
 
-Etapa 1 hecha: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
+Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
 
 - **Una sola cuerda.** Se retiraron los cuatro verbos del 3.16 —balanceo, zip,
   resortera y zarandeo— y con ellos la segunda cuerda entera (`Anclaje`). No eran
@@ -528,6 +522,36 @@ Etapa 1 hecha: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
 - **Una por tiempo de vuelo**, y la recarga vive en UN solo sitio: en
   `_physics_process`, despues de mover, cuando hay suelo o pared. La condicion se
   lee igual que la regla.
+
+Etapa 2: **LA PATADA** (`StateKick`, `content/data/attacks/patada.tres`). Un solo
+movimiento ofensivo donde habia doce entradas de combate y 26 `AttackData`.
+
+- **Es traversal antes que ataque.** 0.25 s a 18 m/s, velocidad CONSTANTE y
+  gravedad CERO: son 4.5 m de hueco cruzados en linea recta, funcione contra un
+  enemigo o contra el aire. Fisica de Mario 64, y por eso la trayectoria se puede
+  leer entera antes de pulsar.
+- **Conectar DERROTA y RECARGA** la cuerda y la propia patada. Eso convierte a un
+  enemigo en una plataforma: golpearle es una forma de SEGUIR moviendote, no una
+  interrupcion del movimiento. Es la frase entera del diseño.
+- **LA RECARGA ES UN FLANCO DE CONTACTO, NO UN NIVEL**, y ahi esta el anti-spam.
+  Con un nivel —"recarga mientras haya suelo"— la patada se devuelve el mismo
+  frame en que se gasta: patear a ras de suelo, seguir pisando, recargar, y
+  machacar el boton es un dash continuo a 18 m/s. Con un flanco hay que SALIR y
+  VOLVER, y eso convierte la recarga en un gesto. Se lee igual que la regla
+  escrita: "se recarga AL TOCAR" es un evento, no un estado.
+- **Se quedan el parry, el wall-run y el nado**, pedidos expresamente. El parry
+  perfecto ya no contraataca —ese `AttackData` se fue con los otros— sino que
+  **quiebra al atacante y devuelve las dos cargas**: el premio pasa de daño a
+  movilidad, que es la moneda del juego que hay ahora.
+- **En el agua no se pega.** `StateSwim` y `StateUnderwater` reclaman la pulsacion
+  sin hacer nada con ella, y eso es la decision: nadar es traversal puro, y una
+  patada de 18 m/s con gravedad cero dentro del agua seria un atajo que se salta
+  la fisica del medio entero.
+- **La patada es la LLAVE del punto debil** (`etiquetas = [perforante]`). Con un
+  solo ataque tiene que serlo, o un coloso seria invencible. Y por eso el
+  `ColosoMediano` pasa de 400 de vida a **3000**: con la llave la patada hace
+  200 x 3.5 = 700 en el punto debil, asi que con 400 moria de un golpe — y un
+  coloso no se mata a golpes, se abre.
 
 **Sistema generativo (`src/generative/`).** Aparte del juego, con su propio banco
 (`tools/Jardin.tscn`). N agentes acoplados como osciladores de Kuramoto: cada uno

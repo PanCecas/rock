@@ -23,7 +23,6 @@ var _origen: Vector3 = Vector3.ZERO
 var _salto: int = 0
 var _boton_lanza: int = 0
 var _atk_lig: int = 0
-var _atk_pes: int = 0
 ## Latch de altura. Se mide MIENTRAS pasa, no al final: cuando termina la ventana
 ## del chequeo la pertiga ya ha subido y ha vuelto a caer.
 var _alto_max: float = -99.0
@@ -203,77 +202,20 @@ func _construir() -> void:
 				return _aux > 10.0,
 			"un enemigo alcanzado recibe dano y la lanza SIGUE"),
 
-		# --- IMANTADO ---------------------------------------------------------
-		# EL INTERCAMBIO DE MOVESET. No es un remapeo: los botones siguen
-		# significando lo mismo y lo unico que cambia es que AttackData sale.
-		_chequeo_("guardada, el moveset es el de siempre", 0.3,
-			func() -> void: _l.fsm.cambiar(&"Holstered"),
-			func() -> bool:
-				return (_p.ataque_ligero_actual() == _p.ataque_ligero
-					and _p.ataque_pesado_actual() == _p.ataque_pesado),
-			"sin lanza empunada no puede salir un ataque de lanza"),
-
-		_chequeo_("empunada, cambia el moveset entero", 0.4,
-			func() -> void:
-				# Por el TOGGLE, no forzando el estado: asi se comprueba tambien
-				# que la tecla de guardar/sacar hace lo que dice.
-				_l.fsm.cambiar(&"Holstered")
-				_l.alternar_empunada(),
-			func() -> bool:
-				return (_p.ataque_ligero_actual() == _p.ataque_lanza_ligero
-					and _p.ataque_pesado_actual() == _p.ataque_lanza_pesado),
-			"empunarla cambia los DOS, no solo uno"),
-
-		# EL MOVESET AEREO. Sin el, empunar la lanza solo cambiaba la mitad del
-		# combate: en el aire seguian saliendo los clavados a mano.
-		_chequeo_("empunada, el aire tambien cambia", 0.3,
-			func() -> void: pass,
-			func() -> bool:
-				return (_p.ataque_aereo_ligero_actual() == _p.ataque_lanza_aereo_ligero
-					and _p.ataque_aereo_pesado_actual() == _p.ataque_lanza_aereo_pesado),
-			"un moveset que cambia en el suelo y no en el aire es medio moveset"),
-
-		_chequeo_("y guardada mandan los clavados", 0.3,
-			func() -> void: _l.fsm.cambiar(&"Holstered"),
-			func() -> bool:
-				return (_p.ataque_aereo_ligero_actual() == null
-					and _p.ataque_aereo_pesado_actual() == null),
-			"sin lanza el kit aereo a mano tiene que quedar intacto"),
-
-		_chequeo_("el aereo ligero es preciso y el pesado en area", 0.4,
-			func() -> void: _l.fsm.cambiar(&"Wielded"),
-			func() -> bool:
-				var lig: AttackData = _p.ataque_lanza_aereo_ligero
-				var pes: AttackData = _p.ataque_lanza_aereo_pesado
-				# MISMO eje que en suelo: un moveset que cambia de criterio al
-				# saltar no es un moveset, son dos.
-				return (lig.radio < pes.radio * 0.5
-					and lig.max_objetivos < pes.max_objetivos
-					and lig.frames_windup < pes.frames_windup
-					and lig.arco_grados < pes.arco_grados),
-			"el eje tiene que ser el mismo en el suelo y en el aire"),
-
-		_chequeo_("el ligero de lanza es preciso y el pesado en area", 0.3,
-			func() -> void: pass,
-			func() -> bool:
-				var lig: AttackData = _p.ataque_lanza_ligero
-				var pes: AttackData = _p.ataque_lanza_pesado
-				# El eje del moveset: rapido y preciso contra lento y en area.
-				return (lig.radio < pes.radio * 0.5
-					and lig.max_objetivos < pes.max_objetivos
-					and lig.frames_windup < pes.frames_windup
-					and lig.arco_grados < pes.arco_grados),
-			"si los dos pegan igual, no hay moveset: hay dos botones para lo mismo"),
-
+		# EMPUÑAR Y DESEMPUÑAR. El INTERCAMBIO DE MOVESET que se comprobaba aqui
+		# —seis chequeos: ligero, pesado, sus dos versiones aereas y el eje de
+		# cada par— se fue con el combate en el parche 4.00. La lanza ya no
+		# cambia como pegas, porque solo hay una forma de pegar.
+		#
+		# Lo que SI sigue siendo verdad es el gesto: tirarla es desequiparla, y
+		# por eso lanzarla es una decision y no un tramite.
 		_chequeo_("y tirarla la desempuna", 1.2,
 			func() -> void:
 				_p.global_position = Vector3(0.0, 0.05, 33.0)
 				_p.velocity = Vector3.ZERO
 				_p.call("orientar_a", Vector3(0, 0, -1))
 				_boton_lanza = 3,
-			func() -> bool:
-				return (not _p.lanza_empunada()
-					and _p.ataque_ligero_actual() == _p.ataque_ligero),
+			func() -> bool: return not _p.lanza_empunada(),
 			"tirarla ES desequiparla: por eso lanzar es una decision y no un tramite"),
 
 		# --- VUELO ------------------------------------------------------------
@@ -376,11 +318,6 @@ func _physics_process(delta: float) -> void:
 		_atk_lig -= 1
 		if _atk_lig == 0:
 			Input.action_release(&"attack_light")
-	if _atk_pes > 0:
-		Input.action_press(&"attack_heavy")
-		_atk_pes -= 1
-		if _atk_pes == 0:
-			Input.action_release(&"attack_heavy")
 	if _boton_lanza > 0:
 		Input.action_press(&"throw_spear")
 		_boton_lanza -= 1
@@ -440,7 +377,6 @@ func _soltar_todo() -> void:
 	_salto = 0
 	_boton_lanza = 0
 	_atk_lig = 0
-	_atk_pes = 0
 
 
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:

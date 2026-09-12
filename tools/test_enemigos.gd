@@ -11,6 +11,9 @@ extends Node
 
 const EMBESTIDOR := preload("res://src/enemies/Embestidor.tscn")
 const VOLADOR := preload("res://src/enemies/Volador.tscn")
+## Un ataque sin la etiqueta `perforante`: el mandoble de un Guardian. Se usa para
+## el caso negativo del punto debil.
+const SIN_LLAVE := preload("res://content/data/attacks/guardian_lancero.tres")
 const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
 
@@ -34,7 +37,6 @@ var _remate: bool = false
 var _apartar: bool = false
 ## Pulsaciones simuladas. La regla dura #4 dice que el input va por el buffer, y
 ## esta es la forma de simular una pulsacion desde un test.
-var _atk_pes: int = 0
 
 
 func _ready() -> void:
@@ -373,16 +375,21 @@ func _construir() -> void:
 			func() -> bool: return _punto_debil() != null,
 			"sin punto debil un coloso es un saco de vida y no un nivel"),
 
+		# LA LLAVE SIGUE SIENDO UNA ETIQUETA, no un arma. Lo que cambio en el
+		# parche 4.00 es quien la trae: con un solo ataque ofensivo, la llave la
+		# lleva la PATADA —si no, un coloso seria invencible—. El caso "sin
+		# llave" lo cubre ahora un ataque ENEMIGO, que es el unico que queda sin
+		# la etiqueta, y eso prueba lo mismo: el punto debil no pregunta QUIEN
+		# pega, pregunta QUE declara el golpe.
 		_chequeo_("un ataque SIN la llave apenas le hace nada", 0.6,
 			func() -> void:
 				var wp := _punto_debil()
 				wp.reiniciar()
 				_e.salud.actual = _e.salud.maxima
-				# El pesado de la espada: contundente, no perforante.
-				_golpear_punto_debil(_p.ataque_pesado),
+				_golpear_punto_debil(SIN_LLAVE),
 			func() -> bool:
 				var perdida: float = _e.salud.maxima - _e.salud.actual
-				return perdida > 0.0 and perdida < _p.ataque_pesado.dano,
+				return perdida > 0.0 and perdida < SIN_LLAVE.dano,
 			"cero lo haria inmune y eso se lee como un bug; poco se lee como una defensa"),
 
 		_chequeo_("y CON la llave le hace mucho mas", 0.6,
@@ -390,11 +397,11 @@ func _construir() -> void:
 				var wp := _punto_debil()
 				wp.reiniciar()
 				_e.salud.actual = _e.salud.maxima
-				_golpear_punto_debil(_p.ataque_lanza_ligero),
+				_golpear_punto_debil(_p.ataque_patada),
 			func() -> bool:
 				var perdida: float = _e.salud.maxima - _e.salud.actual
-				return perdida > _p.ataque_lanza_ligero.dano * 2.0,
-			"la lanza es la herramienta indispensable POR LO QUE DECLARA, no porque el coloso la conozca"),
+				return perdida > SIN_LLAVE.dano * 2.0,
+			"la llave es indispensable POR LO QUE DECLARA, no porque el coloso la conozca"),
 
 		_chequeo_("y a la tercera queda abierto al remate", 1.0,
 			func() -> void:
@@ -404,7 +411,7 @@ func _construir() -> void:
 				_remate = false
 				wp.remate_disponible.connect(func() -> void: _remate = true, CONNECT_ONE_SHOT)
 				for i in wp.golpes_para_abrir:
-					_golpear_punto_debil(_p.ataque_lanza_ligero),
+					_golpear_punto_debil(_p.ataque_patada),
 			func() -> bool: return _remate and _punto_debil().abierto,
 			"uno solo haria el remate un accidente; varios lo convierten en algo que se busca"),
 
@@ -431,11 +438,6 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
-	if _atk_pes > 0:
-		Input.action_press(&"attack_heavy")
-		_atk_pes -= 1
-		if _atk_pes == 0:
-			Input.action_release(&"attack_heavy")
 	_visto[_p.fsm.nombre_actual()] = true
 
 	# Latches, antes de nada.

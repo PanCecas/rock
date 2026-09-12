@@ -206,8 +206,15 @@ MiEnemigo (CharacterBody3D)  + src/enemies/Enemigo.gd
 
 **Dónde:** `content/data/attacks/*.tres` — son `Resource` de tipo `AttackData`.
 
-Crea uno nuevo en el editor (`New Resource → AttackData`) o duplica el más
-parecido. Los tiempos van **en frames a 60 Hz**, no en segundos:
+**El jugador tiene UNO** (`patada.tres`) desde el parche 4.00. Los otros veinticinco
+están en `legacy/ataques_3.16/` y ahí se quedan: la cadena ligera, el combo pesado,
+los clavados, el picado, el slide kick, las estocadas de surf, el combate acuático
+y el moveset entero de la lanza. Lo que queda en la carpeta viva son la patada, el
+vuelo de la lanza y los seis de enemigos.
+
+Así que si vas a crear un `AttackData`, casi siempre es **para un enemigo**. Crea
+uno nuevo en el editor (`New Resource → AttackData`) o duplica el más parecido.
+Los tiempos van **en frames a 60 Hz**, no en segundos:
 
 ```
 frames_windup       6     anticipación — el telegrafiado
@@ -220,15 +227,30 @@ Lo demás por grupos: `Daño` (daño, poise, empuje, lanzamiento, stagger),
 `Movimiento` (avance, estocada, overshoot, frenazo, `movilidad`) y
 `Feedback` (hitstop, shake).
 
-Tres que no son obvios y valen mucho:
+Dos que no son obvios y valen mucho:
 
-- **`golpes`** — impactos con **un solo gesto**. El giro del combo pesado son dos.
-- **`boton_cadena`** — con qué botón encadena al siguiente. Es lo que hace que un
-  botón siga significando lo mismo dentro y fuera de un combo.
-- **`etiquetas`** — p. ej. `perforante`. Es lo que abre los puntos débiles.
+- **`golpes`** — impactos con **un solo gesto**, sin que el jugador pueda
+  interrumpir por la mitad.
+- **`etiquetas`** — p. ej. `perforante`. Es lo que abre los puntos débiles, y por
+  eso la patada la lleva: con un solo ataque ofensivo, la llave tiene que ir en
+  él o un coloso sería invencible.
 
-Luego se lo asignas a quien lo use: un `@export var ataque_*` del jugador, el
-`ataque` de un enemigo, o el `ataque` de la lanza.
+Luego se lo asignas a quien lo use: `ataque_patada` del jugador, el `ataque` de un
+enemigo, o el `ataque` de la lanza.
+
+### 4.1 Y si quieres cambiar cómo se siente la patada
+
+Esos números **no** están en su `.tres`: están en `PlayerTuning`, grupo `Moveset`,
+porque describen un movimiento y no un golpe.
+
+| | |
+|---|---|
+| `patada_duracion` (0.25 s) | cuánto dura el gesto |
+| `patada_velocidad` (18 m/s) | constante mientras dura, y la gravedad no cuenta |
+| `patada_giro_grados_seg` (540) | con cuánta autoridad se redirige a mitad |
+
+Los dos primeros multiplicados son **el ancho de vano que se salva con una
+patada**: 4.5 m. Es el número con el que se dibujan los huecos de un nivel.
 
 ---
 
@@ -632,8 +654,9 @@ Tres tests, y **ninguno sustituye a otro**:
 
 ```bash
 godot --headless --path . tools/TestFase1.tscn        # la FSM llega a los estados
-godot --headless --path . tools/TestFase2.tscn        # combate, agua, paredes
+godot --headless --path . tools/TestFase2.tscn        # postura, agua, paredes, parry
 godot --headless --path . tools/TestCuerda.tscn       # el arco: las leyes del moveset
+godot --headless --path . tools/TestPatada.tscn       # la patada, y el anti-spam
 godot --headless --path . tools/TestLanza.tscn        # la lanza
 godot --headless --path . tools/TestEnemigos.tscn     # los enemigos
 godot --headless --path . tools/TestMundoVivo.tscn    # hierba, luciérnagas, bandada

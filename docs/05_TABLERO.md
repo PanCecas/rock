@@ -98,6 +98,15 @@ puso el jugador, no el motor*.
 | **El alcance se mide desde el jugador y el cono desde la cámara.** Medirlo todo desde la cámara le sumaba el brazo: `cuerda_rango` decía 12 y se enganchaba a **20.75 m** | `TestCuerda` |
 | **Fuera la segunda cuerda entera** (`Anclaje`), la resortera, el zip y el zarandeo. No eran redundantes entre sí —un punto da péndulo, dos dan elástico— pero los cuatro eran MODOS | batería completa en verde |
 | El código del jugador de 7e149d6, copiado sin borrar | `legacy/player_3.16/` |
+| **LA PATADA.** Un solo movimiento ofensivo donde había doce entradas de combate y 26 `AttackData`. 0.25 s a 18 m/s, velocidad constante y gravedad cero | `TestPatada` 15/15 |
+| **Es traversal antes que ataque:** cruza 4.5 m de hueco aunque no golpee nada | `TestPatada` |
+| **Conectar DERROTA y RECARGA** la cuerda y la patada: el enemigo es una plataforma | `TestPatada` |
+| **La recarga es un FLANCO de contacto, no un nivel.** Es el anti-spam: con un nivel, patear a ras de suelo devuelve la carga en el mismo frame y machacar el botón es un dash continuo | `TestPatada`, comprobación propia |
+| **El stick la dirige A MITAD del gesto**, no solo al empezar | `TestPatada`, desvío lateral |
+| **Se quedan el parry, el wall-run y el nado.** El parry perfecto quiebra al atacante y devuelve las dos cargas en vez de contraatacar | `TestFase2` 91/91 |
+| **La patada es la llave del punto débil**, y el `ColosoMediano` pasa de 400 de vida a **3000**: con la llave hace 700 y moría de un golpe | `TestEnemigos` 31/31 |
+| Un solo botón ofensivo: `attack_heavy` fuera del InputMap | `TestMenu` 4/4 |
+| El combate de 7e149d6, copiado sin borrar | `legacy/combate_3.16/`, `legacy/ataques_3.16/` |
 
 ### Parche 3.16 — pulido de la jam: notas, agentes y modo escritura
 
@@ -195,10 +204,11 @@ puso el jugador, no el motor*.
 | Suite | |
 |---|---|
 | `TestFase1` — FSM | **12/12** |
-| `TestFase2` — combate, postura, agua, escalada, paredes, combo pesado, adherencia | **139/139** |
+| `TestFase2` — postura, agua, escalada, locomoción, paredes, parry, daño recibido | **91/91** |
 | `TestCuerda` — el arco: enganche, radio, caducidad, dirección, cargas y filtros | **15/15** |
-| `TestEnemigos` — cono, carga, patrulla, arquetipos | **31/31** |
-| `TestLanza` — vuelo, clavado, plataforma, moveset empuñada, pértiga | **23/23** |
+| `TestPatada` — el gesto, cruzar huecos, derrotar, recargar y el anti-spam | **15/15** |
+| `TestEnemigos` — cono, carga, patrulla, arquetipos, punto débil | **31/31** |
+| `TestLanza` — vuelo, clavado, plataforma, empuñar, pértiga | **17/17** |
 | `TestMenu` | **4/4** |
 | `TestEnjambre` — modelo en seco y manifestación en vivo | **31/31** |
 | `TestMundoVivo` — hierba, luciérnagas, bandada y escolta | **27/27** |
@@ -210,12 +220,11 @@ puso el jugador, no el motor*.
 
 ## EN PROCESO
 
-**El moveset (parche 4.00).** Etapa 1 —la cuerda— cerrada. Quedan, en orden:
+**El moveset (parche 4.00).** Etapas 1 —la cuerda— y 2 —la patada— cerradas. Quedan, en orden:
 
 | Etapa | Qué |
 |---|---|
-| 2 | **LA PATADA.** Un solo movimiento ofensivo: impulso corto y dirigido (~0.25 s), sirve para cruzar huecos aunque no golpee nada, y si conecta derrota **y** recarga la cuerda y la propia patada. Se lleva por delante el combate actual —26 `AttackData` del jugador, la cadena, el combo pesado, el clavado, el moveset de lanza y el combate acuático—; **se quedan el parry, el wall-run y el nado**, pedidos expresamente |
-| 3 | **Conservación de velocidad.** Recorrer la FSM y quitar los reseteos que no estén justificados. Los dos gordos ya están localizados: `StateAttack` retiene solo el **45%** al entrar (y 0% con `frenazo`) y escribe `set_vertical(-2.0)` cada frame; `StateDash.enter` llama a `impulso(conservar=false)`, que **borra la horizontal entera** |
+| 3 | **Conservación de velocidad.** Recorrer la FSM y quitar los reseteos que no estén justificados. El gordo que queda ya está localizado: `StateDash.enter` llama a `impulso(conservar=false)`, que **borra la horizontal entera** — dashear al salir de un arco a 30 m/s te deja a velocidad de dash. Los dos de `StateAttack` se fueron con el estado |
 | 4 | **Afinado** en `PlayerTuning`, grupo `Moveset` |
 | 5 | **`gym.tscn`**, al lado del `Gym.gd` actual: sala gris compacta y vertical, anclas a distintas alturas, paredes, un vano ancho y tres cubos-enemigo como plataformas, con overlay de velocidad, estado, cargas y tiempo de arco |
 

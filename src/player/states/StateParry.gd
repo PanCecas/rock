@@ -46,11 +46,18 @@ func interceptar(golpe: Golpe) -> int:
 	_celebrar(golpe, perfecto)
 	EventBus.parry_success.emit(perfecto)
 
-	# Contraataque inmediato solo en el perfecto: el premio por afinar.
+	# EL PREMIO DEL PERFECTO ES MOVILIDAD, NO DAÑO.
+	#
+	# Era un contraataque inmediato —`ataque_contra`— y ese `AttackData` se fue con
+	# los otros veinticuatro en el parche 4.00. Cambiarlo por "te devuelvo la
+	# cuerda y la patada" no es un parche a la falta de uno: es el premio que
+	# encaja con el juego que hay ahora. El moveset entero se mide en CARGAS, así
+	# que devolver las dos es lo más caro que se puede regalar, y además deja al
+	# jugador donde quiere estar después de un parry perfecto —moviéndose— en vez
+	# de clavado en una animación de castigo.
 	if perfecto:
-		fsm.cambiar(&"Attack", {"datos": player.ataque_contra, "indice": 1})
-	else:
-		fsm.cambiar(&"Idle")
+		player.recargar_moveset()
+	fsm.cambiar(&"Idle")
 
 	return Golpe.Resultado.PARRY_PERFECTO if perfecto else Golpe.Resultado.PARRY
 
@@ -66,6 +73,22 @@ func _celebrar(golpe: Golpe, perfecto: bool) -> void:
 
 	player.stamina.llenar()
 	player.recargar_aire()
+
+	# Y SE LE QUIEBRA LA GUARDIA AL ATACANTE. Antes esto no hacia falta: el parry
+	# perfecto lanzaba un contraataque y era ESE golpe el que le rompia la postura.
+	# Sin contraataque, desviar un mandoble perfecto se quedaba sin consecuencia
+	# para quien lo tiraba —el test lo dijo en cuanto se quito—, y un parry que no
+	# abre nada no es un parry, es una animacion de esquive.
+	#
+	# Se hace aqui y no con un `AttackData` fantasma porque lo que se premia es la
+	# DEFENSA, no un golpe: el jugador no ha pegado a nadie.
+	if perfecto and golpe.atacante != null and is_instance_valid(golpe.atacante):
+		var p: PoiseComponent = golpe.atacante.get_node_or_null("Poise") as PoiseComponent
+		if p != null:
+			# Por `aplicar()` y no escribiendo `rota` a mano: es la puerta del
+			# componente y la unica que arma el temporizador del quiebre y emite
+			# `quebrada`. Escribir el flag dejaria al enemigo "roto" para siempre.
+			p.aplicar(p.maxima)
 
 
 func debug_line() -> String:

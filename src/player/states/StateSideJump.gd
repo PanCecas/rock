@@ -53,9 +53,5 @@ func maneja_salto() -> bool:
 	return true
 
 
-func maneja_ataques() -> bool:
-	return true
-
-
 func debug_line() -> String:
 	return "plantando %.0f%%" % (100.0 * t / maxf(tuning.sidejump_frenazo, 0.001))

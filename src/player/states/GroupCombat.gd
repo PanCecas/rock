@@ -1,12 +1,15 @@
 extends PlayerStateGroup
-## Estados de combate. El grupo aporta poco a propósito: durante un ataque el
-## jugador NO debe caerse a otro estado por accidente, o los combos se rompen solos.
+## Estados de combate. El grupo aporta poco a propósito, y desde el parche 4.00
+## aporta aún menos: los tres que quedan —la patada, el parry y el hitstun— duran
+## menos de medio segundo cada uno y terminan solos. Durante uno de ellos el
+## jugador no debe caerse a otro estado por accidente.
 ##
-## Lo que sí centraliza son las REGLAS DE CANCELACIÓN por defecto, que es donde
-## vive la sensación estilizada. Ver docs/03_ARQUITECTURA_MECANICAS.md §3.3.
-
-## Frames de recuperación durante los que sigue abierto el parry.
-const PARRY_TRAS_ATAQUE := 6
+## **Aquí vivían las reglas de cancelación**, que eran lo que hacía cancelable una
+## cadena de combo: cuándo se puede dashear, saltar o encadenar dentro de un golpe.
+## Con una sola acción ofensiva de 0.25 s no hay nada que cancelar —la ventana
+## entera dura menos que la mayoría de aquellas ventanas de cancelación— así que
+## se fueron con la cadena. Quien decide ahora cuándo termina un gesto es su
+## propio número (regla dura #27).
 
 
 func shared_update(delta: float) -> void:
@@ -14,31 +17,3 @@ func shared_update(delta: float) -> void:
 	# tope mientras peleas, o el sprint infinito trivializaría el reposicionamiento.
 	if player.is_on_floor():
 		player.stamina.regenerar(tuning.stamina_regen_suelo * 0.35, delta)
-
-
-## ¿Se puede cancelar el ataque `datos` con la acción `tipo` en este frame?
-##
-## Si el .tres declara una ventana explícita, manda. Si no, estas son las reglas
-## por defecto, y son las que hacen que el combate se sienta cancelable en vez de
-## comprometido:
-##   · dash  — SIEMPRE desde que se abre la ventana activa. Es la vía de escape.
-##   · salto — solo si el golpe CONECTÓ. Fallar tiene que costar.
-##   · parry — en los primeros frames de la recuperación.
-##   · ataque— desde `frame_cadena`.
-func puede_cancelar(tipo: StringName, datos: AttackData, frame: int, conectado: bool) -> bool:
-	if datos == null:
-		return true
-	if not datos.cancelaciones.is_empty() and datos.cancelaciones.has(tipo):
-		return datos.cancelable(tipo, frame)
-
-	match tipo:
-		&"dash":
-			return frame >= datos.frames_windup
-		&"jump":
-			return conectado and frame >= datos.frames_windup
-		&"parry":
-			var inicio := datos.frames_windup + datos.frames_activo
-			return frame >= inicio and frame < inicio + PARRY_TRAS_ATAQUE
-		&"attack":
-			return frame >= datos.frame_cadena
-	return false

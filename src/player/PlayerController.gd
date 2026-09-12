@@ -11,35 +11,15 @@ extends CharacterBody3D
 @export var collider_path: NodePath = ^"Collider"
 
 @export_group("Ataques")
-## Primer golpe de la cadena ligera. Los demás cuelgan de `siguiente`.
-@export var ataque_ligero: AttackData
-@export var ataque_pesado: AttackData
-@export var ataque_aereo: AttackData
-@export var ataque_plunge: AttackData
-## Ataques acuaticos: bajo el agua un golpe es un desplazamiento con hitbox.
-@export var ataque_agua_ligero: AttackData
-@export var ataque_agua_pesado: AttackData
-## Patada deslizante: el salto de conejo. Su hitbox vive todo el trayecto.
-@export var ataque_slide_kick: AttackData
-## Clavado. Su hitbox vive todo el trayecto y lanza por los aires.
-@export var ataque_dive: AttackData
-## Clavado PESADO: mas dano y rebote sobre la cabeza del enemigo.
-@export var ataque_dive_pesado: AttackData
-## Patada baja desde agachado. Derriba en vez de tambalear.
-@export var ataque_agachado: AttackData
-## Ataque lanzado desde el dash: hereda el momentum y cierra distancia.
-@export var ataque_dash: AttackData
-## Shift + ataque ligero: estocada de esgrima que conserva la forma del surf.
-@export var ataque_surf_ligero: AttackData
-## Shift + ataque pesado: frenazo en seco y empujon fuerte.
-@export var ataque_surf_pesado: AttackData
-## Contraataque que solo se abre tras un parry perfecto.
-@export var ataque_contra: AttackData
-@export_group("Ataques de lanza")
-@export var ataque_lanza_ligero: AttackData
-@export var ataque_lanza_pesado: AttackData
-@export var ataque_lanza_aereo_ligero: AttackData
-@export var ataque_lanza_aereo_pesado: AttackData
+## EL UNICO. Doce entradas de combate se quedaron en una desde el parche 4.00, y
+## no por ahorrar: con doce el boton se machaca, y machacar un boton no es una
+## decision. Ver `StateKick`.
+##
+## Sigue siendo un `AttackData` y no tres numeros sueltos porque la regla dura #1
+## no cambia —el combate se afina en un `.tres`, no en codigo— y porque el resto
+## del pipeline de dano (`Hitbox`, `Hurtbox`, `Golpe`, la muerte con ragdoll) ya
+## habla ese idioma y no habia nada que arreglar ahi.
+@export var ataque_patada: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -72,6 +52,13 @@ var lanza: Spear = null
 ## La gasta `Grapple` al entrar y la devuelve `recargar_moveset()`, en un solo
 ## sitio. Ver ahi por que no va dentro de `recargar_aire()`.
 var cuerda_disponible: bool = true
+## ¿Y PATADA? Mismo trato y la misma moneda. Las dos se gastan al entrar y las dos
+## vuelven con el mismo contacto, asi que el jugador no tiene que llevar dos
+## cuentas: o has tocado algo, o no.
+var patada_disponible: bool = true
+## ¿Habia contacto el frame pasado? Ver `_recargar_por_contacto()`: la recarga es
+## un flanco y hace falta el valor anterior para detectarlo.
+var _tocaba: bool = false
 
 ## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`, y hasta
 ## cuanto. Lo escribe el estado que regala la velocidad, justo al salir.
@@ -136,13 +123,11 @@ var _recuperacion: float = 0.0
 var ventana_sidejump: float = 0.0
 ## Tiempo empujando contra una pared. Al pasar del umbral, se escala solo.
 var tiempo_contra_pared: float = 0.0
-## Espera de la patada deslizante. Vive aqui y no en el estado porque tiene que
-## sobrevivir a la patada: un cooldown que muere con el estado que lo pone no es
-## un cooldown, es un adorno.
-var cd_slide_kick: float = 0.0
-## Espera entre clavados. Mismo motivo y mismo patron que la patada deslizante:
-## un ataque de movilidad que se puede repetir sin pausa deja de ser una decision.
-var cd_dive: float = 0.0
+## Los dos cooldowns de combate —el de la patada deslizante y el de los clavados—
+## se fueron con sus verbos en el parche 4.00. Lo que impide repetir la patada sin
+## pausa ya no es un reloj: es que la CARGA hay que ir a buscarla tocando algo.
+## Un recurso que se gasta dice mas que una cuenta atras, porque se ve en el HUD y
+## se recupera con un gesto en vez de con paciencia.
 ## HANG TIME: segundos con gravedad CERO. Lo arma el rebote del clavado pesado y lo
 ## consulta `LocomotionMotor.aplicar_gravedad`, asi que vale para Fall, Jump y
 ## Glide sin que ninguno tenga que saber que existe.
@@ -247,8 +232,7 @@ func _physics_process(delta: float) -> void:
 	#    `move_and_slide` por frame.
 	if fsm != null and fsm.actual != null:
 		fsm.actual.post_move(delta)
-	if is_on_floor() or is_on_wall():
-		recargar_moveset()
+	_recargar_por_contacto()
 
 	_antiatasco(delta)
 	_resolver_postura()
@@ -316,8 +300,6 @@ func _avanzar_relojes(delta: float) -> void:
 	tiempo_sin_borde = maxf(0.0, tiempo_sin_borde - delta)
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
-	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
-	cd_dive = maxf(0.0, cd_dive - delta)
 	hangtime = maxf(0.0, hangtime - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
@@ -341,29 +323,6 @@ func _avanzar_relojes(delta: float) -> void:
 ## trámite, y no gasta una tecla más en un juego que ya iba justo de teclas.
 func lanza_empunada() -> bool:
 	return lanza != null and is_instance_valid(lanza) and lanza.en_mano()
-
-
-## EL MOVESET ACTIVO, ligero y pesado.
-##
-## Esto es un INTERCAMBIO, no un remapeo, y la diferencia importa: los botones
-## siguen significando lo mismo —ligero es ligero, pesado es pesado— y lo único
-## que cambia es qué `AttackData` sale. Sin lanza, el kit a mano queda intacto y
-## las 130 comprobaciones de la Fase 2 siguen verdes; si se ponen rojas es que
-## alguien remapeó.
-##
-## Vive aquí, en un solo sitio, y no repartido por los grupos de la FSM: dos
-## sitios preguntando "¿tengo la lanza?" es como se llega a que el ligero sea de
-## lanza y el pesado de espada.
-func ataque_ligero_actual() -> AttackData:
-	if lanza_empunada() and ataque_lanza_ligero != null:
-		return ataque_lanza_ligero
-	return ataque_ligero
-
-
-func ataque_pesado_actual() -> AttackData:
-	if lanza_empunada() and ataque_lanza_pesado != null:
-		return ataque_lanza_pesado
-	return ataque_pesado
 
 
 ## PERTIGA: ¿hay una lanza clavada lo bastante cerca para apoyarse en ella?
@@ -391,24 +350,6 @@ func impulsar_pertiga() -> void:
 	EventBus.camara_shake.emit(0.4, 0.14)
 	CombatFX.impacto(get_parent(), lanza.global_position,
 		color_de(&"oro_palido"), 1.2)
-
-
-## EL MOVESET AEREO de la lanza. `null` = no hay, y mandan los clavados.
-##
-## En el aire, el kit a mano son los CLAVADOS: rebotar en cabezas y levantar. Son
-## verbos de CONTACTO, y por eso la lanza no puede limitarse a copiarlos: lo que
-## ella mete en el aire es ALCANCE. La estocada llega desde lejos y te mantiene
-## arriba —conectar en el aire repone el dash, `docs/03 §3.3`— y el giro barre
-## todo lo que tengas alrededor.
-##
-## Mismo eje que en el suelo, porque un moveset que cambia de criterio al saltar
-## no es un moveset, son dos.
-func ataque_aereo_ligero_actual() -> AttackData:
-	return ataque_lanza_aereo_ligero if lanza_empunada() else null
-
-
-func ataque_aereo_pesado_actual() -> AttackData:
-	return ataque_lanza_aereo_pesado if lanza_empunada() else null
 
 
 ## Copia de un `AttackData` con el empuje escalado por la INERCIA que llevas.
@@ -554,6 +495,7 @@ func iniciar_hangtime(segundos: float) -> void:
 ## se lee igual que la regla: tocar algo te devuelve la cuerda.
 func recargar_moveset() -> void:
 	cuerda_disponible = true
+	patada_disponible = true
 
 
 ## EL ANCLA A LA QUE ENGANCHARIA AHORA MISMO, o null.
@@ -571,6 +513,26 @@ func buscar_ancla() -> Ancla:
 	var fuera: Array[RID] = [get_rid()]
 	return Ancla.mejor(get_tree(), global_position, ojo, direccion, tuning.cuerda_rango,
 		cos(deg_to_rad(tuning.cuerda_cono_grados)), fuera)
+
+
+## LA RECARGA SE DISPARA AL TOCAR, NO MIENTRAS TOCAS. Es un FLANCO.
+##
+## La diferencia decide si hay spam o no. Con un nivel —"recarga mientras haya
+## suelo"— la patada se devuelve el mismo frame en que se gasta: das una patada a
+## ras de suelo, sigues pisando, se recarga, y machacar el boton es un dash
+## continuo a 18 m/s. Que es exactamente lo que este rediseño venia a quitar.
+##
+## Con un flanco hay que SALIR y VOLVER, y eso convierte la recarga en un gesto:
+## saltar, rozar una pared, aterrizar. Y se lee igual que la regla escrita — "se
+## recarga AL TOCAR suelo o pared" es un evento, no un estado.
+##
+## Va despues de `move_and_slide()` porque pregunta por contactos, y esos los
+## acaba de resolver el. Preguntarlos antes seria leer los del frame anterior.
+func _recargar_por_contacto() -> void:
+	var tocando := is_on_floor() or is_on_wall()
+	if tocando and not _tocaba:
+		recargar_moveset()
+	_tocaba = tocando
 
 
 func recargar_aire() -> void:
