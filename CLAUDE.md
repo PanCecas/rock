@@ -318,7 +318,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *el stick la dirige durante TODO el gesto, no solo al empezar* | |
 | | *saltar o tirar de la cuerda la cortan: no hay compromiso* | |
 | | *si conecta, DERROTA, te REBOTA arriba y recarga las dos cargas* | |
-| | *UNA por tiempo de vuelo. Vuelve al TOCAR suelo o pared —al tocar, no mientras tocas* | |
+| | *TRES por tiempo de vuelo. Vuelven al TOCAR suelo, pared o enemigo —al tocar, no mientras tocas* | |
 | Parry | Q | LT |
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
 | Fijar objetivo | Click medio | R3 |
@@ -560,9 +560,15 @@ primera version cumplia el encargo sobre el papel y se sentia mal. El banco
   enemigo en una plataforma: sin el, golpear era el final de una linea en vez de un
   eslabon. El gesto TERMINA en el impacto para que puedas elegir lo siguiente
   mientras subes.
-- **`patada_cargas` es un entero y no un `bool`.** Cuantas hay es el numero que mas
-  cambia como se siente el aire —*Pseudoregalia* anda por dos o tres con las Sun
-  Greaves— y queria poder subirlo sin reescribir nada.
+- **`patada_cargas` esta en TRES.** Es el numero que mas cambia como se siente el
+  aire, y por eso es un entero y no un `bool`. Medido con su fila de control: la
+  misma caida da **0.95 s de aire y 6.7 m** sin patear y **2.05 s y 34.1 m**
+  encadenando. Con una sola carga el aire era un compromiso que se resolvia en el
+  primer medio segundo; con tres es un sitio donde se vive, que es lo que hace
+  *Pseudoregalia* con las Sun Greaves al completo.
+  El tope se respeta: en caida limpia y sin nada que rozar salen **3 y no mas**. Si
+  cruzas terreno salen mas, y eso es la mecanica funcionando —tocar pared recarga—,
+  no un agujero.
 - **LA RECARGA ES UN FLANCO DE CONTACTO, NO UN NIVEL**, y ahi esta el anti-spam.
   Con un nivel —"recarga mientras haya suelo"— la patada se devuelve el mismo
   frame en que se gasta: patear a ras de suelo, seguir pisando, recargar, y

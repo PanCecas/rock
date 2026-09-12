@@ -671,10 +671,15 @@ func velocidad_dash() -> float:
 ## CARGAS por tiempo de vuelo. Una es el minimo que hace que la patada cueste algo.
 ##
 ## Es el numero que mas cambia como se siente el aire, y por eso esta aqui suelto y
-## no cableado: con una, el aire es un compromiso; con dos o tres —que es por donde
-## anda *Pseudoregalia* con las Sun Greaves— el aire se convierte en un sitio
-## donde se vive, y encadenar deja de exigir que cada patada acierte.
-@export_range(1, 5, 1) var patada_cargas: int = 1
+## no cableado: con una, el aire es un compromiso; con tres —que es por donde anda
+## *Pseudoregalia* con las Sun Greaves al completo— el aire se convierte en un
+## sitio donde se vive, y encadenar deja de exigir que cada patada acierte.
+##
+## **Esta en TRES desde que se midio.** Con una, tres de cada cuatro intentos de
+## encadenar terminaban en el suelo por un calculo de medio metro, y eso no se lee
+## como dificultad: se lee como que el juego no te deja. Ver `MedirPatada`, que
+## cuenta cuantas caben en un tiempo de vuelo y cuanto terreno cubren.
+@export_range(1, 5, 1) var patada_cargas: int = 3
 ## Vertical al terminar SIN acertar, en m/s. La patada suspende la gravedad
 ## mientras dura y esto es lo que devuelve al soltarte.
 ##

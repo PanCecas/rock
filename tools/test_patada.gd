@@ -214,7 +214,7 @@ func _construir() -> void:
 			"sin rebote, golpear es el final de una linea en vez de un eslabon"),
 
 		# --- UNA POR TIEMPO DE VUELO ------------------------------------------
-		_chequeo_("en el aire solo hay una", 0.7,
+		_chequeo_("sin cargas, en el aire no hay patada", 0.7,
 			func() -> void:
 				_colocar(Vector3(0.0, 14.0, 20.0))
 				_p.patada_cargas = 0
@@ -238,7 +238,10 @@ func _construir() -> void:
 				_p.global_position = Vector3(0.0, 0.3, 20.0)
 				_p.velocity = Vector3.ZERO
 				_p.fsm.cambiar(&"Idle")
-				_p.patada_cargas = _p.tuning.patada_cargas
+				# UNA a mano, no `tuning.patada_cargas`: lo que se mide es que el
+				# contacto continuo del suelo no devuelve la carga, y eso no puede
+				# depender de cuantas haya configuradas.
+				_p.patada_cargas = 1
 				_visto.clear()
 				_atacar = 4,
 			func() -> bool:

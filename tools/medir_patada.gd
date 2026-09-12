@@ -48,6 +48,19 @@ var _estado_tras_salto: StringName = &""
 var _vy_tras_impacto: float = -99.0
 var _cargas_tras_impacto: int = -1
 
+# --- LA CADENA. Con mas de una carga, lo que se mide deja de ser un gesto suelto
+#     y pasa a ser cuanto aire compras encadenando.
+## Encadena patadas sola: pulsa en cuanto puede y suelta para que la siguiente
+## cuente como pulsacion NUEVA. Es el jugador perfecto, que es el techo de lo que
+## la mecanica permite.
+var _encadenar: bool = false
+var _ciclo: int = 0
+var _patadas: int = 0
+var _aire_t: float = 0.0
+var _aire_x: float = 0.0
+var _aire_x0: Vector3 = Vector3.ZERO
+var _midiendo_aire: bool = false
+
 
 func _ready() -> void:
 	_main = load("res://content/levels/Main.tscn").instantiate()
@@ -114,7 +127,39 @@ func _construir() -> void:
 					_vy_tras_impacto,
 					"?" if _cargas_tras_impacto < 0 else str(_cargas_tras_impacto)]),
 
-		# 5) TERRENO.
+		# 5) LA CADENA, y su FILA DE CONTROL. Sin la caida a secas al lado, el
+		#    numero de la cadena no dice nada: hay que saber cuanto aire tenias ya.
+		_medida("caida libre — fila de control", 2.6,
+			func() -> void:
+				_colocar(Vector3(-14.0, 18.0, 6.0), 9.0)
+				_abrir_aire(),
+			func() -> String:
+				return "%.2f s en el aire, %.1f m de avance, 0 patadas" % [
+					_aire_t, _aire_x]),
+
+		_medida("la misma caida, encadenando", 2.6,
+			func() -> void:
+				_colocar(Vector3(-14.0, 18.0, 6.0), 9.0)
+				_abrir_aire()
+				_encadenar = true,
+			func() -> String:
+				# Cruza el Gym, asi que el terreno le va devolviendo cargas por el
+				# camino —tocar pared recarga— y salen mas de las configuradas. Eso
+				# es la mecanica funcionando, no un fallo: el tope limpio lo mide la
+				# linea de abajo, en caida vertical y sin nada que rozar.
+				return "%.2f s en el aire, %.1f m de avance, %d patadas (el terreno da mas)" % [
+					_aire_t, _aire_x, _patadas]),
+
+		_medida("el tope, en caida limpia", 1.4,
+			func() -> void:
+				_colocar(Vector3(0.0, 16.0, 6.0), 0.0)
+				_patadas = 0
+				_encadenar = true,
+			func() -> String:
+				return "%d patadas con %d cargas configuradas" % [
+					_patadas, _p.tuning.patada_cargas]),
+
+		# 6) TERRENO.
 		_medida("terreno cubierto", 0.9,
 			func() -> void:
 				_colocar(Vector3(0.0, 14.0, 20.0), 0.0)
@@ -135,6 +180,15 @@ func _plantar_victima(pos: Vector3) -> void:
 	_victima.ataque = null
 
 
+## Arranca la cuenta del tiempo de vuelo. Se cierra sola al tocar suelo.
+func _abrir_aire() -> void:
+	_patadas = 0
+	_aire_t = 0.0
+	_aire_x = 0.0
+	_aire_x0 = _p.global_position
+	_midiendo_aire = true
+
+
 ## Coloca al jugador en el aire con una velocidad horizontal dada. El permiso de
 ## momentum se abre a mano: sin el, el clamp global (22) se comeria los 30 antes
 ## de que la patada pudiera tocarlos y la medida no diria nada de la patada.
@@ -153,6 +207,9 @@ func _colocar(pos: Vector3, rapidez: float) -> void:
 	_p.cuerda_disponible = true
 	_p.recargar_moveset()
 	_p.fsm.cambiar(&"Fall")
+	_encadenar = false
+	_ciclo = 0
+	_midiendo_aire = false
 	_en_patada = false
 	_v_entrada = 0.0
 	_v_durante_min = 9999.0
@@ -177,7 +234,15 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
-	if _atacar > 0:
+	if _encadenar:
+		# Dos frames pulsado y dos sueltos: sin el hueco, `is_action_just_pressed`
+		# no vuelve a dispararse y la segunda patada no llegaria a pedirse nunca.
+		_ciclo = (_ciclo + 1) % 4
+		if _ciclo < 2 and _p.patada_cargas > 0 and _p.fsm.nombre_actual() != &"Kick":
+			Input.action_press(&"attack_light")
+		else:
+			Input.action_release(&"attack_light")
+	elif _atacar > 0:
 		Input.action_press(&"attack_light")
 		_atacar -= 1
 		if _atacar == 0:
@@ -195,8 +260,16 @@ func _physics_process(delta: float) -> void:
 	var plano := _p.superficie.plano(_p.velocity).length()
 	var vy := _p.superficie.vertical(_p.velocity)
 
+	if _midiendo_aire:
+		if _p.is_on_floor():
+			_midiendo_aire = false
+		else:
+			_aire_t += delta
+			_aire_x = _p.superficie.plano(_p.global_position - _aire_x0).length()
+
 	if estado == &"Kick":
 		if not _en_patada:
+			_patadas += 1
 			_en_patada = true
 			_v_entrada = _vel_anterior
 			_vy_entrada = _vy_anterior
@@ -209,7 +282,9 @@ func _physics_process(delta: float) -> void:
 		_vy_durante = vy
 		_y_caida = maxf(_y_caida, _y_entrada - _p.global_position.y)
 		_recorrido = maxf(_recorrido, _p.global_position.distance_to(_origen))
-	elif _estado_prev == &"Kick":
+	else:
+		_en_patada = false
+	if estado != &"Kick" and _estado_prev == &"Kick":
 		_v_salida = plano
 		_vy_salida = vy
 		if _vy_tras_impacto < -98.0 and _cargas_tras_impacto < 0:
@@ -254,6 +329,9 @@ func _informe() -> void:
 	print("  patada_duracion   %.2f s     patada_velocidad  %.1f m/s" % [
 		t.patada_duracion, t.patada_velocidad])
 	print("  patada_giro       %.0f grad/s" % t.patada_giro_grados_seg)
+	print("  patada_cargas     %d          patada_rebote     %.1f m/s" % [
+		t.patada_cargas, t.patada_rebote])
+	print("  patada_salida_vertical %.1f m/s" % t.patada_salida_vertical)
 	print("  velocidad_maxima  %.1f m/s   (el clamp global)" % t.velocidad_maxima)
 	get_tree().quit(0)
 

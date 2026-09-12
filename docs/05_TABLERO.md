@@ -105,6 +105,7 @@ puso el jugador, no el motor*.
 | **Conectar DERROTA, REBOTA y RECARGA.** vy tras el impacto: **0.0 → +10.0**. El enemigo es una plataforma | `TestPatada` |
 | **La patada no existía estando colgado del arco.** Regla dura #13 otra vez: acción compartida ausente en `Attached`. Con eso la cadena cuerda → patada —el criterio de éxito— no se podía ejecutar. **Lo cazó una captura, no un test** | `TestPatada`, chequeo del arco |
 | **Es traversal antes que ataque:** cruza 4.5 m de hueco aunque no golpee nada, y más si venías más rápido | `TestPatada` |
+| **`patada_cargas` a 3.** La misma caída da **0.95 s de aire y 6.7 m** sin patear y **2.05 s y 34.1 m** encadenando. En caída limpia el tope se respeta: 3 y no más | `MedirPatada`, con fila de control |
 | **La recarga es un FLANCO de contacto, no un nivel.** Es el anti-spam: con un nivel, patear a ras de suelo devuelve la carga en el mismo frame y machacar el botón es un dash continuo | `TestPatada`, comprobación propia |
 | **El stick la dirige A MITAD del gesto**, no solo al empezar | `TestPatada`, desvío lateral |
 | **Se quedan el parry, el wall-run y el nado.** El parry perfecto quiebra al atacante y devuelve las dos cargas en vez de contraatacar | `TestFase2` 91/91 |
