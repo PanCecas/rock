@@ -1,3 +1,8 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Copias temporales que Godot genera para el hot-reload de GDExtensions.
+# Se crean al vuelo y bloquean el DLL original si se quedan colgadas.
+~*.dll
+*.TMP

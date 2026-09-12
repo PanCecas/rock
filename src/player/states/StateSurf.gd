@@ -138,6 +138,21 @@ func maneja_salto() -> bool:
 	return true
 
 
+## SURFEAR CONTRA UN MURO NO ES INSISTIR CONTRA EL, ES CHOCAR.
+##
+## `escalada_auto_tiempo` dice en su propia descripcion que el agarre automatico
+## es para quien CAMINA contra la pared. Llegando a 15 m/s el jugador no esta
+## pidiendo escalar: esta terminando una linea. Medido, 4 de las 5 adherencias
+## automaticas de 60 s de juego salieron directamente de aqui, y la salida del
+## surf acababa pegada al muro con la velocidad a cero — que es exactamente el
+## "al salir del surf no puedo direccionar al personaje" que se reporto.
+##
+## El agarre a mano (`GRAB`) sigue funcionando igual: quien quiera trepar el muro
+## al que llega surfeando, lo pide.
+func adherencia_automatica() -> bool:
+	return false
+
+
 func _shift_mantenido() -> bool:
 	return buffer.is_held(InputActions.DASH) or buffer.is_held(InputActions.SPRINT)
 

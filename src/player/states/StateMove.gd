@@ -62,11 +62,29 @@ func physics_update(delta: float) -> void:
 	#     que soltar el stick a velocidad de carrera patinara 6 metros. Aqui manda
 	#     `frenado_soltar`. Antes caia aqui `frenado_momentum` y por eso soltar el
 	#     stick a velocidad de carrera patinaba seis metros.
+	#
+	# Y hay que bajar el OBJETIVO, no la TASA. `motor.acelerar()` mueve el vector
+	# entero hacia el deseado con una sola tasa, asi que bajarla no solo frena:
+	# tambien impide GIRAR. Con `frenado_momentum` (6 m/s2) salir del surf cuesta
+	# abajo a 15.8 m/s costaba **1.43 s de linea recta** antes de obedecer al
+	# stick — medido en el Gym, y es el "no puedo direccionar al personaje" que se
+	# reporto dos veces. Frenar despacio era el diseno; no obedecer, no.
+	#
+	# Bajando el objetivo la regla del momentum queda intacta —la rapidez extra se
+	# sigue perdiendo a 6 m/s2, porque el techo se recalcula cada frame desde la
+	# rapidez actual— y el giro conserva la autoridad de siempre.
 	var tasa := tuning.aceleracion_suelo
+	var techo := _objetivo_suave
 	if motor.rapidez_plana() > _objetivo_suave + 0.5:
-		tasa = tuning.frenado_momentum if fuerza > 0.25 else tuning.frenado_soltar
+		if fuerza > 0.25:
+			techo = move_toward(
+				motor.rapidez_plana(), _objetivo_suave, tuning.frenado_momentum * delta)
+		else:
+			# Soltar el stick no deja direccion que pedir, asi que aqui bajar la
+			# tasa no le quita el control a nadie: es solo la frenada.
+			tasa = tuning.frenado_soltar
 
-	motor.acelerar(dir * _objetivo_suave, tasa, delta)
+	motor.acelerar(dir * techo, tasa, delta)
 	motor.set_vertical(-2.0)
 
 	# Deslizarse exige llevar velocidad: es la recompensa por haber cogido

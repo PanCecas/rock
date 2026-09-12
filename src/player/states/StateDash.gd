@@ -122,6 +122,12 @@ func _corregir_rumbo(delta: float) -> void:
 ##   Shift mantenido + suelo  ->  SURF (el tramo fluido que luego da paso al sprint)
 ##   Shift suelto             ->  Move / Idle, conservando algo de momentum
 ##   en el aire               ->  Fall
+## Un dash es un ESQUIVE de 0.12 s. Nadie esquiva hacia una pared para trepar por
+## ella, y el agarre a mano sigue estando ahi para quien si lo quiera.
+func adherencia_automatica() -> bool:
+	return false
+
+
 func _salir() -> void:
 	var mantenido := buffer.is_held(InputActions.DASH) or buffer.is_held(InputActions.SPRINT)
 

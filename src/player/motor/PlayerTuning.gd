@@ -36,8 +36,11 @@ extends Resource
 ## Los tres peldaños de la locomocion sin Shift. NO se eligen por la fuerza del
 ## stick: se encadenan por TIEMPO manteniendo la direccion, que es lo que da la
 ## sensacion de que el personaje coge carrerilla.
-@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
-@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
+## Caminar estaba en 3.0 y se sentia arrastrado: es la velocidad con la que
+## empiezas SIEMPRE, antes de que la carrerilla haga nada, asi que es la primera
+## impresion del movimiento y no puede ser la mas floja.
+@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 4.2
+@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 6.4
 @export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 9.4
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
@@ -63,6 +66,19 @@ extends Resource
 ## lanzado, conservas lo que traias. Antes este suelo era `velocidad_correr` y por
 ## eso un salto vertical llegaba a maxima velocidad de carrera sin pisar el suelo.
 @export_range(0.0, 20.0, 0.1) var control_aereo_techo: float = 3.2
+## AUTORIDAD PARA GIRAR EN EL AIRE, en m/s2, y separada de `aceleracion_aire` a
+## proposito: son dos preguntas distintas.
+##
+##   aceleracion_aire -> cuanta velocidad puedes GANAR en el aire. Baja a
+##     proposito: si no, un salto desde parado llega a velocidad de carrera y la
+##     carrerilla no sirve de nada.
+##   giro_aire        -> cuanto puedes REDIRIGIR lo que ya llevas. No crea
+##     velocidad: solo la gira.
+##
+## Estaban unidas y por eso salir del surf por un desnivel dejaba al jugador
+## volando en linea recta: 12 m/s2 contra 13.5 m/s de inercia son 1.6 s para
+## girar 90 grados. Medido en el Gym.
+@export_range(1.0, 200.0, 1.0) var giro_aire: float = 38.0
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
 @export_range(0.0, 200.0, 1.0) var frenado_aire: float = 4.0
 ## Frenado cuando vas MÁS RÁPIDO que tu velocidad objetivo y sigues empujando.
@@ -259,7 +275,13 @@ extends Resource
 ## ahi el wall-run es la lectura natural. Antes lo decidia de que lado quedaba la
 ## pared, que es una propiedad del sensor y no de como llegas, y por eso los dos
 ## verbos se pisaban.
+## LA frontera de los verbos de pared, en grados entre tu avance y la normal.
+## Por debajo vas de frente —escalas o resbalas—; por encima vas rozando y corres.
+## Un solo numero, sin hueco ni solape entre las dos mitades.
 @export_range(10.0, 89.0, 1.0) var pared_umbral_frontal: float = 55.0
+## Por debajo de esta velocidad plana, el angulo se mide con el INPUT y no con el
+## movimiento: pegado a un muro y casi parado, la velocidad plana es ruido.
+@export_range(0.1, 8.0, 0.1) var pared_avance_minimo: float = 1.5
 
 ## PERDON: sigues pudiendo saltar de la pared este tiempo despues de perder el
 ## contacto. Es lo que hace que encadenar dos muros no exija precision de frame.
@@ -287,12 +309,16 @@ extends Resource
 ## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
 ## mano dentro del estado (numero magico, regla dura #1).
 @export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
-@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 21.0
+## LIGERO: poco alcance y mucha caida. Es un CLAVADO, no una diagonal larga.
+## Estaba en 21/-7 y con eso salia casi igual que el pesado: los dos eran la misma
+## parabola tendida y el jugador no tenia forma de distinguirlos jugando. Ahora el
+## ligero cae a plomo hacia delante y el pesado es el que viaja.
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
 ## LA COMPONENTE QUE FALTABA. El clavado arrancaba con velocidad vertical 0 y
 ## dejaba que la gravedad hiciera el resto, asi que la trayectoria empezaba plana
 ## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
 ## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
-@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -7.0
+@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -17.0
 ## ESPERA ENTRE CLAVADOS. Sin ella, machacar salto + ataque encadenaba QUINCE
 ## clavados por segundo: saltar, clavarse, aterrizar y volver a saltar cabe en
 ## cuatro frames, y el resultado era un tembleque que ademas viajaba mas rapido de
@@ -308,6 +334,10 @@ extends Resource
 ## hacia arriba, de vuelta al aire y con el clavado disponible otra vez. Es lo que
 ## convierte el ataque en una cadena en vez de en un punto final.
 @export_range(0.0, 30.0, 0.5) var dive_rebote: float = 12.5
+## HANG TIME tras el rebote: gravedad CERO durante este tiempo. Es la ventana en la
+## que se encadena el siguiente clavado sobre otra cabeza. Sin ella el rebote es un
+## empujon hacia arriba y ya; con ella, es una pausa en la que decides.
+@export_range(0.0, 1.5, 0.01) var dive_hangtime: float = 0.30
 ## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
 @export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
 @export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
@@ -490,11 +520,59 @@ extends Resource
 @export_group("Cámara")
 @export_range(1.0, 20.0, 0.1) var camara_distancia: float = 6.5
 @export_range(0.0, 4.0, 0.05) var camara_altura_objetivo: float = 1.35
+## Palmo que la lente guarda por encima del agua nadando en superficie. Ver
+## `CameraRig._sacar_del_agua()`.
+@export_range(0.0, 3.0, 0.05) var camara_margen_agua: float = 0.55
 @export_range(0.01, 1.0, 0.01) var camara_sensibilidad: float = 0.28
 @export_range(-89.0, 0.0, 1.0) var camara_pitch_min: float = -65.0
 @export_range(0.0, 89.0, 1.0) var camara_pitch_max: float = 55.0
 @export_range(0.01, 1.0, 0.01) var camara_suavizado: float = 0.12
 @export_range(20.0, 110.0, 1.0) var camara_fov: float = 62.0
+
+@export_subgroup("FOV dinámico — la sensación de velocidad")
+## Grados de FOV que se abren por cada m/s POR ENCIMA de la velocidad de correr.
+## Es lo que hace que un disparo de resortera a 33 m/s se sienta como un disparo
+## y no como caminar rápido.
+@export_range(0.0, 3.0, 0.01) var camara_fov_por_ms: float = 0.42
+## Tope de esos grados extra. Sin tope, el disparo mete un ojo de pez y se pierde
+## la lectura del espacio justo cuando más falta hace.
+@export_range(0.0, 40.0, 0.5) var camara_fov_extra_max: float = 15.0
+## Lo rápido que ABRE (1/s). Alto: el golpe de velocidad tiene que llegar con el
+## impulso, no medio segundo después.
+@export_range(0.5, 30.0, 0.1) var camara_fov_abre: float = 9.0
+## Lo rápido que CIERRA (1/s). **Más lento que abrir a propósito.** Un FOV que
+## abre y cierra igual de rápido se lee como un parpadeo; abriendo de golpe y
+## cerrando despacio, el disparo deja resaca y se siente potente.
+@export_range(0.5, 30.0, 0.1) var camara_fov_cierra: float = 2.2
+
+@export_subgroup("Look ahead — mirar a donde vas")
+## Metros que la cámara se adelanta en la dirección del movimiento, a tope de
+## velocidad. Moderado a propósito: adelantarse demasiado deja al personaje
+## pegado al borde de la pantalla y se pierde de vista lo que tiene detrás.
+@export_range(0.0, 12.0, 0.1) var camara_adelanto: float = 2.4
+## Velocidad a la que el adelanto llega a su máximo, en m/s.
+@export_range(1.0, 60.0, 0.5) var camara_adelanto_ref: float = 26.0
+## Suavizado del adelanto (1/s). Bajo: el adelanto tiene que ARRASTRARSE detrás
+## del movimiento, no pegarse a él, o gira con cada corrección del stick.
+@export_range(0.2, 20.0, 0.1) var camara_adelanto_respuesta: float = 3.0
+## Cuánto del adelanto es VERTICAL. Separado porque subir y bajar disparado —que
+## es lo que hace la resortera— pide ver arriba, y eso no se consigue con el
+## adelanto horizontal.
+@export_range(0.0, 2.0, 0.05) var camara_adelanto_vertical: float = 0.55
+
+@export_subgroup("Sacudida")
+## Metros de desplazamiento de encuadre por unidad de intensidad.
+##
+## La sacudida va en `h_offset`/`v_offset` de la `Camera3D`, no en la rotación del
+## brazo: rotar el brazo hace ORBITAR la cámara alrededor del jugador, que es
+## mucho más mareante y además la mete en la geometría. Desplazar el encuadre
+## sacude la imagen sin mover la cámara de sitio.
+@export_range(0.0, 1.0, 0.005) var camara_shake_offset: float = 0.11
+## Frecuencia del ruido de la sacudida. Alto = vibración; bajo = bandazo.
+@export_range(0.5, 60.0, 0.5) var camara_shake_frecuencia: float = 22.0
+## Grados de rotación que se mantienen además del desplazamiento. Un poco de giro
+## vende el impacto; mucho marea.
+@export_range(0.0, 3.0, 0.05) var camara_shake_giro: float = 0.35
 
 
 ## Velocidad inicial de salto: siempre la de altura maxima. v = sqrt(2 * g * h)
@@ -554,3 +632,155 @@ func velocidad_salto_corto() -> float:
 ## Velocidad del dash derivada de distancia y duración.
 func velocidad_dash() -> float:
 	return dash_distancia / maxf(dash_duracion, 0.001)
+
+
+# --- Lanza: cambiar de posicion ----------------------------------------------
+@export_group("Lanza")
+## Velocidad de crucero del tiron hacia la lanza.
+##
+## 21 y no mas, a proposito: el clamp global esta en `velocidad_maxima` (22) y se
+## aplica en `_limitar_velocidad()`, un solo sitio, justo antes de mover (regla
+## dura #12). Un zip mas rapido que eso se recortaria EN SILENCIO en horizontal
+## y no en vertical, asi que subir a una lanza clavada arriba se sentiria bien y
+## cruzar en horizontal se sentiria roto, sin que nada avisara.
+@export_range(5.0, 60.0, 0.5) var zip_velocidad: float = 21.0
+## Lo rapido que se alcanza esa velocidad. Alto: el tiron tiene que ser inmediato.
+@export_range(10.0, 400.0, 5.0) var zip_aceleracion: float = 170.0
+## A que distancia de la lanza se considera que has llegado.
+@export_range(0.3, 5.0, 0.1) var zip_radio_llegada: float = 1.5
+## Techo de duracion. Existe por si la lanza queda detras de un muro: sin esto el
+## jugador se quedaria empujando contra la piedra para siempre.
+@export_range(0.2, 6.0, 0.1) var zip_duracion_max: float = 1.6
+## Coste de stamina, de golpe al empezar. Es un recurso de movilidad, no gratis.
+@export_range(0.0, 60.0, 1.0) var zip_stamina: float = 12.0
+## Fraccion de la velocidad que se CONSERVA al llegar.
+##
+## `docs/03 §5` lo pide para el modo Zip y tiene razon: si al llegar te frenas en
+## seco, el zip solo sirve para colocarte y no para encadenar. Conservando
+## momentum, llegar es el principio de otra cosa.
+@export_range(0.0, 1.5, 0.05) var zip_conserva: float = 0.8
+## Largo maximo de cuerda con el que se puede colgar uno. Mas alla, el peso del
+## personaje sobre una lanza clavada deja de ser creible.
+@export_range(2.0, 60.0, 0.5) var swing_largo_max: float = 18.0
+## Aceleracion TANGENCIAL que aporta el stick. Es el bombeo: no te mueve contra
+## la cuerda, te mueve a lo largo del arco, que es como se gana altura en un
+## columpio de verdad.
+@export_range(0.0, 120.0, 1.0) var swing_bombeo: float = 30.0
+## Gravedad mientras cuelgas, en m/s². ABSOLUTA y simetrica, no un multiplicador
+## de la del juego: la del juego es asimetrica (-38 cayendo, -22 subiendo) y eso
+## rompe un pendulo —subirias con menos peso del que caiste y el arco ganaria
+## altura sola—. Un valor entre los dos deja el balanceo con el peso del juego sin
+## regalar energia.
+@export_range(5.0, 90.0, 0.5) var swing_gravedad: float = 30.0
+## Energia que se pierde por segundo en el arco. Cero da un pendulo perpetuo, que
+## se siente a maquina; un poco de perdida hace que bombear signifique algo.
+@export_range(0.0, 1.0, 0.01) var swing_perdida: float = 0.06
+## Empujon vertical al soltarse. Suficiente para que soltar en lo alto del arco
+## se sienta como un salto y no como caerse.
+@export_range(0.0, 12.0, 0.1) var swing_salida: float = 3.2
+## Techo horizontal SOLO mientras cuelgas. El global (22) le quitaba energia al
+## arco justo en su punto mas rapido. Medido: una cuerda de 14 m da 28 m/s totales.
+@export_range(10.0, 60.0, 0.5) var swing_velocidad_max: float = 34.0
+## Cuanto tiene que despejar el suelo el punto BAJO del arco.
+##
+## La cuerda se acorta sola hasta cumplirlo. Sin esto, colgarse de un ancla a 5 m
+## con 7 m de cuerda pone el fondo del arco DOS METROS BAJO TIERRA: te estrellas
+## en el primer cuarto de arco y parece que el balanceo no funciona. Acortar la
+## cuerda es lo que haria cualquiera con una cuerda de verdad.
+@export_range(0.0, 8.0, 0.1) var swing_altura_minima: float = 1.6
+## Cuanto puede corregir la cuerda la POSICION del jugador en un frame, en metros.
+## Escribir la posicion salta por encima de las colisiones; con tope, el grueso
+## del trabajo lo hace la velocidad, que si choca con las cosas.
+@export_range(0.05, 4.0, 0.05) var swing_correccion_max: float = 0.6
+## Aceleracion con la que la cuerda te recoge cuando sobra cuerda, en m/s².
+@export_range(0.0, 200.0, 1.0) var swing_recogida: float = 70.0
+## Tope de velocidad de ACERCAMIENTO al ancla mientras recoge. Sin el te disparas
+## hasta el ancla en vez de asentarte en el arco, y llegar es un frenazo.
+@export_range(1.0, 40.0, 0.5) var swing_recogida_max: float = 13.0
+## PERTIGA. Saltar junto a una lanza clavada te impulsa con ella: es
+## plataformeo disfrazado de arma (`docs/03 §4.1`).
+## Radio dentro del cual la lanza sirve de apoyo.
+@export_range(0.5, 8.0, 0.1) var vault_radio: float = 3.2
+## Impulso vertical del apoyo, SUMADO al salto. Un salto normal sube 2.6 m; esto
+## lo lleva a una altura que no se alcanza de ninguna otra forma sin escalar.
+@export_range(0.0, 25.0, 0.5) var vault_impulso: float = 8.5
+## Empujon horizontal en la direccion que pidas, para cruzar y no solo subir.
+@export_range(0.0, 20.0, 0.5) var vault_avance: float = 5.0
+## CARGA EN VIAJE: golpear mientras la cuerda te lleva.
+## Velocidad de referencia para escalar el empuje del golpe pesado. A esta
+## velocidad el empuje sale tal y como esta en su `.tres`.
+@export_range(1.0, 60.0, 0.5) var carga_inercia_ref: float = 18.0
+## Suelo y techo del escalado. El techo es lo que hace que sea MODERADO: llegar
+## lanzado pega mas, pero no convierte a la lanza en un cañon.
+@export_range(0.0, 1.0, 0.05) var carga_inercia_min: float = 0.45
+@export_range(1.0, 4.0, 0.05) var carga_inercia_max: float = 1.55
+
+
+# --- Resortera: las DOS cuerdas ------------------------------------------------
+@export_group("Resortera")
+## Largo maximo de cada cuerda al colgarse. El radio real es la distancia a la que
+## te enganchaste, acotada por esto: engancharse de cerca da un tiro corto y seco;
+## de lejos, uno largo. Igual que en el balanceo, el jugador elige el radio con la
+## posicion desde la que se cuelga, y eso es control gratis.
+@export_range(3.0, 80.0, 0.5) var resortera_largo_max: float = 20.0
+## Aceleracion que aporta el stick para TIRAR HACIA ATRAS, en m/s². Es el gesto
+## entero: no te desplaza, tensa. Bajo se siente pesado; alto, sin resistencia.
+@export_range(1.0, 200.0, 1.0) var resortera_empuje: float = 46.0
+## RIGIDEZ de cada cuerda, en 1/s². Cuanto tira de vuelta por metro estirado.
+##
+## Es lo que hace que la resortera sea una resortera y no un cable: si la cuerda
+## fuera inextensible no habria nada que tensar. Aqui SI se estira, y la fuerza de
+## vuelta crece con el estiramiento, que es la ley de un elastico.
+@export_range(1.0, 300.0, 1.0) var resortera_rigidez: float = 34.0
+## Cuanto puede estirarse cada cuerda MAS ALLA de su largo, en metros. Es el tope
+## duro: sin el, tirar hacia atras indefinidamente daria un disparo infinito.
+@export_range(0.5, 30.0, 0.5) var resortera_estirado_max: float = 9.0
+## Rozamiento mientras tensas, por segundo. Sin el, el elastico te devuelve toda
+## la energia y te quedas oscilando entre los dos anclajes sin poder apuntar.
+@export_range(0.0, 12.0, 0.05) var resortera_rozamiento: float = 2.4
+## Cuanta VELOCIDAD DE SALIDA da cada metro estirado, en (m/s) por metro. Es el
+## mando de potencia: subirlo hace el disparo mas violento sin tocar nada mas.
+@export_range(0.5, 20.0, 0.1) var resortera_multiplicador: float = 4.6
+## Tope de la velocidad de disparo, en m/s. El "maneuver gear" tiene que sentirse
+## a cañon y aun asi ser pilotable: por encima de 50 el jugador deja de leer a
+## donde va antes de haber llegado.
+@export_range(5.0, 90.0, 0.5) var resortera_fuerza_max: float = 42.0
+## Estiramiento minimo para que el disparo cuente, en metros. Por debajo se suelta
+## sin impulso: soltar sin haber tensado no puede catapultarte.
+@export_range(0.0, 5.0, 0.05) var resortera_estirado_min: float = 0.6
+## Techo de velocidad DURANTE el vuelo del disparo. Ver `momentum_libre` en
+## `PlayerController`: el clamp global (22) se comeria el disparo entero en
+## silencio, que es la misma trampa que obligo a dejar `zip_velocidad` en 21.
+@export_range(10.0, 90.0, 0.5) var resortera_velocidad_max: float = 46.0
+## Segundos que dura ese permiso. Corto: es para no cortar el disparo, no para
+## dejar al jugador volando sin limite.
+@export_range(0.0, 4.0, 0.05) var resortera_libertad: float = 1.1
+## Empujon vertical extra al disparar. Un tirachinas horizontal te estampa contra
+## el suelo; un pelin de subida convierte el disparo en un vuelo.
+@export_range(0.0, 20.0, 0.1) var resortera_subida: float = 2.5
+
+
+# --- Zarandear enemigos --------------------------------------------------------
+@export_group("Zarandeo")
+## Radio mínimo y máximo al que cuelga el cuerpo agarrado. El real es la distancia
+## a la que lo enganchaste, acotada entre estos dos: agarrar de cerca da un giro
+## corto y rápido, de lejos uno amplio y lento.
+@export_range(0.5, 6.0, 0.1) var zarandeo_largo_min: float = 1.6
+@export_range(1.0, 14.0, 0.1) var zarandeo_largo_max: float = 4.5
+## Aceleración TANGENCIAL que el stick imprime al cuerpo, en m/s². Es el bombeo
+## del balanceo aplicado al otro lado de la cuerda: no lo acerca ni lo aleja, lo
+## hace girar.
+@export_range(1.0, 200.0, 1.0) var zarandeo_giro: float = 58.0
+## Energía que pierde el giro por segundo. Cero da un molino perpetuo y quita
+## sentido a bombear.
+@export_range(0.0, 2.0, 0.01) var zarandeo_perdida: float = 0.22
+## Tope de velocidad del cuerpo colgado, en m/s. Es lo que promete el estampido:
+## por encima el cuerpo atraviesa geometría entre frames y se pierde el impacto.
+@export_range(4.0, 60.0, 0.5) var zarandeo_velocidad_max: float = 26.0
+## Velocidad mínima del estampido aunque llegues sin girar. Sin suelo, estampar
+## desde parado no haría nada y se leería como que el botón no funciona.
+@export_range(1.0, 40.0, 0.5) var zarandeo_estampido_min: float = 12.0
+## Stamina por segundo mientras sostienes el cuerpo. **Es el coste que impide que
+## agarrar sea la respuesta a todo**: sin él, cada pelea contra bichos pequeños se
+## reduce a agarrar y zarandear.
+@export_range(0.0, 60.0, 0.5) var zarandeo_stamina: float = 13.0

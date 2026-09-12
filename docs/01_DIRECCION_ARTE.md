@@ -158,6 +158,14 @@ que las ondas de hierba se vean desde lejos.
 Bandadas de pájaros blancos (`#F2F0E6`) con boids simples. Salen al pasar. Sale gratis
 en presupuesto y es el 30% del alma de la referencia.
 
+> **Corregido al implementarlo (3.13):** el blanco no sobrevive a un cielo crema.
+> `blanco_tiza` es `#F2F0E6` y la niebla del juego es `#EFE8D8` — **el mismo
+> color**: la bandada existía, volaba y no se veía. El blanco de la referencia
+> funciona porque allí los pájaros cruzan por delante de los arcos casi negros;
+> contra cielo abierto la silueta tiene que ser **más oscura que el fondo**. Se
+> quedó en `lavanda_profundo`, que sigue siendo la familia del aire —el 30%— y no
+> gasta acento. Y los boids se cambiaron por Kuramoto: ver `07_SHADERS.md §4.1`.
+
 ---
 
 ## 5. Test de aceptación estético

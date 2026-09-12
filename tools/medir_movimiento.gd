@@ -107,6 +107,49 @@ func _construir() -> void:
 				return "salio a %.1f m/s; a 0.55 s lleva %.1f m/s en ese eje (%s)" % [
 					_vel0, proyeccion, estado]),
 
+		# --- 6) SALIR DEL SURF Y GIRAR ---------------------------------------
+		# El reporte era "despues del surf el personaje sigue en linea recta y no
+		# puedo direccionarlo". Lo que se cronometra aqui es exactamente eso: se
+		# suelta Shift, se pide otra direccion, y se mide CUANTO TARDA la
+		# velocidad en obedecer y cuantos metros recorre mientras tanto.
+		_paso_("entrar en surf", 2.5, func() -> void:
+			_soltar_todo()
+			_colocar(Vector3(0.0, 0.05, 40.0))
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward")
+			_pulsar(&"sprint")
+			_pulsar(&"dash")),
+		_medida("girar 90 al salir del surf", 6.0,
+			func() -> void:
+				_soltar(&"dash")
+				_soltar(&"sprint")
+				_soltar(&"move_forward")
+				_pulsar(&"move_right")
+				_arrancar(),
+			func() -> String:
+				return "%.2f s  ·  %.2f m de linea recta  (salio a %.1f m/s)" % [
+					_t - _t0, _dist(), _vel0],
+			func() -> bool: return _giro_hecho(80.0)),
+		_paso_("volver al surf", 2.5, func() -> void:
+			_soltar_todo()
+			_colocar(Vector3(0.0, 0.05, 40.0))
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward")
+			_pulsar(&"sprint")
+			_pulsar(&"dash")),
+		_medida("invertir al salir del surf", 8.0,
+			func() -> void:
+				_soltar(&"dash")
+				_soltar(&"sprint")
+				_soltar(&"move_forward")
+				_pulsar(&"move_back")
+				_arrancar(),
+			func() -> String:
+				return "%.2f s  ·  %.2f m antes de invertir  (salio a %.1f m/s)" % [
+					_t - _t0, _dist(), _vel0],
+			func() -> bool:
+				return _p.superficie.plano(_p.velocity).dot(_dir0) < 0.0),
+
 		# --- 5) Salto desde PARADO: cuanta velocidad se gana en el aire ------
 		_medida("velocidad ganada saltando parado", 0.55,
 			func() -> void:
@@ -190,6 +233,21 @@ func _arrancar() -> void:
 	var d := _p.motor.direccion_plana()
 	_dir0 = d if not d.is_zero_approx() else _p.direccion_frontal()
 	_midiendo = true
+
+
+## ¿La velocidad ya apunta a donde se esta pidiendo, con ese margen en grados?
+##
+## Se mide contra la DIRECCION PEDIDA y no contra la inicial: lo que se reporto no
+## es "tarda en frenar", es "no obedece". Son dos cosas distintas y solo la segunda
+## es un bug de control.
+func _giro_hecho(grados: float) -> bool:
+	var v := _p.superficie.plano(_p.velocity)
+	if v.length() < 0.5:
+		return false
+	var pedida := _p.superficie.direccion_movimiento(_p.buffer.move_vector(), _p.camara())
+	if pedida.is_zero_approx():
+		return false
+	return rad_to_deg(v.normalized().angle_to(pedida)) <= grados
 
 
 func _dist() -> float:

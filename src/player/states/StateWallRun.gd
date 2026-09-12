@@ -50,3 +50,10 @@ func physics_update(delta: float) -> void:
 
 func debug_line() -> String:
 	return "%s  %.0f%%" % ["dcha" if _lado > 0 else "izda", 100.0 * t / tuning.wallrun_duracion]
+
+
+## El wall-run tiene SU salto —mas fuerte (1.12) y con su propia normal— asi que
+## se lo queda: sin esto el grupo lo consumiria antes y el salto de wall-run no
+## llegaria a existir nunca. Es el fallo silencioso de la regla dura #13.
+func maneja_salto() -> bool:
+	return true

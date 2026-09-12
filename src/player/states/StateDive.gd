@@ -14,11 +14,13 @@ extends PlayerState
 ## La hitbox vive TODO el trayecto. No es un golpe con ventana activa: es un
 ## proyectil que eres tu.
 ##
-##   LIGERO -> clavado de movilidad. Al conectar repone el dash y el salto aereo,
-##     que es LA regla del combate del juego (docs/03 §3.3): si aciertas, sigues.
-##   PESADO -> mas lejos y mas plomo, y al conectar REBOTA sobre la cabeza del
-##     enemigo. Vuelves al aire con todo repuesto, asi que se encadena de cabeza
-##     en cabeza. El clavado deja de ser un punto final y pasa a ser una cadena.
+##   LIGERO -> el AGIL. Cae a plomo hacia delante y al pisar una cabeza REBOTA,
+##     devolviendote al aire para encadenar sobre otra. Es el que mantiene el
+##     ritmo, y por eso es el rapido y barato: rebotar tiene que ser el gesto que
+##     mas repites, no el que mas te cuesta.
+##   PESADO -> el CONTUNDENTE. Viaja mas y, al conectar, LEVANTA al enemigo por
+##     los aires unos segundos. No rebota: se planta. Uno abre el juego aereo
+##     —sube al enemigo—, el otro lo sostiene —te mantiene a ti arriba—.
 ##
 ## Si el clavado termina en agua, la entrada gana profundidad de verdad.
 
@@ -68,8 +70,6 @@ func physics_update(delta: float) -> void:
 	var datos := _datos()
 	if datos != null and player.hitbox.golpear(datos, _dir) > 0:
 		_al_conectar(datos)
-		if _pesado:
-			return
 
 	if player.agua.en_agua:
 		fsm.cambiar(&"Underwater", {"clavado": true, "direccion": _dir})
@@ -96,21 +96,40 @@ func _al_conectar(datos: AttackData) -> void:
 		player.color_de(datos.color_vfx), 1.6 if _pesado else 1.3
 	)
 
-	# LA regla del sistema: conectar en el aire devuelve el dash y el salto aereo.
-	# Si aciertas, sigues arriba; si fallas, caes.
-	player.recargar_aire()
-
-	if not _pesado:
+	if _pesado:
+		# PESADO: se planta y LEVANTA. El enemigo sale por los aires y se queda
+		# arriba unos segundos —lo hace el `lanzamiento` de su AttackData—, que es
+		# lo que abre la ventana para seguir pegandole en el aire. Este no rebota:
+		# si rebotara, los dos clavados harian lo mismo otra vez.
+		player.dash_cargas = maxi(player.dash_cargas, tuning.dash_cargas_aire)
+		EventBus.camara_shake.emit(0.6, 0.2)
+		CombatFX.onda(
+			player.get_parent(), player.global_position,
+			player.color_de(&"oro_palido"), 2.2
+		)
 		return
 
-	# REBOTE. Se pisa la cabeza del enemigo y se sale despedido hacia arriba, de
-	# vuelta al aire con el clavado disponible otra vez. Es lo que convierte el
-	# pesado en una cadena: enemigo, rebote, enemigo, rebote.
+	# REBOTE DEL LIGERO. Se pisa la cabeza y se sale despedido, de vuelta al aire y
+	# con el clavado disponible otra vez: enemigo, rebote, enemigo, rebote.
 	motor.set_vertical(tuning.dive_rebote)
+
+	# HANG TIME: gravedad cero un instante. Sin esto el rebote es un empujon y ya;
+	# con esto hay una pausa en la que se elige la siguiente cabeza.
+	player.iniciar_hangtime(tuning.dive_hangtime)
+
+	# Se devuelve el DASH pero NO el salto aereo, a proposito. Reponer el doble
+	# salto convertiria la cadena en vuelo infinito: siempre habria una forma de
+	# corregir el error de calculo. Sin el, cada rebote es un compromiso y quedarse
+	# arriba depende de acertar el siguiente, que es justo lo que hace que la
+	# cadena valga algo.
+	player.dash_cargas = maxi(player.dash_cargas, tuning.dash_cargas_aire)
+	# La espera si se levanta: encadenar es EL punto de esta mecanica.
+	player.cd_dive = 0.0
+
 	EventBus.camara_shake.emit(0.45, 0.14)
 	CombatFX.onda(
 		player.get_parent(), player.global_position,
-		player.color_de(&"oro_palido"), 1.8
+		player.color_de(&"azul_claro"), 1.8
 	)
 	fsm.cambiar(&"Fall")
 

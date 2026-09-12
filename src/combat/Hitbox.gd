@@ -49,6 +49,14 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 	params.collide_with_areas = true
 	params.collide_with_bodies = false
 
+	# GIZMO: la esfera de consulta y el arco, tal y como se preguntan.
+	#
+	# Es el gizmo que más falta hacía. Un golpe que "no conecta" tiene tres causas
+	# posibles —la esfera no llega, el arco lo descarta, o la victima ya estaba en
+	# `_tocados`— y en texto las tres se leen igual: cero impactos. Dibujadas se
+	# distinguen de un vistazo.
+	_dibujar_consulta(datos, dir, centro)
+
 	var golpes := 0
 	for r in espacio.intersect_shape(params, datos.max_objetivos * 2):
 		var hb := r.collider as Hurtbox
@@ -77,3 +85,21 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 	if golpes == 0:
 		fallo.emit()
 	return golpes
+
+
+## Dibuja la consulta de este frame: la esfera que se pregunta y el arco que
+## filtra. Solo cuesta algo con los gizmos encendidos (F7).
+##
+## Los colores dicen de quién es el golpe, no si acertó: el acierto ya se ve
+## porque el enemigo reacciona. Lo que no se ve nunca es DÓNDE se preguntó.
+func _dibujar_consulta(datos: AttackData, dir: Vector3, centro: Vector3) -> void:
+	if not DebugDraw.activo:
+		return
+	var color := (GameState.palette.cobalto if equipo == 0
+		else GameState.palette.carmesi) if GameState.palette != null else Color.WHITE
+	DebugDraw.esfera(centro, datos.radio, color)
+	# El arco se dibuja desde el DUEÑO y no desde el centro de la esfera: el
+	# filtro angular se mide contra el cuerpo, y verlo en el sitio equivocado
+	# haria pensar que descarta lo que no descarta.
+	DebugDraw.cono(dueno.global_position + Vector3.UP * datos.altura, dir,
+		minf(datos.arco_grados, 88.0), datos.alcance, color)

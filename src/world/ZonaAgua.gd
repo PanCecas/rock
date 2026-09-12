@@ -59,13 +59,11 @@ func _reconstruir() -> void:
 	# tapa lo que hay dentro, y bajo el agua hay que poder ver.
 	var plano := PlaneMesh.new()
 	plano.size = Vector2(tamano.x, tamano.z)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(palette.cian_cielo.r, palette.cian_cielo.g, palette.cian_cielo.b, 0.45)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.roughness = 0.15
-	mat.metallic = 0.2
-	plano.material = mat
+	# SUBDIVIDIDO: el shader desplaza el vertice, y sin vertices no hay nada que
+	# desplazar. Nueve por lado es barato y ya deja que el borde ondule.
+	plano.subdivide_width = 9
+	plano.subdivide_depth = 9
+	plano.material = _material_agua()
 
 	_malla = MeshInstance3D.new()
 	_malla.mesh = plano
@@ -82,3 +80,38 @@ func superficie() -> float:
 ## Profundidad a la que está un punto. Negativa = por encima del agua.
 func profundidad(punto: Vector3) -> float:
 	return superficie() - punto.y
+
+
+## El material de la superficie: `agua.gdshader` con los colores de la Palette.
+##
+## Los tres colores entran desde aqui y no estan escritos en el shader, por la
+## regla dura #9. El shader trae valores por defecto solo para que se pueda abrir
+## y ver algo en el editor sin una escena montada.
+func _material_agua() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://src/art/shaders/agua.gdshader")
+	m.set_shader_parameter("color_poco", palette.cian_cielo)
+	m.set_shader_parameter("color_hondo", palette.cobalto)
+	m.set_shader_parameter("color_espuma", palette.blanco_tiza)
+	return m
+
+
+## Congela las olas en una fase fija, o las suelta con un valor negativo.
+##
+## Existe para el screenshot test y vive AQUI y no en el test porque el material
+## es de esta clase: que una herramienta externa vaya rebuscando el `MeshInstance3D`
+## y el `PlaneMesh` para llegar al shader es exactamente como se rompe un test la
+## proxima vez que cambie la estructura interna.
+##
+## Es el mismo gancho que `Cordon.asentar()`, y por la misma razon: una superficie
+## animada nunca puede ser una referencia estable si cada pasada la fotografia en
+## una fase distinta.
+func congelar_olas(t: float) -> void:
+	if _malla == null or not is_instance_valid(_malla):
+		return
+	var m := _malla.mesh as PlaneMesh
+	if m == null:
+		return
+	var mat := m.material as ShaderMaterial
+	if mat != null:
+		mat.set_shader_parameter("tiempo_fijo", t)

@@ -16,14 +16,34 @@ extends Node
 var _entradas: Array[Dictionary] = []
 var _tiempo: float = 0.0
 var _consumidas: Dictionary = {}
+## SILENCIADO: el jugador no recibe input, y el mundo sigue corriendo.
+##
+## Vive AQUI y no en la FSM ni en el controlador porque la regla dura #4 ya
+## garantiza que este es el unico nodo que habla con `Input`: cortarlo aqui apaga
+## el movimiento, los ataques, el salto, la lanza y la cuerda de una vez y para
+## siempre. Cualquier otro sitio seria una lista que hay que acordarse de
+## ampliar cada vez que nazca un verbo.
+var silenciado: bool = false
 
 
 func _ready() -> void:
 	process_priority = -100  # antes que cualquier consumidor
+	EventBus.interfaz_modal.connect(silenciar)
+
+
+## Corta o devuelve el input del jugador. Al cortar se VACIA el buffer: una
+## pulsacion guardada justo antes de abrir la interfaz se ejecutaria al cerrarla,
+## y eso se siente como un fantasma.
+func silenciar(si: bool) -> void:
+	silenciado = si
+	if si:
+		clear()
 
 
 func _physics_process(delta: float) -> void:
 	_tiempo += delta
+	if silenciado:
+		return
 	for accion in InputActions.BUFFERED:
 		if Input.is_action_just_pressed(accion):
 			_registrar(accion)
@@ -75,11 +95,13 @@ func consume(accion: StringName, ventana: float = -1.0) -> bool:
 
 ## Estado mantenido del botón, sin buffer. Para planear, apuntar, agarrarse.
 func is_held(accion: StringName) -> bool:
-	return Input.is_action_pressed(accion)
+	return not silenciado and Input.is_action_pressed(accion)
 
 
 ## Vector de movimiento en espacio de cámara, ya normalizado y con zona muerta.
 func move_vector() -> Vector2:
+	if silenciado:
+		return Vector2.ZERO
 	return Input.get_vector(
 		InputActions.MOVE_LEFT, InputActions.MOVE_RIGHT,
 		InputActions.MOVE_FORWARD, InputActions.MOVE_BACK
@@ -89,7 +111,7 @@ func move_vector() -> Vector2:
 ## Cuánto lleva MANTENIDA la acción. 0 si no está pulsada ahora mismo.
 ## Es lo que distingue un toque de un mantener sin duplicar acciones en el mapa.
 func held_time(accion: StringName) -> float:
-	if not Input.is_action_pressed(accion):
+	if silenciado or not Input.is_action_pressed(accion):
 		return 0.0
 	var ultima := _ultima(accion)
 	return 0.0 if ultima < 0.0 else _tiempo - ultima

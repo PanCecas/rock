@@ -12,15 +12,19 @@ var _dir: Vector3 = Vector3.ZERO
 var _indice: int = 1
 var _overshoot_hecho: bool = false
 var _desde_surf: bool = false
+## Que impacto del gesto esta abierto. -1 = ninguno. Sirve para detectar que ha
+## empezado uno NUEVO y reabrir el swing de la hitbox.
+var _golpe_actual: int = -1
 
 
 func enter(msg: Dictionary = {}) -> void:
-	_datos = msg.get("datos", player.ataque_ligero)
+	_datos = msg.get("datos", player.ataque_ligero_actual())
 	_indice = int(msg.get("indice", 1))
 	_desde_surf = bool(msg.get("desde_surf", false))
 	_frame = 0
 	_conectado = false
 	_overshoot_hecho = false
+	_golpe_actual = -1
 
 	# Una estocada lanzada desde el surf va hacia donde SURFEAS, no hacia el
 	# enemigo mas cercano: la linea que llevas es la decision que ya has tomado.
@@ -49,10 +53,18 @@ func physics_update(delta: float) -> void:
 	_avanzar(delta)
 	motor.set_vertical(-2.0)
 
-	if _datos.activo_en(_frame):
+	# IMPACTOS. Un ataque puede hacer varios con un solo gesto (`AttackData.golpes`):
+	# el pesado 1 es un giro que pega dos veces. Cada impacto nuevo REABRE el
+	# swing, y eso es lo que hace que el mismo enemigo se lleve los dos: la lista
+	# de `_tocados` de la hitbox se lo comeria el segundo si no.
+	var golpe_ahora := _datos.indice_golpe(_frame)
+	if golpe_ahora >= 0:
+		if golpe_ahora != _golpe_actual:
+			_golpe_actual = golpe_ahora
+			player.hitbox.nuevo_swing()
 		if player.hitbox.golpear(_datos, _dir) > 0:
 			_al_conectar()
-	elif not _overshoot_hecho and _datos.overshoot > 0.0 and _frame > _datos.frames_windup:
+	elif not _overshoot_hecho and _datos.overshoot > 0.0 and _frame > _fin_activo():
 		# OVERSHOOT: al cerrarse la ventana activa, un empujon extra que te lleva
 		# AL OTRO LADO del objetivo. Es lo que convierte la estocada en un corte:
 		# atraviesas en vez de quedarte clavado delante.
@@ -64,9 +76,13 @@ func physics_update(delta: float) -> void:
 	if _cancelaciones():
 		return
 
-	# Encadenar al siguiente golpe de la cadena ligera.
+	# Encadenar al siguiente golpe. CON EL BOTON QUE DIGA EL ATAQUE: el ligero se
+	# continua con ligero y el pesado con pesado, para que los dos botones sigan
+	# significando lo mismo dentro de una cadena que fuera de ella.
 	if _datos.siguiente != null and _frame >= _datos.frame_cadena:
-		if buffer.consume(InputActions.ATTACK_LIGHT):
+		var boton: StringName = (InputActions.ATTACK_HEAVY if _datos.boton_cadena == 1
+			else InputActions.ATTACK_LIGHT)
+		if buffer.consume(boton):
 			# reentrar=true: encadenar es volver a entrar en Attack con otro golpe.
 			fsm.cambiar(&"Attack", {"datos": _datos.siguiente, "indice": _indice + 1}, true)
 			return
@@ -86,6 +102,13 @@ func physics_update(delta: float) -> void:
 			fsm.cambiar(&"Move")
 		else:
 			fsm.cambiar(&"Idle")
+
+
+## Frame en el que se cierra la ULTIMA ventana activa. El overshoot va detras de
+## esa, no de la primera: con un ataque de dos golpes, empujar en el hueco de en
+## medio te sacaria del alcance justo antes del segundo impacto.
+func _fin_activo() -> int:
+	return _datos.frames_windup + _datos.frames_activos_totales()
 
 
 ## El ataque encara al objetivo del soft-lock si lo hay; si no, a donde apuntes.
@@ -118,7 +141,7 @@ func _avanzar(delta: float) -> void:
 
 	if _datos.estocada:
 		# Velocidad sostenida hasta cerrar la ventana activa; después se suelta.
-		var fin_activo := _datos.frames_windup + _datos.frames_activo
+		var fin_activo := _fin_activo()
 		if _frame <= fin_activo:
 			objetivo = _dir * _datos.estocada_velocidad
 			tasa = tuning.aceleracion_suelo * 2.5
@@ -183,7 +206,7 @@ func debug_line() -> String:
 	var fase := "windup"
 	if _datos.activo_en(_frame):
 		fase = "ACTIVO"
-	elif _frame >= _datos.frames_windup + _datos.frames_activo:
+	elif _frame >= _fin_activo():
 		fase = "recup"
 	return "L%d f%d/%d %s%s" % [
 		_indice, _frame, _datos.total_frames(), fase, "  hit" if _conectado else ""

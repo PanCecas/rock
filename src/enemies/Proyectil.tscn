@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/enemies/Proyectil.gd" id="p"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
+
+[sub_resource type="SphereMesh" id="esfera"]
+radius = 0.18
+height = 0.36
+radial_segments = 10
+rings = 6
+
+[node name="Proyectil" type="Node3D"]
+script = ExtResource("p")
+
+[node name="Malla" type="MeshInstance3D" parent="."]
+mesh = SubResource("esfera")
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("hb")
+equipo = 1
+dueno_path = NodePath("..")

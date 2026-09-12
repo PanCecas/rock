@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+etiquetas = Array[StringName]([&"perforante"])
+nombre = "Estocada aerea"
+frames_windup = 2
+frames_activo = 3
+frames_recuperacion = 10
+dano = 10.0
+dano_poise = 11.0
+empuje = Vector3(0, 1, 5)
+stagger = 0.25
+fuerza_muerte = 8.0
+alcance = 2.9
+radio = 0.34
+altura = 0.9
+arco_grados = 45.0
+max_objetivos = 1
+avance = 3.0
+estocada = true
+estocada_velocidad = 13.0
+movilidad = 1.0
+hitstop = 0.04
+shake = 0.26
+color_vfx = &"caliza_sol"
+frame_cadena = 999
