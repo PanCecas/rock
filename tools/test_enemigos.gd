@@ -34,7 +34,6 @@ var _remate: bool = false
 var _apartar: bool = false
 ## Pulsaciones simuladas. La regla dura #4 dice que el input va por el buffer, y
 ## esta es la forma de simular una pulsacion desde un test.
-var _cuerda: int = 0
 var _atk_pes: int = 0
 
 
@@ -216,10 +215,15 @@ func _construir() -> void:
 				return absf(l.global_position.distance_to(_e.global_position) - _aux) < 0.5,
 			"una lanza clavada en algo que anda tiene que andar con ello, no quedarse flotando"),
 
-		# --- AGARRAR Y ZARANDEAR (3.11) ---------------------------------------
+		# --- QUIEN SE DEJA AGARRAR ---------------------------------------------
 		# El defecto NO cambia: un enemigo que no declara `agarrable` no se
 		# engancha. Igual que `WeakPoint.llave`, quien se deja agarrar lo dice el
 		# enemigo, y el coloso dice que no.
+		#
+		# El VERBO que tiraba de ahi —el zarandeo— se retiro con la segunda cuerda
+		# en el rediseño del moveset, pero la marca se queda: es la que separa a un
+		# bicho pequeño de un coloso, y la lanza la sigue leyendo para decidir si
+		# atraviesa o se clava.
 		_chequeo_("el coloso NO es agarrable", 0.3,
 			func() -> void: _crear(COLOSO, Vector3(0, 3.6, 0), ""),
 			func() -> bool: return not _e.agarrable,
@@ -230,84 +234,6 @@ func _construir() -> void:
 				_crear(EMBESTIDOR, Vector3(0, 0.2, 0), "res://content/data/attacks/embestida.tres"),
 			func() -> bool: return _e.agarrable,
 			"los bichos pequenos son la presa: es lo que hace del zarandeo una respuesta"),
-
-		# EL CAMINO COMPLETO, SIN FORZAR NADA (3.10). La version anterior de este
-		# chequeo colocaba la daga a mano —`estado = CLAVADO`, `cuerpo_clavado =
-		# _e`— y por eso daba verde mientras el usuario reportaba que **la mecanica
-		# no funcionaba ni siquiera**. Es exactamente la leccion que `CLAUDE.md` ya
-		# tenia escrita del balanceo: un test que fuerza el estado no prueba que se
-		# pueda LLEGAR a el.
-		#
-		# Ahora se TIRA la daga de verdad y se comprueba que se clava sola.
-		_chequeo_("la daga se clava en el enemigo, tirandola", 1.2,
-			func() -> void:
-				_p.global_position = _e.global_position + Vector3(0, 0.05, 6.0)
-				_p.velocity = Vector3.ZERO
-				_p.call("orientar_a", Vector3(0, 0, -1))
-				var d: Anclaje = _p.dagas[0]
-				d.lanzar(d.punto_de_mano(), Vector3(0, 0, -1)),
-			func() -> bool:
-				var d: Anclaje = _p.dagas[0]
-				# En carne SI, y por tanto NO cuenta como punto de resortera: un
-				# ancla que anda rompe la conservacion de energia del elastico.
-				return d.en_carne() and _p.daga_en_mundo() == null and _p.arma_en_carne() == d,
-			"la lanza es del MUNDO y la daga de la CARNE: ese es el reparto"),
-
-		# EL BUG QUE EL USUARIO REPORTO: "la mecanica de por si no funciona ni
-		# siquiera". `intentar_cuerda()` abortaba entero si la LANZA no estaba
-		# fuera —el guardia que arreglo el bug de la Z—, asi que para zarandear con
-		# la daga habia que haber tirado antes la lanza a cualquier parte.
-		#
-		# Este chequeo lo fija: con la lanza GUARDADA y la daga en carne, la Z
-		# tiene que zarandear igual.
-		_chequeo_("y zarandea aunque la lanza siga GUARDADA", 1.0,
-			func() -> void:
-				_p.lanza.fsm.cambiar(&"Holstered")
-				_p.stamina.llenar()
-				_p.fsm.cambiar(&"Idle")
-				_visto.clear()
-				_cuerda = 3,
-			func() -> bool: return _visto.has(&"Whirl"),
-			"el guardia de la lanza es de los verbos de la lanza: el zarandeo no depende de ella"),
-
-		# EL CAMINO DE ENTRADA REAL: pulsando la tecla, no con `fsm.cambiar()`.
-		# Leccion ya escrita en CLAUDE.md — un test que fuerza el estado no prueba
-		# que se pueda LLEGAR a el, y por eso el balanceo estuvo verde sin
-		# funcionar.
-		_chequeo_("con la daga en carne, la Z zarandea", 1.0,
-			func() -> void:
-				_p.global_position = _e.global_position + Vector3(0, 0.05, 3.0)
-				_p.velocity = Vector3.ZERO
-				_p.stamina.llenar()
-				_p.fsm.cambiar(&"Idle")
-				_visto.clear()
-				_cuerda = 3,
-			func() -> bool:
-				return (_visto.has(&"Whirl")
-					and _e.fsm.nombre_actual() == &"Agarrado"),
-			"una daga clavada en un bicho agarrable no admite otra lectura"),
-
-		# EL CUERPO MANTIENE LA DISTANCIA. Es la restriccion analitica, la misma
-		# del balanceo con los papeles invertidos.
-		_chequeo_("y el cuerpo se queda a su radio", 0.9,
-			func() -> void: _aux = 0.0,
-			func() -> bool:
-				var dist := _p.global_position.distance_to(_e.global_position)
-				# El radio se acota entre `zarandeo_largo_min` y `_max`; basta con
-				# que no se escape ni se meta dentro del jugador.
-				return dist > 0.5 and dist < _p.tuning.zarandeo_largo_max + 1.5,
-			"si el cuerpo se aleja sin limite no cuelga de nada: es la restriccion"),
-
-		# ESTAMPAR. El pesado lo manda contra el suelo, y al llegar hace dano en
-		# area escalado por la velocidad que traia.
-		_chequeo_("el pesado lo estampa", 1.6,
-			func() -> void:
-				_visto.clear()
-				_atk_pes = 3,
-			func() -> bool:
-				return (_visto.has(&"Estampado")
-					and _p.fsm.nombre_actual() != &"Whirl"),
-			"girar antes de estampar tiene que servir de algo, y ese algo es el impacto"),
 
 		# --- VOLADOR ----------------------------------------------------------
 		_chequeo_("el volador no cae", 0.6,
@@ -505,11 +431,6 @@ func _physics_process(delta: float) -> void:
 		return
 	_t += delta
 
-	if _cuerda > 0:
-		Input.action_press(&"rope")
-		_cuerda -= 1
-		if _cuerda == 0:
-			Input.action_release(&"rope")
 	if _atk_pes > 0:
 		Input.action_press(&"attack_heavy")
 		_atk_pes -= 1

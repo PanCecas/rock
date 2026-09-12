@@ -28,7 +28,7 @@ func shared_update(_delta: float) -> void:
 	#
 	# Medido en el diagnostico de la 3.12: adherido a la pared escalable, con la
 	# lanza clavada, seis frames de Z no producian ni una transicion; el mismo
-	# gesto desde el suelo daba `Idle>SpearSwing`.
+	# gesto desde el suelo si producia transicion.
 	#
 	# Va DETRAS de las preguntas de terreno —agotamiento y soltarse— y DELANTE
 	# del dash, igual que en los otros dos grupos: el corolario de la regla #13

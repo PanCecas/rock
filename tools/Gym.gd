@@ -77,7 +77,6 @@ const VOLADOR := preload("res://src/enemies/Volador.tscn")
 const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
 const LANZA := preload("res://src/weapons/Spear.tscn")
-const ANCLAJE := preload("res://src/weapons/Anclaje.tscn")
 const PASTO := preload("res://src/world/Pasto.gd")
 const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
 const BANDADA := preload("res://src/world/Bandada.gd")
@@ -236,14 +235,31 @@ func _torre() -> void:
 
 
 func _pilares_gancho() -> void:
-	# Pilares altos y separados: anclajes del lazo y objetivos de la lanza.
+	# Pilares altos y separados: objetivos de la lanza y, desde el 4.00, el sitio
+	# donde cuelgan las ANCLAS de la cuerda.
+	#
+	# Las anclas van SOBRE la cima y no dentro del pilar, y por dos razones: se
+	# ven de lejos contra el cielo —que es como el jugador aprende donde puede
+	# engancharse— y dejan caida por debajo, que es lo que convierte el enganche
+	# en un arco en vez de en un radio fijo. Separadas menos de `cuerda_rango`
+	# (12 m) entre vecinas, para que se puedan encadenar sin tocar el suelo.
 	for i in 5:
 		var a := float(i) / 5.0 * TAU
 		var pos := Vector3(cos(a) * 16.0, 0.0, 34.0 + sin(a) * 8.0)
 		var alto := 9.0 + float(i) * 2.5
 		_bloque("Pilar_%d" % i, Vector3(1.6, alto, 1.6), pos + Vector3(0, alto * 0.5, 0), _mat_piedra)
 		_bloque("PilarCima_%d" % i, Vector3(2.4, 0.4, 2.4), pos + Vector3(0, alto + 0.2, 0), _mat_marca)
-	_etiqueta("GANCHO", Vector3(0, 0.05, 30.0))
+		_ancla("Ancla_%d" % i, pos + Vector3(0, alto + 2.2, 0))
+	_etiqueta("GANCHO — Z engancha al ancla que MIRAS", Vector3(0, 0.05, 30.0))
+
+
+## Un punto del que colgarse. Sin colision, igual que la estacion de jam: un
+## obstaculo en medio del Gym rompe las medidas de movimiento sin avisar.
+func _ancla(nombre: String, pos: Vector3) -> void:
+	var a := Ancla.new()
+	a.name = nombre
+	_raiz.add_child(a)
+	a.global_position = pos
 
 
 func _pared_escalable() -> void:
@@ -410,19 +426,6 @@ func _dar_lanza(jugador: Node3D) -> void:
 	l.global_position = jugador.global_position + Vector3.UP
 	jugador.set("lanza", l)
 
-	# Y LA DAGA. Una sola: la lanza tambien se clava en lo agarrable, asi que con
-	# un arma de cada tipo se llega a todo —resortera con las dos en mundo,
-	# zarandeo con cualquiera en carne— sin llevar la cuenta de dos objetos iguales.
-	var dagas: Array[Anclaje] = []
-	for i in 1:
-		var a := ANCLAJE.instantiate() as Anclaje
-		a.name = "Daga%d" % i
-		a.palette = palette
-		a.dueno = jugador
-		_raiz.add_child(a)
-		a.global_position = jugador.global_position + Vector3.UP
-		dagas.append(a)
-	jugador.set("dagas", dagas)
 
 
 func _corral() -> void:

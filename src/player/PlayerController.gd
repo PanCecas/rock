@@ -40,8 +40,6 @@ extends CharacterBody3D
 @export var ataque_lanza_pesado: AttackData
 @export var ataque_lanza_aereo_ligero: AttackData
 @export var ataque_lanza_aereo_pesado: AttackData
-@export var ataque_carga_ligera: AttackData
-@export var ataque_carga_pesada: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -56,33 +54,40 @@ extends CharacterBody3D
 @onready var salud: HealthComponent = $Salud
 @onready var poise: PoiseComponent = $Poise
 @onready var targeting: TargetingSystem = $Targeting
+## EL CORDON de la cuerda. Puramente visual, igual que el de la lanza y con el
+## mismo script: lo que ata al jugador al ancla es una restriccion analitica —un
+## numero— y esto es lo que hace que ese numero se vea.
+@export var cordon_path: NodePath = ^"Cordon"
+@onready var cordon: Cordon = get_node_or_null(cordon_path)
 
 ## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
 ## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
 var lanza: Spear = null
-## LA DAGA. **Una**, igual que la lanza.
+## ¿QUEDA CUERDA? Una por tiempo de vuelo, y se recarga al tocar suelo o pared.
 ##
-## Fueron dos durante un parche, para poder agarrar dos enemigos. El usuario lo
-## probo y lo corto: *"las dos dagas complica las cosas, que sea daga y lanza y
-## ya"*. Tenia razon — dos armas identicas con el mismo boton obligan a llevar la
-## cuenta de cual esta donde, y eso no es una decision, es contabilidad.
+## Es la moneda del moveset entero. Sin ella la cuerda vuelve a ser lo que era —
+## algo siempre disponible, o sea un medio de transporte— y con ella cada arco es
+## una decision que se paga: engancharse mal cuesta el aterrizaje.
 ##
-## El papel que iba a tener la segunda —agarrar un segundo enemigo— lo hace ahora
-## LA LANZA, que tambien se clava en lo agarrable. Dos presas sin duplicar un arma.
-##
-## Sigue siendo una LISTA y no un campo suelto: cuesta lo mismo, y el dia que haya
-## un arma de cuerda mas no hay que reescribir los seis guardias que la recorren.
-var dagas: Array[Anclaje] = []
+## La gasta `Grapple` al entrar y la devuelve `recargar_moveset()`, en un solo
+## sitio. Ver ahi por que no va dentro de `recargar_aire()`.
+var cuerda_disponible: bool = true
 
-## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`.
+## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`, y hasta
+## cuanto. Lo escribe el estado que regala la velocidad, justo al salir.
 ##
-## Lo escribe la resortera al disparar. Existe porque el clamp global se aplica en
-## un solo sitio (regla dura #12) y solo al plano: un disparo de 42 m/s se
-## recortaria a 22 en el mismo frame, EN SILENCIO, y ademas solo en horizontal, o
-## sea que disparar hacia arriba se sentiria bien y disparar de lado se sentiria
-## roto sin que nada avisara. Es la misma trampa que obligo a dejar
-## `zip_velocidad` en 21, resuelta esta vez en vez de esquivada.
+## Existe porque el clamp global se aplica en un solo sitio (regla dura #12) y
+## solo al plano: una salida de cuerda de 34 m/s se recortaria a 22 en el mismo
+## frame, EN SILENCIO, y ademas solo en horizontal — o sea que salir hacia arriba
+## se sentiria bien y salir de lado se sentiria roto sin que nada avisara. Es la
+## misma trampa que obligo a dejar el viejo `zip_velocidad` en 21, resuelta en vez
+## de esquivada.
+##
+## El techo viaja CON el permiso y no sale de una constante, porque el permiso
+## sobrevive al cambio de estado: el multiplicador se paga en `Grapple` y se vuela
+## en `Fall`, y un techo que muriera con el estado no dejaria salida que valiera.
 var momentum_libre: float = 0.0
+var momentum_techo: float = 0.0
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -170,6 +175,28 @@ func _ready() -> void:
 	EventBus.player_spawned.emit(self)
 
 
+## EL CORDON VA EN `_process`, no en la fisica.
+##
+## Es imagen, asi que va al ritmo del render: a 60 Hz de fisica y 144 de pantalla,
+## tenderlo con la fisica lo haria dar tirones que nada mas da. Es la misma
+## decision que ya documenta `Cordon` y que toma la lanza.
+##
+## Y el extremo del jugador se lee con `get_global_transform_interpolated()` y no
+## con `global_position`: la segunda sigue siendo la del ultimo tick de fisica
+## —escalonada— y con la interpolacion encendida (regla dura #21bis) la cuerda
+## saldria de un sitio distinto de donde se dibuja el personaje.
+func _process(_delta: float) -> void:
+	if cordon == null:
+		return
+	var colgado: bool = (fsm != null and fsm.actual != null
+		and fsm.actual.has_method("punto_cuerda"))
+	if not colgado:
+		cordon.tender(Vector3.ZERO, Vector3.ZERO, false)
+		return
+	var mano := get_global_transform_interpolated().origin + superficie.up * tuning.cordon_altura_mano
+	cordon.tender(mano, fsm.actual.call("punto_cuerda"), true)
+
+
 func _physics_process(delta: float) -> void:
 	if HitstopManager.global_activo():
 		return
@@ -186,7 +213,6 @@ func _physics_process(delta: float) -> void:
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	_input_lanza()
-	_input_anclaje()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -207,6 +233,22 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	if not en_suelo_antes and is_on_floor():
 		EventBus.player_landed.emit(impacto_ultimo, impacto_ultimo > tuning.aterrizaje_duro)
+
+	# 5) DESPUES DE MOVER. Dos cosas, y las dos necesitan la posicion DEFINITIVA.
+	#
+	#    La restriccion de la cuerda corrige una POSICION, asi que la que tiene que
+	#    corregir es la que ya paso por las colisiones; reproyectar antes de mover
+	#    deja al jugador fuera de la esfera al cerrar el frame y el error se hereda.
+	#    Y la recarga del moveset pregunta por CONTACTOS, que es exactamente lo que
+	#    `move_and_slide` acaba de resolver: preguntarlo antes es leer los del frame
+	#    anterior.
+	#
+	#    Aqui no se mueve a nadie: se corrige lo ya movido. Sigue habiendo un solo
+	#    `move_and_slide` por frame.
+	if fsm != null and fsm.actual != null:
+		fsm.actual.post_move(delta)
+	if is_on_floor() or is_on_wall():
+		recargar_moveset()
 
 	_antiatasco(delta)
 	_resolver_postura()
@@ -369,33 +411,6 @@ func ataque_aereo_pesado_actual() -> AttackData:
 	return ataque_lanza_aereo_pesado if lanza_empunada() else null
 
 
-## CARGA EN VIAJE: golpear mientras la cuerda te lleva hacia la lanza.
-##
-## Convierte la velocidad del viaje en dos cosas distintas, el mismo eje de
-## siempre:
-##
-##   LIGERO -> ATRAVIESAS. Hieres a todo lo que cruzas y NO te paras. El jugador
-##     ya atraviesa a los enemigos fisicamente —su mascara no incluye la capa
-##     ENEMY— asi que atravesar no hay que construirlo: hay que no estropearlo.
-##   PESADO -> LOS MANDAS A VOLAR, con la inercia que lleves.
-##
-## `nuevo_swing()` lo abre quien empieza la carga: eso hace que cada cuerpo se
-## lleve UN golpe por viaje, no uno por frame.
-##
-## Devuelve cuantos ha tocado este frame.
-func golpear_en_carga(pesado: bool, direccion: Vector3) -> int:
-	var datos := ataque_carga_pesada if pesado else ataque_carga_ligera
-	if datos == null or hitbox == null:
-		return 0
-	if pesado:
-		datos = escalar_por_inercia(datos, velocity.length())
-	var n := hitbox.golpear(datos, direccion)
-	if n > 0:
-		CombatFX.impacto(get_parent(), global_position + Vector3.UP * 0.9,
-			color_de(datos.color_vfx), 1.4 if pesado else 0.9)
-	return n
-
-
 ## Copia de un `AttackData` con el empuje escalado por la INERCIA que llevas.
 ##
 ## El pesado del viaje manda a volar "con la inercia que lleves", asi que su
@@ -465,29 +480,6 @@ func _input_lanza() -> void:
 		lanza.alternar_empunada()
 
 
-## EL ANCLAJE, la segunda cuerda. Un solo boton, igual que la lanza y por lo
-## mismo: o esta puesto o no lo esta, y eso se ve desde el primer segundo.
-##
-## Vive aqui al lado de `_input_lanza()` y fuera de la FSM por la misma razon que
-## aquel: tirar el anclaje NO cambia el estado del jugador. Sigues corriendo,
-## cayendo o escalando mientras sale volando.
-func _input_anclaje() -> void:
-	if dagas.is_empty() or not buffer.consume(InputActions.THROW_ANCHOR):
-		return
-	# UNA POR PULSACIÓN. Se tira la primera guardada que haya; si no queda
-	# ninguna, la pulsación RECOGE la primera que esté puesta. Así el mismo botón
-	# reparte las dos sin necesitar una tecla por daga, y el orden se ve: sale la
-	# que tienes, vuelve la que tiraste.
-	for d in dagas:
-		if is_instance_valid(d) and d.guardado():
-			d.lanzar(d.punto_de_mano(), _direccion_de_tiro())
-			return
-	for d in dagas:
-		if is_instance_valid(d) and not d.guardado():
-			d.recuperar()
-			return
-
-
 ## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
 ##
 ## Es lo que espera cualquiera que haya tirado algo en un juego en tercera
@@ -516,12 +508,12 @@ func _limitar_velocidad() -> void:
 		var propio := fsm.actual.techo_velocidad()
 		if propio > 0.0:
 			techo = propio
-	# Y el permiso temporal de la resortera, que sobrevive al cambio de estado: el
-	# disparo se paga en `Slingshot` pero se VUELA en `Fall`, y si el techo muriera
-	# con el estado no habria disparo que valiera. Sigue habiendo un solo sitio
+	# Y el permiso temporal que sobrevive al cambio de estado: la salida de la
+	# cuerda se paga en `Grapple` pero se VUELA en `Fall`, y si el techo muriera
+	# con el estado no habria salida que valiera. Sigue habiendo un solo sitio
 	# donde se recorta —este—, que es lo que pide la regla dura #12.
 	if momentum_libre > 0.0:
-		techo = maxf(techo, tuning.resortera_velocidad_max)
+		techo = maxf(techo, momentum_techo)
 	if rapidez > techo:
 		velocity = plano * (techo / rapidez) + superficie.up * superficie.vertical(velocity)
 
@@ -546,6 +538,39 @@ func consumir_salto() -> bool:
 ## Suspende la gravedad unos instantes. La usa el rebote del clavado pesado.
 func iniciar_hangtime(segundos: float) -> void:
 	hangtime = maxf(hangtime, segundos)
+
+
+## LA RECARGA DEL MOVESET NUEVO: una cuerda por tiempo de vuelo.
+##
+## **Y no va dentro de `recargar_aire()`, a proposito.** Esa la llaman nueve
+## sitios distintos —los estados de suelo, el agua, los cantos, el parry, el
+## wall-jump— y ademas devuelve el dash y el doble salto. Colgarle esto la
+## convertiria en dos reglas con un solo nombre, y cambiar una de las dos tocaria
+## la otra sin querer.
+##
+## Esta tiene UN solo sitio que la llama: `_physics_process`, justo despues de
+## `move_and_slide()`, cuando hay suelo o pared. Un solo sitio es lo que hace
+## imposible olvidarse de recargar al añadir el verbo siguiente — y la condicion
+## se lee igual que la regla: tocar algo te devuelve la cuerda.
+func recargar_moveset() -> void:
+	cuerda_disponible = true
+
+
+## EL ANCLA A LA QUE ENGANCHARIA AHORA MISMO, o null.
+##
+## Se pregunta desde el frente de la CAMARA y no del cuerpo, igual que el tiro de
+## la lanza y por lo mismo: en tercera persona uno apunta mirando, y el cuerpo va
+## por detras girando. Usar su frente engancharia a lo que mirabas hace medio
+## segundo.
+## El ALCANCE se mide desde el jugador y el CONO desde la camara: la cuerda sale
+## de uno y la pantalla es del otro. Ver `Ancla.mejor()`.
+func buscar_ancla() -> Ancla:
+	var cam := camara()
+	var ojo: Vector3 = cam.global_position if cam != null else global_position
+	var direccion: Vector3 = -cam.global_basis.z if cam != null else direccion_frontal()
+	var fuera: Array[RID] = [get_rid()]
+	return Ancla.mejor(get_tree(), global_position, ojo, direccion, tuning.cuerda_rango,
+		cos(deg_to_rad(tuning.cuerda_cono_grados)), fuera)
 
 
 func recargar_aire() -> void:
@@ -1104,9 +1129,7 @@ func _debug() -> void:
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	if lanza != null and is_instance_valid(lanza):
 		DebugOverlay.set_line("lanza", lanza.debug_line())
-	for i in dagas.size():
-		if is_instance_valid(dagas[i]):
-			DebugOverlay.set_line("daga%d" % i, dagas[i].debug_line())
+	DebugOverlay.set_line("moveset", "CUERDA %s" % ("lista" if cuerda_disponible else "gastada"))
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
 
@@ -1147,52 +1170,23 @@ func _dibujar_gizmos() -> void:
 	if motor.rapidez_plana() > 0.4:
 		DebugDraw.rayo(centro, superficie.plano(velocity), motor.rapidez_plana() * 0.25, p.pasto_sol)
 
-	# LAS CUERDAS. El balanceo y la resortera son restricciones INVISIBLES: se
-	# siente que tiran pero no se ve de donde ni hasta donde. Dibujar el ancla y
-	# el radio de reposo convierte "esto va raro" en una lectura.
+	# LA CUERDA es una restriccion INVISIBLE: se siente que tira pero no se ve de
+	# donde ni hasta donde. Dibujar el ancla y el radio convierte "esto va raro" en
+	# una lectura.
+	#
+	# Y ademas se dibuja el ANCLA CANDIDATA aunque no estes colgado, que es la
+	# mitad util del gizmo: el cono de camara es el filtro que mas desconcierta
+	# —"¿por que no engancha si la tengo ahi?"— y verlo contestado es la diferencia
+	# entre afinar `cuerda_cono_grados` a ojo y afinarlo mirando.
 	if lanza != null and is_instance_valid(lanza) and lanza.clavada_en_algo():
-		DebugDraw.linea(centro, lanza.global_position, p.oro_palido)
-		DebugDraw.punto(lanza.global_position, 0.5, p.oro_palido)
-	for d in dagas:
-		if not is_instance_valid(d) or not d.clavado():
-			continue
-		# Azul = clavada en mundo (punto de resortera). Carmesi = clavada en carne
-		# (de eso se tira para zarandear). El color dice QUE se puede hacer con ella.
-		var cd: Color = p.carmesi if d.en_carne() else p.azul_claro
-		DebugDraw.linea(centro, d.global_position, cd)
-		DebugDraw.punto(d.global_position, 0.5, cd)
-
-	# El radio de reposo del estado colgado, si lo declara. Un solo numero, pero
-	# es el que explica por que el arco pasa por donde pasa.
-	if fsm != null and fsm.actual != null:
+		DebugDraw.punto(lanza.global_position, 0.5, p.crema_medio)
+	var candidata := buscar_ancla()
+	if candidata != null:
+		DebugDraw.linea(centro, candidata.global_position, p.azul_claro)
+		DebugDraw.punto(candidata.global_position, 0.6, p.azul_claro)
+	if fsm != null and fsm.actual != null and fsm.actual.has_method("punto_cuerda"):
+		var ancla: Vector3 = fsm.actual.call("punto_cuerda")
+		DebugDraw.linea(centro, ancla, p.oro_palido)
 		var largo: Variant = fsm.actual.get("_largo")
-		if largo is float and float(largo) > 0.0 and lanza != null and is_instance_valid(lanza):
-			DebugDraw.esfera(lanza.global_position, float(largo), p.crema_medio)
-
-
-## LA PRIMERA DAGA CLAVADA EN **MUNDO**, o null. Es el segundo punto fijo de la
-## resortera: una daga clavada en carne NO vale, porque un ancla que anda rompe la
-## conservación de energía del elástico.
-func daga_en_mundo() -> Anclaje:
-	for d in dagas:
-		if is_instance_valid(d) and d.clavado() and not d.en_carne():
-			return d
-	return null
-
-
-## EL ARMA CLAVADA EN CARNE AGARRABLE, o null. De ella se tira para zarandear.
-##
-## Mira la daga Y la lanza, en ese orden. Las dos pueden quedarse en un bicho
-## pequeño desde la 3.10: el usuario quito la segunda daga —"que sea daga y lanza
-## y ya"— y el papel que iba a tener, agarrar un segundo enemigo, lo hace la
-## lanza. Asi se llega a dos presas sin duplicar un arma.
-##
-## La daga primero porque es la barata: si tienes las dos clavadas en carne, la
-## que quieres soltar antes es la que vuelve sola.
-func arma_en_carne() -> Node3D:
-	for d in dagas:
-		if is_instance_valid(d) and d.en_carne():
-			return d
-	if lanza != null and is_instance_valid(lanza) and lanza.en_carne():
-		return lanza
-	return null
+		if largo is float and float(largo) > 0.0:
+			DebugDraw.esfera(ancla, float(largo), p.oro_palido)

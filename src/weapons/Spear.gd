@@ -277,7 +277,7 @@ func debug_line() -> String:
 	return "%s%s" % [fsm.nombre_actual(), "  [clavada]" if clavada_en_algo() else ""]
 
 
-## ¿Está clavada en CARNE agarrable? Espejo de `Anclaje.en_carne()`.
+## ¿Está clavada en CARNE agarrable?
 ##
 ## La lanza atraviesa a casi todo, pero se queda en los bichos pequeños: son los
 ## que se pueden zarandear, y ese es el papel que iba a tener la segunda daga.

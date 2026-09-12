@@ -26,7 +26,7 @@ Cinco estados, y la diferencia entre ellos importa:
 
 | | Verificado por |
 |---|---|
-| Traversal: FSM jerárquica de 5 grupos y 27 estados | `TestFase1` 12/12 |
+| Traversal: FSM jerárquica de 5 grupos y 28 estados | `TestFase1` 12/12 |
 | `SurfaceContext` + `LocomotionMotor`, escalada 45–110° | `TestFase1` · `TestVisual` |
 | Combate: `AttackData`, hitbox por consulta, hitstop, parry, poise, ragdoll | `TestFase2` 129/129 |
 | **FSM de enemigos extraída** (P0.1) — `Guardian.gd` de 372 a ~100 líneas | `TestEnemigos` 17/17 |
@@ -79,6 +79,25 @@ Cinco estados, y la diferencia entre ellos importa:
 
 El **jefe** Kuramoto sigue solo **documentado** en `project.md §5`. Lo implementado
 es el sistema audiovisual, no un boss: comparten el modelo y nada más.
+
+### Parche 4.00 — el moveset: la cuerda deja de ser un modo
+
+La referencia de feel pasa a ser **PSEUDOREGALIA**. Acciones cortas y discretas
+en vez de simulación continua, y una ley que las ordena todas: *la velocidad la
+puso el jugador, no el motor*.
+
+| | Verificado por |
+|---|---|
+| **LA CUERDA ES UN ARCO.** Un solo verbo (`StateGrapple`) donde había cuatro. Engancha al `Ancla` que estés mirando, sin tirar nada y sin tiempo de viaje | `TestCuerda` 15/15 |
+| **El enganche no da tirón.** El radio es la distancia a la que estabas, así que empiezas exactamente sobre la esfera. Medido: **0.000 m** de separación en el frame del enganche | `TestCuerda` |
+| **El arco caduca a 1 s y se suelta solo.** Es el número que define la mecánica: sin tope se bombea pasada tras pasada y el nivel deja de importar | `TestCuerda` |
+| **El stick dirige el arco entero** — aceleración tangencial, proyectada fuera del radio. Dirige, no acumula | `TestCuerda`, desvío lateral > 1.5 m |
+| **Al soltar conserva la velocidad y la premia** (×1.15), con permiso temporal sobre el clamp global | `TestCuerda`, ratio medido en el plano |
+| **Una por tiempo de vuelo**, recargada al tocar suelo o pared, en UN solo sitio | `TestCuerda` |
+| **La restricción corre DESPUÉS de `move_and_slide()`**, con el gancho `post_move()`. Regla dura #28 | `TestCuerda`, exceso sobre el radio **0.000 m** |
+| **El alcance se mide desde el jugador y el cono desde la cámara.** Medirlo todo desde la cámara le sumaba el brazo: `cuerda_rango` decía 12 y se enganchaba a **20.75 m** | `TestCuerda` |
+| **Fuera la segunda cuerda entera** (`Anclaje`), la resortera, el zip y el zarandeo. No eran redundantes entre sí —un punto da péndulo, dos dan elástico— pero los cuatro eran MODOS | batería completa en verde |
+| El código del jugador de 7e149d6, copiado sin borrar | `legacy/player_3.16/` |
 
 ### Parche 3.16 — pulido de la jam: notas, agentes y modo escritura
 
@@ -176,12 +195,14 @@ es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 | Suite | |
 |---|---|
 | `TestFase1` — FSM | **12/12** |
-| `TestFase2` — combate, postura, agua, escalada, paredes, combo pesado, adherencia | **137/137** |
-| `TestEnemigos` — cono, carga, patrulla, arquetipos, zarandeo | **36/36** |
-| `TestLanza` — lanza, resortera, la daga y la cuerda estando adherido | **53/53** |
+| `TestFase2` — combate, postura, agua, escalada, paredes, combo pesado, adherencia | **139/139** |
+| `TestCuerda` — el arco: enganche, radio, caducidad, dirección, cargas y filtros | **15/15** |
+| `TestEnemigos` — cono, carga, patrulla, arquetipos | **31/31** |
+| `TestLanza` — vuelo, clavado, plataforma, moveset empuñada, pértiga | **23/23** |
 | `TestMenu` | **4/4** |
 | `TestEnjambre` — modelo en seco y manifestación en vivo | **31/31** |
 | `TestMundoVivo` — hierba, luciérnagas, bandada y escolta | **27/27** |
+| `TestJam` — pentatónica, compás, unísono y la hoja | **42/42** |
 | `TestVisual` — 14 tomas, con el agua, el enjambre y el claro | **14/14** |
 | humo | 0 infracciones |
 
@@ -189,7 +210,14 @@ es el sistema audiovisual, no un boss: comparten el modelo y nada más.
 
 ## EN PROCESO
 
-*Vacío.* **La Fase 3 está cerrada.**
+**El moveset (parche 4.00).** Etapa 1 —la cuerda— cerrada. Quedan, en orden:
+
+| Etapa | Qué |
+|---|---|
+| 2 | **LA PATADA.** Un solo movimiento ofensivo: impulso corto y dirigido (~0.25 s), sirve para cruzar huecos aunque no golpee nada, y si conecta derrota **y** recarga la cuerda y la propia patada. Se lleva por delante el combate actual —26 `AttackData` del jugador, la cadena, el combo pesado, el clavado, el moveset de lanza y el combate acuático—; **se quedan el parry, el wall-run y el nado**, pedidos expresamente |
+| 3 | **Conservación de velocidad.** Recorrer la FSM y quitar los reseteos que no estén justificados. Los dos gordos ya están localizados: `StateAttack` retiene solo el **45%** al entrar (y 0% con `frenazo`) y escribe `set_vertical(-2.0)` cada frame; `StateDash.enter` llama a `impulso(conservar=false)`, que **borra la horizontal entera** |
+| 4 | **Afinado** en `PlayerTuning`, grupo `Moveset` |
+| 5 | **`gym.tscn`**, al lado del `Gym.gd` actual: sala gris compacta y vertical, anclas a distintas alturas, paredes, un vano ancho y tres cubos-enemigo como plataformas, con overlay de velocidad, estado, cargas y tiempo de arco |
 
 ---
 

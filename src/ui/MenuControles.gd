@@ -137,32 +137,14 @@ func _secciones() -> Array:
 		{"titulo": "LA LANZA", "filas": [
 			{"nombre": "Tirar la lanza · y recuperarla", "acciones": [InputActions.THROW_SPEAR],
 				"cuando": "el mismo botón: si la llevas la tiras, si no vuelve"},
-			{"nombre": "Cuerda — te recoge y te cuelga", "acciones": [InputActions.ROPE],
-				"cuando": "clavada: te lleva y te balanceas · en vuelo: vas tras ella"},
-			{"nombre": "Soltar la cuerda", "acciones": [InputActions.JUMP],
-				"cuando": "conservas la inercia del arco"},
-			{"nombre": "Bombear el balanceo", "acciones": [InputActions.MOVE_FORWARD],
-				"cuando": "el stick empuja a lo largo del arco, como en un columpio"},
-		]},
-
-		{"titulo": "LA RESORTERA — dos cuerdas", "filas": [
-			{"nombre": "Tirar el anclaje · y recogerlo", "acciones": [InputActions.THROW_ANCHOR],
-				"cuando": "la segunda cuerda · sin asignar en mando todavía"},
-			{"nombre": "Tensar entre los dos puntos", "acciones": [InputActions.ROPE],
-				"cuando": "MANTENER · con lanza y anclaje puestos, la cuerda tensa"},
-			{"nombre": "Disparar", "acciones": [InputActions.ROPE],
-				"cuando": "SOLTAR · cuanto más tires hacia atrás, más lejos sales"},
-			{"nombre": "Disparar (también)", "acciones": [InputActions.JUMP]},
-		]},
-
-		{"titulo": "ZARANDEAR — la daga es de CARNE", "filas": [
-			{"nombre": "Clavar la daga en un enemigo", "acciones": [InputActions.THROW_ANCHOR],
-				"cuando": "la lanza atraviesa a los bichos · la daga se queda"},
-			{"nombre": "Agarrarlo y hacerlo girar", "acciones": [InputActions.ROPE],
-				"cuando": "el stick lo hace girar a tu alrededor · cuesta stamina"},
-			{"nombre": "Estamparlo — daño en área", "acciones": [InputActions.ATTACK_HEAVY],
-				"cuando": "cuanto más rápido girara, más duele el impacto"},
-			{"nombre": "Soltarlo sin más", "acciones": [InputActions.ROPE]},
+			{"nombre": "Engancharse a un ancla", "acciones": [InputActions.ROPE],
+				"cuando": "instantáneo · la que estés MIRANDO, dentro de alcance"},
+			{"nombre": "Dirigir el arco", "acciones": [InputActions.MOVE_FORWARD],
+				"cuando": "el stick lo abre, lo cierra y lo inclina durante todo el arco"},
+			{"nombre": "Soltar y saltar", "acciones": [InputActions.JUMP],
+				"cuando": "conservas toda la velocidad · soltar a tiempo es la gracia"},
+			{"nombre": "Soltar sin más", "acciones": [InputActions.ROPE],
+				"cuando": "y si no sueltas, el arco se acaba solo en un segundo"},
 		]},
 
 		{"titulo": "COMBO PESADO", "filas": [

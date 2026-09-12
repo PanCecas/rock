@@ -29,9 +29,6 @@ const AIM := &"aim"
 const THROW_SPEAR := &"throw_spear"
 const RECALL_SPEAR := &"recall_spear"
 const SWAP_WEAPON := &"swap_weapon"
-## El ANCLAJE: la segunda cuerda. Mismo boton para tirarlo y para recogerlo, igual
-## que la lanza y por la misma razon: o lo tienes o no lo tienes, y eso se ve.
-const THROW_ANCHOR := &"throw_anchor"
 
 # Sistema
 const INTERACT := &"interact"
@@ -43,7 +40,7 @@ const DEBUG_RESET := &"debug_reset"
 const BUFFERED: Array[StringName] = [
 	JUMP, DASH, GLIDE, GRAB, ROPE,
 	ATTACK_LIGHT, ATTACK_HEAVY, PARRY, DODGE,
-	THROW_SPEAR, RECALL_SPEAR, SWAP_WEAPON, THROW_ANCHOR,
+	THROW_SPEAR, RECALL_SPEAR, SWAP_WEAPON,
 	INTERACT, LOCK_ON, CROUCH,
 ]
 

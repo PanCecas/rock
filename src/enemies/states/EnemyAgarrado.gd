@@ -1,7 +1,7 @@
 extends EnemyState
 ## AGARRADO. Cuelga de la daga del jugador y ya no decide nada.
 ##
-## **Este estado no mueve al enemigo: lo mueve `StateWhirl` desde el otro lado.**
+## **Este estado no mueve al enemigo: lo mueve quien lo zarandea, desde fuera.**
 ## Es la misma división que hay en el balanceo, con los papeles cambiados — allí
 ## el jugador es la masa y la lanza el ancla; aquí el jugador es el ancla y el
 ## enemigo la masa—, y por eso la restricción vive en el estado del JUGADOR: es él
@@ -34,7 +34,7 @@ func exit(_siguiente: StringName = &"") -> void:
 
 
 func physics_update(_delta: float) -> void:
-	# A propósito vacío. Quien escribe `velocity` es `StateWhirl`, y si aquí se
+	# A propósito vacío. Quien escribe `velocity` es quien zarandea, y si aquí se
 	# tocara habría dos sitios peleándose por el mismo cuerpo — que es exactamente
 	# el bug del arrastre del coloso (regla dura #19) en otra forma.
 	pass

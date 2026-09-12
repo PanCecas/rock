@@ -52,6 +52,21 @@ func physics_update(_delta: float) -> void:
 	pass
 
 
+## DESPUES de `move_and_slide()`, una vez por frame y solo para el estado activo.
+##
+## Existe por la cuerda, y con una razon concreta detras. Una restriccion de
+## distancia corrige una POSICION, asi que la posicion que tiene que corregir es
+## la definitiva —la que ya ha pasado por las colisiones—, no la que el motor
+## todavia va a cambiar. Reproyectar antes de mover deja al jugador fuera de la
+## esfera al terminar el frame y el error se hereda al siguiente.
+##
+## No rompe la regla dura #12 ni la del `move_and_slide` unico: aqui no se mueve a
+## nadie, se corrige lo ya movido. Y el gancho es del ESTADO y no del controlador
+## para que el controlador no tenga que saber que la cuerda existe.
+func post_move(_delta: float) -> void:
+	pass
+
+
 ## ¿Este estado gestiona los botones de ataque por su cuenta?
 ##
 ## Los grupos corren ANTES que la hoja, así que sin esto GroupGrounded consumía la

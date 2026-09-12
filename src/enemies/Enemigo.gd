@@ -148,7 +148,7 @@ var _nav_destino: Vector3 = Vector3(9e9, 9e9, 9e9)
 ## Indice del punto de ruta al que va. Lo lleva `Patrulla`.
 var punto_ruta: int = 0
 ## Velocidad con la que se lanzo este cuerpo al estamparlo. La escribe
-## `StateWhirl` y la lee `EnemyEstampado` para escalar el dano del impacto: un
+## quien zarandea y la lee `EnemyEstampado` para escalar el dano del impacto: un
 ## cuerpo que llevabas quieto cae, y uno que llevabas lanzado revienta.
 var impacto_estampido: float = 0.0
 

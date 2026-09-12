@@ -64,10 +64,10 @@ plataformas en movimiento.
 	**Y la misma regla al reves:** una ACCION COMPARTIDA tiene que estar en TODOS
 	los grupos donde exista. `intentar_cuerda()` vivia en `Grounded` y en
 	`Airborne` y no en `Attached`, asi que **escalando o colgado de un canto la Z
-	no hacia absolutamente nada** —ni balanceo, ni zip, ni resortera, ni
-	zarandeo—. Mismo sintoma de siempre: silencio. Y su guardia, `maneja_cuerda()`,
-	tuvo que existir a la vez, porque los cuatro verbos de cuerda VIVEN en
-	`Attached`: sin el, la resortera se rearmaba cada frame y no disparaba nunca.
+	no hacia absolutamente nada**. Mismo sintoma de siempre: silencio. Y su
+	guardia, `maneja_cuerda()`, tuvo que existir a la vez, porque la cuerda VIVE
+	en `Attached`: sin el, colgado y con la Z pulsada se reentra en el estado cada
+	frame y el arco no avanza nunca.
 14. **La postura la resuelve el controlador, no las transiciones.** Un estado
 	PIDE altura con `pedir_postura()` cada frame; nadie la restaura al salir. La
 	altura de la capsula solo la cambian dos cosas: que alguien la pida, o que no
@@ -215,6 +215,30 @@ plataformas en movimiento.
 	camara, que con mando seguia girando— y manana sera el HUD.
 	**Y al cortar se VACIA el buffer**: una pulsacion guardada justo antes de abrir
 	se ejecutaria al cerrar, y eso se siente como un fantasma.
+27. **UN MOVIMIENTO TERMINA SOLO; UN MODO LO TERMINA EL JUGADOR.** Es la
+	diferencia que define el moveset desde el parche 4.00, y no es de matiz: si
+	quien decide cuando acaba una accion es el jugador soltando un boton, entonces
+	mientras lo sostenga el juego es OTRO juego —otras fisicas, otras
+	transiciones, otro techo de velocidad— y el resto del moveset deja de
+	aplicarse. Eso es lo que eran los cuatro verbos de cuerda del 3.16, y es por
+	lo que se sentian lentos aunque cada uno estuviera bien medido por dentro.
+	**Todo verbo nuevo declara su duracion maxima y se acaba al cumplirla**, pase
+	lo que pase. El jugador decide CUANDO EMPIEZA y HACIA DONDE va; cuando acaba
+	lo decide el numero.
+	Corolario: **si un verbo ademas se gasta, se gasta AL ENTRAR y no al salir.**
+	Una carga que se cobra a la salida deja abierta la ventana de volver a
+	entrar durante el propio movimiento, y eso es el modo otra vez con pasos
+	extra.
+28. **UNA RESTRICCION DE POSICION CORRE DESPUES DE `move_and_slide()`.** Va en
+	`PlayerState.post_move()`, que la FSM llama una vez por frame solo para el
+	estado activo. El motivo es literal: una restriccion corrige una POSICION, asi
+	que la que tiene que corregir es la DEFINITIVA, la que ya paso por las
+	colisiones. Reproyectar antes de mover restringe una posicion que el motor
+	todavia va a cambiar, el jugador cierra el frame fuera de la esfera y el error
+	se hereda al siguiente.
+	No rompe la regla #12 ni la del `move_and_slide` unico: ahi no se mueve a
+	nadie, se corrige lo ya movido. Y la correccion de `global_position` va
+	ACOTADA por frame, porque escribirla salta por encima de las colisiones.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
@@ -306,16 +330,13 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Apuntar | R | L3 |
 | **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
 | **Empunar / guardar la lanza** | **Tab** | Back |
-| **Carga en viaje** | Click izq. / der. mientras la cuerda te lleva | RB / RT |
-| | *Ligero atraviesa · pesado los manda a volar con tu inercia* | |
 | | *Empunada cambia el moveset entero. Tirarla la desempuna* | |
-| **Cuerda** — clavada: te recoge y te cuelga · en vuelo: te lleva a ella | **Z** | D-pad der. |
-| **Daga: tirar / recoger** | **X** | *sin asignar* |
-| | *la lanza tambien se clava en enemigos pequenos: dos presas, dos armas* | |
-| **Zarandear** — daga O lanza clavada en un enemigo + **Z** | **Z** | D-pad der. |
-| | *el stick lo hace girar · **click der.** lo estampa con dano en area* | |
-| **Resortera** — con lanza Y anclaje puestos, la misma **Z** tensa | **Z** (mantener) | D-pad der. |
-| | *Tira hacia atras con el stick y SUELTA: sales catapultado* | |
+| **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** | D-pad der. |
+| | *instantanea: no hay nada que tirar ni tiempo de viaje* | |
+| | *el stick dirige el arco entero — lo abre, lo cierra, lo inclina* | |
+| | *dura 1 s y se suelta SOLA · soltar a tiempo es toda la habilidad* | |
+| | ***Z** otra vez suelta · **Espacio** suelta y salta · las dos conservan la velocidad* | |
+| | *UNA por tiempo de vuelo. Se recarga al tocar suelo o pared* | |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Hoja de notas** (junto a la jam) | **E** | Y |
 | | *rejilla de rombos y circulos: una columna por musico, una fila por paso* | |
@@ -363,8 +384,9 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de combate, postura, agua, escalada, la particion de los verbos de pared, el combo pesado y que el surf no te pega a la pared. 137 comprobaciones. |
-| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, que una lanza clavada viaja con el cuerpo y el ZARANDEO de enemigos. 36 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, cuerda, balanceo, moveset de suelo y aire, pertiga, carga en viaje, la RESORTERA, la daga y que la Z existe estando adherido. 53 comprobaciones. |
+| `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, moveset de suelo y aire empunada, pertiga e imantado. 23 comprobaciones. |
+| `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo y pared la devuelven. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 15 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
 | `tools/Jam.tscn` | **El banco de la estacion de musica.** Ocho puestos en corro tocando el mismo Kuramoto: se ESCUCHA, no se mira. **E abre la hoja de notas** · acercate y unos cuantos te cogen el compas · **1..8** golpea un puesto a mano · **R** al caos · **F7** dibuja el orden y quien te sigue. `godot --path . --resolution 960x540 tools/Jam.tscn` |
@@ -462,6 +484,50 @@ contra colosos. **Fase 3 CERRADA.**
   encadenado al **remate descendente** con el propio boton pesado
   (`AttackData.boton_cadena`), para que los dos botones sigan significando lo
   mismo dentro de un combo y fuera de el.
+
+**Parche 4.00 — EL MOVESET.** La referencia de feel pasa a ser **PSEUDOREGALIA**,
+y eso manda sobre lo demas. La ley: el movimiento es un MOVESET de acciones
+cortas y discretas, no una simulacion continua. En todo momento el jugador tiene
+que sentir que la velocidad la puso el, no el motor.
+
+- **Cada movimiento empieza en el frame en que se pulsa.** Startup cero.
+- **Dura menos de 1.2 s y TERMINA SOLO.**
+- **El jugador manda la direccion durante TODO el movimiento.**
+- **Los aereos se gastan una vez y se RECARGAN** al tocar suelo, pared o enemigo.
+- **Encadenar limpio acumula velocidad; fallar la pierde.**
+
+Etapa 1 hecha: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
+
+- **Una sola cuerda.** Se retiraron los cuatro verbos del 3.16 —balanceo, zip,
+  resortera y zarandeo— y con ellos la segunda cuerda entera (`Anclaje`). No eran
+  redundantes entre si —un punto da pendulo y dos dan elastico, son topologias
+  distintas— pero los cuatro eran **MODOS**: los terminaba el jugador soltandolos,
+  asi que mientras los sostuviera el juego era otro juego.
+- **El ancla la pone el NIVEL, no la lanza.** Antes, para balancearte habia que
+  tirar la lanza, acertar, y solo entonces existia un punto: un verbo de
+  movimiento convertido en una cadena de tres acciones. Ahora el punto esta ahi y
+  se ve, y engancharse es una pulsacion sin tiempo de viaje.
+- **El radio se elige AL ENGANCHAR y es la distancia a la que estabas.** Por eso
+  el enganche no da tiron —empiezas exactamente sobre la esfera, medido: 0.000 m—
+  y ademas el jugador elige el arco con su posicion: de cerca sale corto y rapido,
+  de lejos largo y amplio.
+- **El arco caduca a 1 s.** Es el numero que define la mecanica. Sin tope se puede
+  bombear pasada tras pasada, ganar altura indefinidamente y el nivel deja de
+  importar; con tope solo hay una decision —CUANDO SUELTAS— y esa si es habilidad.
+  El stick sigue aplicando aceleracion tangencial durante todo el arco, que es
+  otra cosa: dirige, no acumula.
+- **LA RESTRICCION CORRE DESPUES DE `move_and_slide()`**, con el gancho
+  `PlayerState.post_move()`. Una restriccion de distancia corrige una POSICION,
+  asi que tiene que corregir la definitiva —la que ya paso por las colisiones—;
+  reproyectar antes de mover deja al jugador fuera de la esfera al cerrar el frame
+  y el error se hereda al siguiente. Sigue habiendo UN solo `move_and_slide`.
+- **El alcance se mide desde el JUGADOR y el cono desde la CAMARA**, y no es un
+  detalle: medirlo todo desde la camara le suma al alcance la distancia del brazo.
+  Medido al cazarlo, `cuerda_rango` decia 12 y se enganchaba a **20.75 m** — y ese
+  numero es justo el que dibuja los niveles.
+- **Una por tiempo de vuelo**, y la recarga vive en UN solo sitio: en
+  `_physics_process`, despues de mover, cuando hay suelo o pared. La condicion se
+  lee igual que la regla.
 
 **Sistema generativo (`src/generative/`).** Aparte del juego, con su propio banco
 (`tools/Jardin.tscn`). N agentes acoplados como osciladores de Kuramoto: cada uno

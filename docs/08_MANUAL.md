@@ -71,9 +71,46 @@ proyecto.
 
 ---
 
-## 2. La lanza y la daga
+## 2. La cuerda — poner anclas en tu nivel
 
-**Dónde:** `src/weapons/Spear.tscn` y `src/weapons/Anclaje.tscn`.
+**Dónde:** `src/world/Ancla.gd`.
+
+Un ancla es un punto del que colgarse y nada más: sin colisión, sin estado, sin
+FSM. Se descubre por grupo, así que plantarla es una línea:
+
+```gdscript
+# En el _ready de tu nivel, o arrastrando un Node3D con el script en el editor.
+var a := Ancla.new()
+add_child(a)                     # al MUNDO, no al jugador
+a.global_position = Vector3(0.0, 12.0, 34.0)
+```
+
+**Dónde ponerlas es el diseño de nivel entero.** Tres números mandan, y los tres
+están en `PlayerTuning`, grupo `Moveset`:
+
+| | |
+|---|---|
+| `cuerda_rango` (12 m) | **desde el jugador.** Dos anclas a más de esto no se encadenan sin tocar suelo; a menos, sí. Es el tamaño de la sala |
+| `cuerda_cono_grados` (55°) | **desde la cámara.** Se engancha lo que se MIRA. Un ancla a la espalda no existe |
+| `cuerda_arco_max` (1 s) | cuánto dura el arco antes de soltarse solo. Multiplicado por la velocidad, es cuánto terreno cubre un enganche |
+
+**Deja caída por debajo.** Un ancla a la altura del jugador no da arco, da un
+radio fijo: mucha velocidad angular, ningún desplazamiento. Lo que convierte el
+enganche en un arco es que haya dónde caer, así que van altas. En el Gym están
+sobre la cima de los pilares del GANCHO, dos metros por encima — se ven contra el
+cielo, que es como el jugador aprende dónde puede engancharse.
+
+**Y no las tapes.** Hay comprobación de línea de visión: un ancla al otro lado de
+una pared está descartada aunque esté en rango y en el cono.
+
+`visible_en_juego = false` apaga el testigo esférico, para anclas que ya tengan su
+propio modelo colgando —una argolla, una rama—. El testigo es de blockout.
+
+---
+
+## 2 bis. La lanza
+
+**Dónde:** `src/weapons/Spear.tscn`.
 
 **No son hijos del jugador.** Viven en el mundo y el jugador guarda una referencia.
 La receta completa, copiada de `Gym._dar_lanza()`:
@@ -88,20 +125,18 @@ l.dueno = jugador                # quién la tiró: decide el equipo de la hitbo
 l.global_position = jugador.global_position + Vector3.UP
 jugador.set("lanza", l)          # y el jugador se entera de que la tiene
 
-# La daga: mismo patrón, pero el jugador guarda una LISTA.
-var a := preload("res://src/weapons/Anclaje.tscn").instantiate() as Anclaje
-a.palette = GameState.palette
-a.dueno = jugador
-add_child(a)
-jugador.set("dagas", [a] as Array[Anclaje])
 ```
 
-**Hay UNA lanza y UNA daga a propósito.** La escasez es lo que convierte "dónde la
-clavo" en una decisión. Si duplicas, tendrás que llevar la cuenta de cuál está
-dónde, y eso no es una mecánica: es contabilidad.
+**Hay UNA lanza a propósito.** La escasez es lo que convierte "dónde la clavo" en
+una decisión. Si duplicas, tendrás que llevar la cuenta de cuál está dónde, y eso
+no es una mecánica: es contabilidad.
+
+**Ya no cuelga de ella ninguna cuerda.** Desde el parche 4.00 el punto de enganche
+lo pone el nivel (`Ancla`) y la lanza vuelve a ser lo que era: un arma que además
+es plataforma y pértiga.
 
 Números en `SpearTuning` (`src/weapons/SpearTuning.gd`): velocidad de vuelo,
-alcance, imantado, tamaño de la plataforma, largo de cuerda, resortera.
+alcance, imantado y tamaño de la plataforma.
 
 ---
 
@@ -128,7 +163,7 @@ Los `@export` que más se tocan:
 |---|---|
 | `vista` | radio del cono de visión, en metros. `0` = ciego (útil en pruebas) |
 | `alcance_ataque`, `cadencia` | cuándo y cada cuánto pega |
-| `agarrable` | si la daga y la lanza **se le quedan clavadas** y se le puede zarandear |
+| `agarrable` | si la lanza **se le queda clavada** en vez de atravesarle |
 | `vuela` | única diferencia de física entre el volador y el terrestre |
 | `ruta` | puntos de patrulla. Vacío = se queda quieto |
 | `velocidad`, `aceleracion`, `velocidad_giro` | locomoción |
@@ -598,7 +633,8 @@ Tres tests, y **ninguno sustituye a otro**:
 ```bash
 godot --headless --path . tools/TestFase1.tscn        # la FSM llega a los estados
 godot --headless --path . tools/TestFase2.tscn        # combate, agua, paredes
-godot --headless --path . tools/TestLanza.tscn        # la lanza y la cuerda
+godot --headless --path . tools/TestCuerda.tscn       # el arco: las leyes del moveset
+godot --headless --path . tools/TestLanza.tscn        # la lanza
 godot --headless --path . tools/TestEnemigos.tscn     # los enemigos
 godot --headless --path . tools/TestMundoVivo.tscn    # hierba, luciérnagas, bandada
 godot --headless --path . tools/TestEnjambre.tscn     # el modelo generativo
@@ -652,13 +688,13 @@ están en `CLAUDE.md`.
 
 ```
 src/
-├── player/      jugador: controlador, FSM (27 estados), sensores, motor, tuning
+├── player/      jugador: controlador, FSM (28 estados), sensores, motor, tuning
 ├── camera/      CameraRig propio (el de Phantom está escrito y sin cablear)
 ├── combat/      AttackData, Hitbox, Hurtbox, salud, poise, targeting, FX
 ├── enemies/     Enemigo + EnemyMotor + FSM propia · 4 arquetipos
-├── weapons/     lanza (FSM propia), daga/anclaje, cordón, tuning
+├── weapons/     lanza (FSM propia), cordón, tuning
 ├── colossus/    WeakPoint — la interfaz contra colosos
-├── world/       agua · hierba · luciérnagas · bandada
+├── world/       agua · hierba · luciérnagas · bandada · anclas · jam
 ├── generative/  el enjambre de Kuramoto y las Criaturas de Tela
 ├── art/         Palette, WorldMood, shaders
 ├── core/        autoloads: EventBus, GameState, HitstopManager, Debug*, Layers
