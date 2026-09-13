@@ -202,8 +202,6 @@ func _colocar(pos: Vector3, rapidez: float) -> void:
 	_p.global_position = pos
 	_p.velocity = Vector3.RIGHT * rapidez
 	_p.stamina.llenar()
-	_p.momentum_libre = 6.0
-	_p.momentum_techo = 40.0
 	_p.cuerda_disponible = true
 	_p.recargar_moveset()
 	_p.fsm.cambiar(&"Fall")

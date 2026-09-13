@@ -81,21 +81,6 @@ var patada_cargas: int = 1
 ## un flanco y hace falta el valor anterior para detectarlo.
 var _tocaba: bool = false
 
-## Segundos que el jugador puede ir MAS RAPIDO que `velocidad_maxima`, y hasta
-## cuanto. Lo escribe el estado que regala la velocidad, justo al salir.
-##
-## Existe porque el clamp global se aplica en un solo sitio (regla dura #12) y
-## solo al plano: una salida de cuerda de 34 m/s se recortaria a 22 en el mismo
-## frame, EN SILENCIO, y ademas solo en horizontal — o sea que salir hacia arriba
-## se sentiria bien y salir de lado se sentiria roto sin que nada avisara. Es la
-## misma trampa que obligo a dejar el viejo `zip_velocidad` en 21, resuelta en vez
-## de esquivada.
-##
-## El techo viaja CON el permiso y no sale de una constante, porque el permiso
-## sobrevive al cambio de estado: el multiplicador se paga en `Grapple` y se vuela
-## en `Fall`, y un techo que muriera con el estado no dejaria salida que valiera.
-var momentum_libre: float = 0.0
-var momentum_techo: float = 0.0
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -231,7 +216,7 @@ func _physics_process(delta: float) -> void:
 	# 3) La FSM escribe en velocity.
 	fsm.physics_update(delta)
 
-	_limitar_velocidad()
+	_limitar_velocidad(delta)
 
 	# 4) Un único move_and_slide por frame, aquí y en ningún otro sitio.
 	var en_suelo_antes := is_on_floor()
@@ -326,7 +311,6 @@ func _avanzar_relojes(delta: float) -> void:
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
 	surf_pendiente = maxf(0.0, surf_pendiente - delta)
-	momentum_libre = maxf(0.0, momentum_libre - delta)
 	if is_on_floor():
 		_coyote = tuning.coyote_time
 		tiempo_en_aire = 0.0
@@ -454,30 +438,48 @@ func _direccion_de_tiro() -> Vector3:
 	return direccion_frontal()
 
 
-## CLAMP DURO de la velocidad horizontal, en el último punto antes de mover.
+## EL TOPE DE VELOCIDAD, en el último punto antes de mover. **Es un objetivo de
+## aceleración, no un corte.**
 ##
 ## El juego premia encadenar momentum, pero encadenar sin techo termina sacando al
-## jugador del mapa. El límite va aquí y no en cada estado: un solo sitio, imposible
-## de olvidar al añadir el siguiente verbo.
-func _limitar_velocidad() -> void:
+## jugador del mapa. El límite va aquí y no en cada estado: un solo sitio,
+## imposible de olvidar al añadir el siguiente verbo (regla dura #12).
+##
+## **Lo que cambió en el 4.00 es CÓMO limita.** Antes recortaba de golpe: salir de
+## un arco a 34 m/s te dejaba a 22.0 **en el primer frame**, y todo lo que habías
+## construido encadenando desaparecía sin que nada lo explicara en pantalla. Ahora
+## la rapidez por encima del techo DECAE hacia él con `velocidad_drag`: sigues
+## siendo rápido un rato y lo vas perdiendo, que es lo que se puede leer.
+##
+## Y por eso se fue `momentum_libre`. Existía para que la salida de la cuerda no se
+## la comiera el corte, y era un parche a este mismo problema: con el tope como
+## objetivo, la velocidad heredada sobrevive sola el tiempo que le da el drag. Dos
+## mecanismos para un trabajo es como se llega a que uno de los dos mienta.
+##
+## El único corte que queda es `velocidad_tope_duro`, y ese no es de game feel: es
+## la red que impide atravesar geometría entre dos frames de física.
+func _limitar_velocidad(delta: float) -> void:
 	var plano := superficie.plano(velocity)
 	var rapidez := plano.length()
+	if rapidez < 0.001:
+		return
+
 	# El techo lo puede DECLARAR el estado activo. Sigue habiendo un solo sitio
-	# donde se recorta —este— pero no todos los verbos tienen el mismo limite: un
-	# pendulo es un sistema cerrado y su pico lo fija la altura de caida.
+	# donde se recorta —este— pero no todos los verbos tienen el mismo límite: un
+	# péndulo es un sistema cerrado y su pico lo fija la altura de caída.
 	var techo := tuning.velocidad_maxima
 	if fsm != null and fsm.actual != null:
 		var propio := fsm.actual.techo_velocidad()
 		if propio > 0.0:
 			techo = propio
-	# Y el permiso temporal que sobrevive al cambio de estado: la salida de la
-	# cuerda se paga en `Grapple` pero se VUELA en `Fall`, y si el techo muriera
-	# con el estado no habria salida que valiera. Sigue habiendo un solo sitio
-	# donde se recorta —este—, que es lo que pide la regla dura #12.
-	if momentum_libre > 0.0:
-		techo = maxf(techo, momentum_techo)
+
+	var limite := rapidez
 	if rapidez > techo:
-		velocity = plano * (techo / rapidez) + superficie.up * superficie.vertical(velocity)
+		# Decaimiento exponencial hacia el techo, independiente del framerate.
+		limite = techo + (rapidez - techo) * exp(-tuning.velocidad_drag * delta)
+	limite = minf(limite, tuning.velocidad_tope_duro)
+	if limite < rapidez:
+		velocity = plano * (limite / rapidez) + superficie.up * superficie.vertical(velocity)
 
 
 ## PUERTA ÚNICA DEL SALTO. Todos los saltos pasan por aquí, sin excepción.

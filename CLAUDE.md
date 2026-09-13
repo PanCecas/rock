@@ -48,6 +48,19 @@ plataformas en movimiento.
 	reentrada la FSM se traga la pulsacion en silencio.
 12. **La velocidad horizontal se limita en un solo sitio** (`_limitar_velocidad()`,
 	justo antes de `move_and_slide`). Nunca en un estado.
+	**Y EL TOPE ES UN OBJETIVO, NO UN CORTE.** Desde el 4.00 la rapidez por encima
+	del techo DECAE hacia el con `velocidad_drag` en vez de recortarse: medido con
+	el clamp duro, salir de un arco a 34 m/s te dejaba a **22.0 en el primer
+	frame**, y todo lo que habias construido encadenando desaparecia sin que nada
+	lo explicara en pantalla. Con drag, 34 -> 29.9 a los 12 frames y 23.5 a los 48:
+	sigues siendo rapido un rato y lo vas perdiendo.
+	El unico corte que queda es `velocidad_tope_duro` (55), y ese no es de game
+	feel: a 60 Hz son 0.92 m por tick, y por encima un muro de un metro deja de ser
+	un muro.
+	Corolario: **eso mato a `momentum_libre`**. Existia para que la salida de la
+	cuerda no se la comiera el corte, o sea que era un parche a este mismo
+	problema. Dos mecanismos para un trabajo es como se llega a que uno de los dos
+	mienta.
 13. **Los grupos corren ANTES que las hojas y les roban el input.** Si una hoja
 	tiene su version propia de una accion compartida, tiene que reclamarla con
 	`maneja_ataques()` o `maneja_salto()`, **y el guardia tiene que existir en
@@ -560,6 +573,9 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
   detalle: medirlo todo desde la camara le suma al alcance la distancia del brazo.
   Medido al cazarlo, `cuerda_rango` decia 12 y se enganchaba a **20.75 m** — y ese
   numero es justo el que dibuja los niveles.
+- **El tope de velocidad pasa a ser un OBJETIVO** (regla dura #12): salir del arco
+  a 34 m/s ya no se corta a 22 en un frame, decae. Con eso desaparece
+  `momentum_libre`, que era el parche que hacia falta mientras el corte existia.
 - **Una por tiempo de vuelo**, y la recarga vive en UN solo sitio: en
   `_physics_process`, despues de mover, cuando hay suelo o pared. La condicion se
   lee igual que la regla.

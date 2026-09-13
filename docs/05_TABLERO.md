@@ -94,6 +94,10 @@ puso el jugador, no el motor*.
 | **El freno del bombeo cambió de sitio.** Con el arco de 1 s lo impedía el reloj: no había segunda pasada. Con la Z mantenida sí la hay, así que ahora frena `cuerda_perdida` — comprobado aguantando el tope entero empujando con el stick: **no sube** | `TestCuerda`, comprobación propia |
 | `cuerda_arco_max` sube a 3 s y pasa a ser techo de seguridad, no mecánica | `TestCuerda` |
 | **ESCALAR PASA A SER UNA HABILIDAD EQUIPADA** (`puede_escalar`). Era el único verbo que apagaba el moveset: llegar a un muro a 30 m/s empujando daba `Fall > WallSlide > Climb` y **30.0 → 0.0 m/s**. Sin ella: `Fall > WallSlide > Move`, y aterrizas corriendo | `TestFase2`, dos chequeos · `MedirCadena` |
+| **EL TOPE DE VELOCIDAD PASA A SER UN OBJETIVO, NO UN CORTE.** Con el clamp duro, 34 m/s → **22.0 en el primer frame**. Ahora decae: `0fr 33.7 · 12fr 29.9 · 24fr 27.0 · 48fr 23.5`. El momentum ganado se siente ganado | `TestFase2`, tres chequeos · `MedirCadena` |
+| Y con eso desaparece `momentum_libre`: era el parche que hacía falta mientras el corte existía | — |
+| **El dash deja de cobrarte por usarlo.** Escribía `velocidad_dash()` cada frame, así que dashear desde un arco a 36 m/s te dejaba a 30. Ahora es un suelo: **36 → 36** | `MedirCadena` |
+| **El parry escala en vez de borrar.** 15 m/s → **0.0** antes, **3.0** ahora. Un parry es un compromiso, pero clavarte en un frame se siente como chocar contra el aire | `MedirCadena` |
 | **Rozar un muro conserva la línea.** `StateWallSlide` escribía `motor.impulso(-normal, 1.2)`, que REEMPLAZA el vector horizontal entero: la intención era «no despegarse solo» y lo que hacía era borrarte. Ahora la componente contra el muro se sustituye y la que va a lo largo se conserva con rozamiento — **97% medido a 26 m/s** | `TestFase2` · `CapturaEscalada` |
 | **El stick dirige el arco entero** — aceleración tangencial, proyectada fuera del radio. Dirige, no acumula | `TestCuerda`, desvío lateral > 1.5 m |
 | **Al soltar conserva la velocidad y la premia** (×1.15), con permiso temporal sobre el clamp global | `TestCuerda`, ratio medido en el plano |
@@ -213,7 +217,7 @@ puso el jugador, no el motor*.
 | Suite | |
 |---|---|
 | `TestFase1` — FSM | **12/12** |
-| `TestFase2` — postura, agua, escalada, locomoción, paredes, parry, candado de escalada | **94/94** |
+| `TestFase2` — postura, agua, escalada, locomoción, paredes, parry, candado de escalada, el tope | **96/96** |
 | `TestCuerda` — el arco: enganche, radio, caducidad, dirección, cargas y filtros | **15/15** |
 | `TestPatada` — el gesto, la velocidad heredada, el rebote, la cadena y el anti-spam | **21/21** |
 | `TestEnemigos` — cono, carga, patrulla, arquetipos, punto débil | **31/31** |

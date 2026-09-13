@@ -16,6 +16,8 @@ var _dir: Vector3 = Vector3.ZERO
 var _era_aereo: bool = false
 ## Frames seguidos pidiendo la direccion contraria. El pivote exige constancia.
 var _frames_opuesto: int = 0
+## Rapidez del esquive. SUELO: `max(la que traías, velocidad_dash())`. Ver `enter`.
+var _rapidez: float = 0.0
 
 
 func enter(_msg: Dictionary = {}) -> void:
@@ -27,6 +29,13 @@ func enter(_msg: Dictionary = {}) -> void:
 		_dir = motor.direccion_plana()
 	if _dir.is_zero_approx():
 		_dir = sc.plano(-player.global_basis.z).normalized()
+
+	# UN SUELO, NO UN VALOR. Misma lección que la patada y la misma llamada
+	# culpable: `motor.impulso()` con `conservar = false` REEMPLAZA el vector
+	# horizontal entero, y aquí se escribía cada frame. Dashear saliendo de un arco
+	# a 34 m/s te dejaba a 30: el esquive te cobraba 4 m/s por usarlo. El dash
+	# GARANTIZA su velocidad; si llegabas más rápido, mandas tú. Regla dura #29.
+	_rapidez = maxf(motor.rapidez_plana(), tuning.velocidad_dash())
 
 	if _era_aereo:
 		player.dash_cargas -= 1
@@ -45,7 +54,7 @@ func physics_update(delta: float) -> void:
 		return
 
 	_corregir_rumbo(delta)
-	motor.impulso(_dir, tuning.velocidad_dash())
+	motor.impulso(_dir, _rapidez)
 	motor.set_vertical(0.0)
 
 	# Chocar lo corta en seco en vez de rasparse toda la pared.
@@ -144,6 +153,13 @@ func _salir() -> void:
 	# Sin Shift no hay carrera rápida: se cae a trotar y de ahí a caminar.
 	motor.impulso(_dir, maxf(tuning.velocidad_correr, motor.rapidez_plana() * tuning.dash_salida_mult))
 	fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
+
+
+## El techo del esquive es su propia rapidez, y se declara en vez de dejar que el
+## soft cap la vaya mordiendo: un dash dura 0.12 s y su velocidad es un número
+## fijo del verbo, no momentum acumulado que tenga que decaer.
+func techo_velocidad() -> float:
+	return maxf(_rapidez, tuning.velocidad_dash())
 
 
 func debug_line() -> String:

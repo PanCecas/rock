@@ -309,7 +309,6 @@ func _soltar_en(pos: Vector3) -> void:
 	_p.global_position = pos
 	_p.velocity = Vector3.ZERO
 	_p.stamina.llenar()
-	_p.momentum_libre = 0.0
 	_p.cuerda_disponible = true
 	_p.fsm.cambiar(&"Fall")
 	_visto.clear()

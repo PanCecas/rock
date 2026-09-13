@@ -169,13 +169,14 @@ func post_move(_delta: float) -> void:
 ## jugador eligiendo el momento — un arco va más rápido abajo que arriba. Premiar
 ## además el gesto sería pagar dos veces por la misma decisión.
 func exit(_siguiente: StringName = &"") -> void:
+	# NO HACE FALTA PEDIR PERMISO. Aquí había un `momentum_libre`: el multiplicador
+	# se paga en este frame y se vuela en `Fall`, y con el clamp DURO el tope de 22
+	# se lo comía entero en el mismo frame, en silencio y solo en horizontal.
+	#
+	# Desde que el tope es un objetivo y no un corte (`velocidad_drag`), la
+	# velocidad heredada sobrevive sola el tiempo que le da el drag. El parche
+	# sobraba en cuanto se arregló la causa.
 	player.velocity *= tuning.cuerda_salida_mult
-	# PERMISO DE VELOCIDAD. El multiplicador se paga aquí y se vuela en `Fall`, y
-	# sin esto el clamp global (22 m/s) se lo comería en el mismo frame, en
-	# silencio y solo en horizontal. Sigue habiendo un solo sitio donde se recorta
-	# —`_limitar_velocidad()`—, que es lo que pide la regla dura #12.
-	player.momentum_libre = tuning.cuerda_libertad
-	player.momentum_techo = tuning.cuerda_velocidad_max
 
 
 ## EL RADIO SE ELIGE AL ENGANCHAR: es la distancia a la que estabas.

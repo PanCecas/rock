@@ -144,7 +144,6 @@ func _al_conectar(datos: AttackData) -> void:
 	# HANG TIME: gravedad cero un instante. Sin esto el rebote es un empujón y ya;
 	# con esto hay una pausa en la que se elige la siguiente cabeza.
 	player.iniciar_hangtime(tuning.patada_hangtime)
-	_permiso_de_momentum()
 	fsm.cambiar(&"Fall")
 
 
@@ -166,23 +165,12 @@ func _terminar() -> void:
 		motor.set_vertical(_vy_entrada)
 	else:
 		motor.set_vertical(maxf(_vy_entrada, tuning.patada_salida_vertical))
-	_permiso_de_momentum()
 	if player.agua.en_agua:
 		fsm.cambiar(&"Swim")
 	elif player.is_on_floor():
 		fsm.cambiar(&"Move" if buffer.move_vector().length() > 0.2 else &"Idle")
 	else:
 		fsm.cambiar(&"Fall")
-
-
-## Si la patada iba más rápido que el clamp global, el permiso viaja con ella al
-## estado siguiente. Sin esto el suelo de velocidad no serviría de nada en cuanto
-## pasaras de 22: se pagaría aquí y se lo comería `Fall` en el mismo frame.
-func _permiso_de_momentum() -> void:
-	if _rapidez <= tuning.velocidad_maxima:
-		return
-	player.momentum_libre = maxf(player.momentum_libre, tuning.patada_libertad)
-	player.momentum_techo = maxf(player.momentum_techo, _rapidez)
 
 
 ## El techo de la patada es su propia rapidez. Ver `patada_velocidad`: el clamp

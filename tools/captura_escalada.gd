@@ -73,8 +73,6 @@ func _correr() -> void:
 	#         panel tiene que seguir diciendo una rapidez alta.
 	_situar(Vector3(0.0, 6.0, -24.0), false)
 	_p.velocity = Vector3(0.28, 0.0, -0.96).normalized() * 26.0
-	_p.momentum_libre = 4.0
-	_p.momentum_techo = 40.0
 	_p.call("orientar_a", _p.velocity.normalized())
 	_camara(Vector3(11.0, 11.0, -28.0), Vector3(0.0, 5.0, -32.0))
 	await _frames(4)
@@ -108,7 +106,6 @@ func _situar(pos: Vector3, con_habilidad: bool) -> void:
 	_p.global_position = pos
 	_p.velocity = Vector3.ZERO
 	_p.stamina.llenar()
-	_p.momentum_libre = 0.0
 	_p.recargar_moveset()
 	_p.puede_escalar = con_habilidad
 	_p.fsm.cambiar(&"Idle" if pos.y < 1.0 else &"Fall")

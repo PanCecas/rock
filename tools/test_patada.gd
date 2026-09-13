@@ -285,8 +285,6 @@ func _construir() -> void:
 				# comeria los 30 antes de que la patada pudiera heredarlos y la
 				# medida culparia a la patada de lo que hace el clamp.
 				_p.velocity = Vector3.RIGHT * 30.0
-				_p.momentum_libre = 6.0
-				_p.momentum_techo = 40.0
 				_atacar = 4,
 			func() -> bool:
 				return _v_antes > 25.0 and _v_max > _v_antes - 0.6,
@@ -339,7 +337,6 @@ func _colocar(pos: Vector3) -> void:
 	_p.global_position = pos
 	_p.velocity = Vector3.ZERO
 	_p.stamina.llenar()
-	_p.momentum_libre = 0.0
 	_p.cuerda_disponible = true
 	_p.patada_cargas = _p.tuning.patada_cargas
 	_p.fsm.cambiar(&"Fall")

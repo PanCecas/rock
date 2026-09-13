@@ -131,8 +131,6 @@ func _situar(pos: Vector3, rapidez: float) -> void:
 	_p.stamina.llenar()
 	# El permiso de momentum abierto a mano: sin él el clamp global (22) recortaría
 	# los 30 antes de que la patada pudiera heredarlos, y la foto mentiría.
-	_p.momentum_libre = 8.0
-	_p.momentum_techo = 40.0
 	_p.recargar_moveset()
 	_p.fsm.cambiar(&"Fall")
 	_p.reset_physics_interpolation()

@@ -14,7 +14,13 @@ var _resuelto: bool = false
 
 func enter(_msg: Dictionary = {}) -> void:
 	_resuelto = false
-	player.velocity = sc.con_vertical(Vector3.ZERO, minf(sc.vertical(player.velocity), 0.0))
+	# ESCALAR, NO BORRAR. Un parry es un compromiso y frenar es parte de él, pero
+	# `Vector3.ZERO` incumple la regla del género —convierte, escala o proyecta— y
+	# llegar a 15 m/s y quedarte clavado en un frame se siente como chocar contra
+	# el aire. Medido antes: 15.0 -> 0.0.
+	player.velocity = sc.con_vertical(
+		sc.plano(player.velocity) * tuning.parry_retencion,
+		minf(sc.vertical(player.velocity), 0.0))
 	var hacia := player.targeting.direccion_a_objetivo()
 	if not hacia.is_zero_approx():
 		player.orientar_a(hacia)

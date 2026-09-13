@@ -97,7 +97,24 @@ extends Resource
 ## CLAMP DURO de la velocidad horizontal. El momentum se conserva y se encadena,
 ## pero nunca se acumula sin techo: sin esto, encadenar dash y surf termina
 ## sacando al jugador del mapa.
+## EL TOPE ES UN OBJETIVO, NO UN CORTE. Ver `velocidad_drag`.
 @export_range(5.0, 60.0, 0.5) var velocidad_maxima: float = 22.0
+## Con que rapidez se vuelve al tope cuando vas por encima, en 1/s.
+##
+## **Esto es lo que convierte el clamp en un SOFT CAP**, y es la diferencia entre
+## que el momentum ganado se sienta ganado o no. Medido con el clamp duro: salir
+## de un arco a 34 m/s te dejaba a 22.0 **en el primer frame**. Un frame. Todo lo
+## que habias construido encadenando desaparecia sin que nada lo explicara en
+## pantalla.
+##
+## Con drag, 34 decae hacia 22 con constante de tiempo 1/`velocidad_drag`: sigues
+## siendo rapido un rato y lo vas perdiendo, que es lo que se puede leer y lo que
+## premia haber encadenado bien.
+@export_range(0.1, 20.0, 0.1) var velocidad_drag: float = 1.6
+## TOPE DURO absoluto, en m/s. Este si corta, y no es de game feel: es la red que
+## impide atravesar geometria entre dos frames de fisica. A 60 Hz, 55 m/s son 0.92
+## m por tick — por encima de eso un muro de un metro deja de ser un muro.
+@export_range(20.0, 200.0, 1.0) var velocidad_tope_duro: float = 55.0
 
 # --- Dash: esquive UNIDIRECCIONAL -------------------------------------------
 # El dash es un esquive, no un desplazamiento. Corto, seco y en una sola
@@ -428,6 +445,13 @@ extends Resource
 
 # --- Combate ----------------------------------------------------------------
 @export_group("Combate")
+## Fraccion de la velocidad horizontal que sobrevive al plantarse a parriear.
+##
+## Era CERO —`velocity = Vector3.ZERO`— y eso incumple la regla del genero:
+## convierte, escala o proyecta, nunca borres. Un parry es un compromiso y frenar
+## es parte de el, pero llegar a 15 m/s y quedarte clavado en un frame se siente
+## como chocar contra el aire. Medido antes: 15.0 -> 0.0.
+@export_range(0.0, 1.0, 0.05) var parry_retencion: float = 0.25
 @export_range(0.02, 0.6, 0.01) var parry_ventana: float = 0.16
 @export_range(0.01, 0.3, 0.01) var parry_ventana_perfecta: float = 0.06
 @export_range(0.0, 2.0, 0.01) var parry_recuperacion_fallo: float = 0.4
@@ -670,11 +694,6 @@ func velocidad_dash() -> float:
 ## horizontal, asi que recortar ahi le quita energia en el unico punto donde el
 ## clamp muerde y el arco pierde altura por una razon que no es fisica.
 @export_range(10.0, 60.0, 0.5) var cuerda_velocidad_max: float = 34.0
-## Segundos que la velocidad de salida sobrevive al clamp global tras soltar.
-##
-## Sin esto el multiplicador no existe: se paga en `Grapple` y se vuela en `Fall`,
-## y el clamp se lo come en el mismo frame, en silencio y solo en horizontal.
-@export_range(0.0, 4.0, 0.05) var cuerda_libertad: float = 1.0
 ## Cuanto puede corregir la restriccion la POSICION del jugador en un frame, en
 ## metros. Escribir `global_position` salta por encima de las colisiones, asi que
 ## un tiron grande podria meter al jugador dentro de la geometria. Con tope, la
@@ -738,10 +757,6 @@ func velocidad_dash() -> float:
 ## Segundos de gravedad CERO tras acertar. Sin esto el rebote es un empujon y ya;
 ## con esto hay una pausa en la que se elige el siguiente objetivo.
 @export_range(0.0, 1.0, 0.01) var patada_hangtime: float = 0.14
-## Segundos que la velocidad heredada sobrevive al clamp global tras la patada.
-## Mismo mecanismo que el de la cuerda y por lo mismo: si el techo muriera con el
-## estado, el suelo de velocidad no serviria de nada en cuanto pasaras de 22.
-@export_range(0.0, 4.0, 0.05) var patada_libertad: float = 0.6
 ## Con cuanta autoridad se redirige, en grados por segundo.
 ##
 ## Alta a proposito: la ley del moveset dice que el jugador manda la direccion

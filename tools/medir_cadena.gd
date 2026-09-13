@@ -43,6 +43,13 @@ var _frames_desde_toque: int = -1
 var _recargas: int = 0
 var _cargas_prev: int = -1
 var _v_plano_prev: float = 0.0
+## Rapidez en el PRIMER frame dentro de `_espiar`. Es donde se ve si el estado te
+## recibe conservando o borrando.
+var _espiar: StringName = &""
+var _v_estado: float = -1.0
+## Curva de la rapidez frame a frame, para ver si el tope corta o decae.
+var _curva: PackedFloat32Array = PackedFloat32Array()
+var _midiendo_curva: bool = false
 
 
 func _ready() -> void:
@@ -126,6 +133,44 @@ func _construir() -> void:
 				_lanzar(Vector3(-0.4, 6.0, -24.0), dir * 30.0, false),
 			func() -> String: return _linea_roce()),
 
+		# --- LOS ESTADOS QUE TE RECIBEN ---------------------------------------
+		# La regla del genero, escrita en el propio documento: "nunca reinicies la
+		# velocidad horizontal al entrar a un estado; convierte, escala o proyecta".
+		# Aqui se va a buscar quien la incumple, llegando lanzado a cada uno.
+		_medida("DASHEAR viniendo a 36 m/s", 0.5,
+			func() -> void:
+				_lanzar(Vector3(0.0, 10.0, 6.0), Vector3.RIGHT * 36.0, false)
+				_v_estado = -1.0
+				_espiar = &"Dash"
+				_p.fsm.cambiar(&"Dash"),
+			func() -> String:
+				return "entra %.1f -> primer frame dentro %.1f" % [_v_lanzado, _v_estado]),
+
+		_medida("PARRY viniendo a 15 m/s", 0.5,
+			func() -> void:
+				_lanzar(Vector3(0.0, 0.3, 6.0), Vector3.RIGHT * 15.0, false)
+				_v_estado = -1.0
+				_espiar = &"Parry"
+				_p.fsm.cambiar(&"Parry"),
+			func() -> String:
+				return "entra %.1f -> primer frame dentro %.1f" % [_v_lanzado, _v_estado]),
+
+		# EL TOPE. Con un clamp duro, pasar de 34 a 22 ocurre en UN frame y el
+		# momentum ganado no se siente ganado. Con un soft cap decae, y lo que se mide
+		# es cuanto tarda.
+		_medida("de 34 m/s al tope: ¿corte o caida?", 1.2,
+			func() -> void:
+				_lanzar(Vector3(0.0, 30.0, 6.0), Vector3.RIGHT * 34.0, false)
+				_curva = PackedFloat32Array()
+				_midiendo_curva = true,
+			func() -> String:
+				_midiendo_curva = false
+				var t := PackedStringArray()
+				for i in [0, 3, 6, 12, 24, 48]:
+					if i < _curva.size():
+						t.append("%dfr %.1f" % [i, _curva[i]])
+				return " · ".join(t)),
+
 		# EL CANTO. Otro receptor de momentum, y el que más se cruza en un arco:
 		# la repisa del Gym, a media altura de la pared.
 		_medida("llegar a un canto a 25 m/s", 1.4,
@@ -149,8 +194,6 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_p.global_position = pos
 	_p.velocity = vel
 	_p.stamina.llenar()
-	_p.momentum_libre = 8.0
-	_p.momentum_techo = 40.0
 	_p.recargar_moveset()
 	# La habilidad vuelve a estar puesta en cada medida: el Gym la da, y una medida
 	# no puede heredar el estado de la anterior.
@@ -165,6 +208,8 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_v_final = 0.0
 	_estados = PackedStringArray([str(_p.fsm.nombre_actual())])
 	_pared_frames = 0
+	_espiar = &""
+	_midiendo_curva = false
 	_v_al_tocar = -1.0
 	_v_tras_tocar = -1.0
 	_frames_desde_toque = -1
@@ -212,6 +257,10 @@ func _physics_process(delta: float) -> void:
 		if _frames_desde_toque == 10:
 			_v_tras_tocar = plano
 	_v_plano_prev = plano
+	if _espiar != &"" and estado == _espiar and _v_estado < 0.0:
+		_v_estado = plano
+	if _midiendo_curva and _curva.size() < 64:
+		_curva.append(plano)
 	_cargas_min = mini(_cargas_min, _p.patada_cargas)
 	_cargas_max = maxi(_cargas_max, _p.patada_cargas)
 	if _p.patada_cargas > _cargas_prev:

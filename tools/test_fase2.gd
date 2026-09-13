@@ -186,16 +186,47 @@ func _construir_guion() -> void:
 			func() -> bool: return _saltos_contados <= 2,
 			"machacar salto solo debe dar el salto y el doble salto, no mas"),
 
-		# El clamp impide que encadenar momentum saque al jugador del mapa.
-		_chequeo_("clamp de velocidad", 0.3,
+		# EL TOPE ES UN OBJETIVO, NO UN CORTE (4.00, punto 17 del documento).
+		#
+		# Este chequeo decia antes "la velocidad nunca supera `velocidad_maxima`", y
+		# esa era la contrata vieja: el clamp duro recortaba de golpe y salir de un
+		# arco a 34 m/s te dejaba a 22.0 EN EL PRIMER FRAME. La contrata nueva es
+		# otra y hay que escribirla entera, que son tres cosas:
+		#
+		#   · el tope DURO si corta, y no es de game feel: es la red que impide
+		#     atravesar geometria entre dos frames de fisica;
+		#   · por encima del tope blando la rapidez DECAE en vez de cortarse; y
+		#   · acaba llegando, o "decae" seria un eufemismo de "no limita".
+		_chequeo_("el tope duro si corta", 0.2,
 			func() -> void:
 				_soltar_todo()
 				_reponer()
-				_p.global_position = Vector3(0.0, 0.05, 0.0)
-				_p.fsm.cambiar(&"Idle")
-				_p.velocity = Vector3(80.0, 0.0, 0.0),
-			func() -> bool: return _p.motor.rapidez_plana() <= _p.tuning.velocidad_maxima + 0.1,
-			"la velocidad horizontal nunca debe superar velocidad_maxima"),
+				_p.global_position = Vector3(0.0, 8.0, 0.0)
+				_p.fsm.cambiar(&"Fall")
+				_p.velocity = Vector3(300.0, 0.0, 0.0),
+			func() -> bool:
+				return _p.motor.rapidez_plana() <= _p.tuning.velocidad_tope_duro + 0.1,
+			"sin red, a 300 m/s un muro de un metro deja de ser un muro"),
+
+		_chequeo_("y el blando NO: decae hacia el tope", 0.25,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 12.0, 0.0)
+				_p.fsm.cambiar(&"Fall")
+				_p.velocity = Vector3(34.0, 0.0, 0.0),
+			func() -> bool:
+				# A un cuarto de segundo todavia queda bastante por encima del tope:
+				# eso es lo que hace que el momentum ganado se sienta ganado.
+				var v := _p.motor.rapidez_plana()
+				return v > _p.tuning.velocidad_maxima + 3.0 and v < 34.0,
+			"cortar de golpe borra en un frame lo que costo encadenar"),
+
+		_chequeo_("pero acaba llegando", 1.6,
+			func() -> void: pass,
+			func() -> bool:
+				return _p.motor.rapidez_plana() <= _p.tuning.velocidad_maxima + 1.0,
+			"un decaimiento que no converge no es un tope, es una sugerencia"),
 
 		# El frenazo de Mario 64 es una maniobra de pies: en el aire, nunca.
 		_chequeo_("no se frena en el aire", 0.35,
@@ -834,8 +865,6 @@ func _construir_guion() -> void:
 				# cerca. Se llega casi paralelo, que es lo que hace un ROCE.
 				_p.global_position = Vector3(0.0, 6.0, -24.0)
 				_p.velocity = Vector3(0.28, 0.0, -0.96).normalized() * 26.0
-				_p.momentum_libre = 4.0
-				_p.momentum_techo = 40.0
 				_p.fsm.cambiar(&"Fall")
 				_v_roce = 0.0,
 			func() -> bool: return _v_roce > 26.0 * 0.85,
