@@ -781,6 +781,66 @@ func _construir_guion() -> void:
 				return true,
 			"dos criterios sobre dos vectores es como se llega a que la pared quiera hacer todo a la vez"),
 
+		# --- 4.00: ESCALAR ES UNA HABILIDAD QUE SE LLEVA PUESTA ---------------
+		#
+		# Escalar era el unico verbo que APAGABA el moveset en vez de encadenarlo:
+		# la adherencia automatica te agarraba al muro en 0.35 s de insistir y
+		# `StateClimb` escribe `velocity = Vector3.ZERO` cada frame. Medido con
+		# `MedirCadena`: llegar a un muro a 30 m/s empujando daba
+		# `Fall > WallSlide > Climb` y 30.0 -> 0.0 m/s.
+		#
+		# Con la habilidad detras de un objeto, la pared vuelve a ser un sitio del
+		# que rebotar mientras no lo lleves puesto.
+		_chequeo_("con la habilidad puesta, insistir trepa", 1.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.puede_escalar = true
+				_p.global_position = Vector3(24.0, 0.05, 21.2)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(0.0)
+				_p.fsm.cambiar(&"Idle")
+				_visitados.erase(&"Climb")
+				_pulsar(&"move_forward"),
+			func() -> bool: return _visitados.has(&"Climb"),
+			"es el comportamiento de siempre: sin el, el candado no estaria apagando nada"),
+
+		_chequeo_("SIN la habilidad, la misma insistencia NO trepa", 1.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.puede_escalar = false
+				_p.global_position = Vector3(24.0, 0.05, 21.2)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(0.0)
+				_p.fsm.cambiar(&"Idle")
+				_visitados.erase(&"Climb")
+				_pulsar(&"move_forward"),
+			func() -> bool: return not _visitados.has(&"Climb"),
+			"un vestuario que no cambia nada no es un vestuario, es un adorno"),
+
+		# ROZAR UN MURO CONSERVA LA LINEA. Es la regla del genero —"encadenar
+		# limpio acumula velocidad"— vista desde el lado del mundo, y el guardia
+		# que impide que alguien vuelva a escribir `motor.impulso()` en un estado
+		# de pared: `impulso()` con `conservar = false` REEMPLAZA el vector
+		# horizontal entero, asi que rozar a 30 m/s te dejaba a 1.2 yendo hacia la
+		# pared. Medido tras el arreglo: 98% conservado a 16 y a 35 grados.
+		_chequeo_("rozar un muro conserva la velocidad", 0.55,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.puede_escalar = false
+				# El corredor de wall-run: dos muros de 24 m a x = +-1.3, sin suelo
+				# cerca. Se llega casi paralelo, que es lo que hace un ROCE.
+				_p.global_position = Vector3(0.0, 6.0, -24.0)
+				_p.velocity = Vector3(0.28, 0.0, -0.96).normalized() * 26.0
+				_p.momentum_libre = 4.0
+				_p.momentum_techo = 40.0
+				_p.fsm.cambiar(&"Fall")
+				_v_roce = 0.0,
+			func() -> bool: return _v_roce > 26.0 * 0.85,
+			"un roce que borra la linea convierte cada pared en un castigo"),
+
 		_paso_("repoblar arena", 0.35, func() -> void:
 			_soltar_todo()
 			(_main.get_node("Arena") as Arena).poblar()
@@ -818,6 +878,10 @@ var _vida_antes: float = 0.0
 ## modo hoja: lo que se mide es CUANTO se ha movido, no donde esta.
 var _marca: Vector3 = Vector3.ZERO
 var _esperar_frames: int = 0
+## Rapidez maxima vista rozando un muro EN EL AIRE. Se mide mientras pasa: al
+## final de la ventana el jugador ya ha aterrizado y lo que se leeria es la
+## friccion del suelo echandole la culpa al muro.
+var _v_roce: float = 0.0
 var _esperar_ataque: int = 0
 var _esperar_salto: int = 0
 var _spam_salto: int = 0
@@ -954,6 +1018,11 @@ func _physics_process(delta: float) -> void:
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())
+
+	# El roce se lee EN EL AIRE y contra la pared: es la unica ventana en la que el
+	# numero habla del muro y no del suelo.
+	if _p != null and _p.is_on_wall() and not _p.is_on_floor():
+		_v_roce = maxf(_v_roce, _p.superficie.plano(_p.velocity).length())
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t):

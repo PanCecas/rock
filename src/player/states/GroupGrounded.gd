@@ -33,7 +33,7 @@ func shared_update(delta: float) -> void:
 	#
 	# Y aqui SI se mira el boton de agarre, no solo la adherencia automatica: desde
 	# el suelo era el unico sitio donde pulsar agarre no hacia absolutamente nada.
-	if player.pared.hay_pared and fsm.actual.name != &"Climb":
+	if player.escalada_habilitada() and player.pared.hay_pared and fsm.actual.name != &"Climb":
 		var quiere_agarrar := buffer.is_held(InputActions.GRAB) or player.adherencia_lista()
 		if quiere_agarrar and not player.stamina.vacia():
 			fsm.cambiar(&"Climb")

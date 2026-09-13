@@ -235,6 +235,20 @@ extends Resource
 @export_range(0.1, 10.0, 0.1) var wallrun_velocidad_min: float = 4.0
 ## Caida durante el wall-slide. Baja = da tiempo a reaccionar y encadenar.
 @export_range(0.0, 20.0, 0.1) var wallslide_caida: float = 3.2
+## Con cuanta fuerza se pega el cuerpo al muro mientras resbala, en m/s.
+##
+## Es un valor pequeño y va SOLO en la componente contra la pared. Antes se
+## escribia con `motor.impulso()`, que reemplaza el vector horizontal entero: o
+## sea que rozar un muro a 30 m/s te dejaba a 1.2 yendo hacia el, y toda la
+## velocidad que llevabas A LO LARGO de la pared desaparecia. La intencion del
+## numero era "no despegarse solo" y lo que hacia era borrarte.
+@export_range(0.0, 8.0, 0.1) var wallslide_pegado: float = 1.2
+## Rozamiento del muro sobre la velocidad que va A LO LARGO de el, por segundo.
+##
+## Esto si es una perdida legitima —estas restregandote contra piedra— pero es un
+## rozamiento y no un borrado: conservas la linea y la vas perdiendo. Es el "bonk
+## preservation" del genero.
+@export_range(0.0, 20.0, 0.1) var wallslide_friccion: float = 2.2
 ## Velocidad minima CONTRA la pared para engancharse sin tener que empujar hacia
 ## ella. En Mario basta con chocar; exigir input hace que se sienta esquivo.
 @export_range(0.0, 10.0, 0.1) var wallslide_entrada_min: float = 1.0

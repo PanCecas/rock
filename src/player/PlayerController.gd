@@ -52,6 +52,23 @@ var lanza: Spear = null
 ## La gasta `Grapple` al entrar y la devuelve `recargar_moveset()`, en un solo
 ## sitio. Ver ahi por que no va dentro de `recargar_aire()`.
 var cuerda_disponible: bool = true
+## ¿PUEDE TREPAR? **Es una HABILIDAD que se lleva puesta, no algo que se sabe.**
+##
+## Empieza en `false` a proposito. Escalar es el unico verbo que APAGA el moveset
+## en vez de encadenarlo: te agarra al muro sin pedirlo —la adherencia automatica
+## se arma en 0.35 s de insistir— y `StateClimb` escribe `velocity = Vector3.ZERO`
+## cada frame. Medido: llegar a un muro a 30 m/s empujando daba
+## `Fall > WallSlide > Climb` y **30.0 -> 0.0 m/s**.
+##
+## Con la habilidad detras de un objeto, la pared vuelve a ser lo que tiene que ser
+## mientras no lo tengas —un sitio del que rebotar, wall-slide y wall-jump— y
+## trepar pasa a ser una decision que se toma al equiparse, no un accidente que te
+## come la linea que llevabas.
+##
+## Lo pone quien te lo da: hoy un `@export` del nivel y del Gym; manana el
+## inventario, sin que nada de aqui cambie.
+@export var puede_escalar: bool = false
+
 ## ¿CUANTAS PATADAS quedan? Mismo trato que la cuerda y la misma moneda: se gastan
 ## al entrar y vuelven con el mismo contacto, asi que el jugador no lleva dos
 ## cuentas — o has tocado algo, o no.
@@ -497,6 +514,13 @@ func iniciar_hangtime(segundos: float) -> void:
 ## `move_and_slide()`, cuando hay suelo o pared. Un solo sitio es lo que hace
 ## imposible olvidarse de recargar al añadir el verbo siguiente — y la condicion
 ## se lee igual que la regla: tocar algo te devuelve la cuerda.
+## ¿Se puede trepar AHORA? Un solo sitio, tres lectores: los dos grupos que
+## proponen `Climb` y la adherencia automatica. Sin centralizarlo seria la regla
+## dura #13 otra vez — una condicion compartida que existe en dos sitios de tres.
+func escalada_habilitada() -> bool:
+	return puede_escalar
+
+
 func recargar_moveset() -> void:
 	cuerda_disponible = true
 	patada_cargas = tuning.patada_cargas
@@ -826,6 +850,11 @@ func _actualizar_sidejump(_delta: float) -> void:
 ## Escalar deja de ser un boton que hay que saber y pasa a ser lo que ocurre si
 ## insistes contra un muro, que es como se descubre en Breath of the Wild.
 func _actualizar_adherencia(delta: float) -> void:
+	# SIN LA HABILIDAD NO HAY ADHERENCIA. Va lo primero: es la que engancha SOLA,
+	# asi que es la que de verdad te quita la linea sin haberlo pedido.
+	if not escalada_habilitada():
+		tiempo_contra_pared = 0.0
+		return
 	if not pared.hay_pared or stamina.vacia():
 		tiempo_contra_pared = 0.0
 		return

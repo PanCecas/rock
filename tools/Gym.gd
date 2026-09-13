@@ -15,6 +15,12 @@ extends Node3D
 		palette = v
 		if is_inside_tree():
 			construir()
+## ¿El jugador del Gym lleva puesta la habilidad de trepar? Ver `_dar_habilidades`.
+##
+## El Gym es un GIMNASIO: aqui estan todas las habilidades puestas, porque es donde
+## se prueba el moveset y no donde se juega la progresion. En falso deja sentir
+## como es la pared SIN el vestuario, que es como empieza una partida de verdad.
+@export var con_escalada: bool = true
 
 @export_group("Parámetros")
 @export var angulos_rampa: PackedFloat32Array = [15.0, 25.0, 35.0, 45.0, 60.0]
@@ -406,12 +412,19 @@ func _muro_lanza() -> void:
 	# El jugador puede no existir todavia: quien construye primero depende del
 	# orden en `Main.tscn`, y eso no es algo sobre lo que se deba apostar.
 	if GameState.player != null:
-		_dar_lanza(GameState.player)
-	elif not EventBus.player_spawned.is_connected(_dar_lanza):
-		EventBus.player_spawned.connect(_dar_lanza, CONNECT_ONE_SHOT)
+		_equipar(GameState.player)
+	elif not EventBus.player_spawned.is_connected(_equipar):
+		EventBus.player_spawned.connect(_equipar, CONNECT_ONE_SHOT)
 
 
 ## Crea LA lanza y se la entrega al jugador. Una sola en todo el juego.
+## Todo lo que el Gym le pone encima al jugador, en un solo sitio: el arma y las
+## habilidades. Dos cosas distintas que llegan por el mismo evento.
+func _equipar(jugador: Node3D) -> void:
+	jugador.set("puede_escalar", con_escalada)
+	_dar_lanza(jugador)
+
+
 func _dar_lanza(jugador: Node3D) -> void:
 	if jugador == null or _raiz == null or not is_instance_valid(_raiz):
 		return

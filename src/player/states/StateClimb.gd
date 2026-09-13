@@ -24,6 +24,12 @@ var _sin_pared: float = 0.0
 
 
 func enter(_msg: Dictionary = {}) -> void:
+	# SIN LA HABILIDAD NO SE TREPA. Las tres puertas de entrada ya lo comprueban;
+	# esto es el cinturon: un estado al que se llega sin cumplir su condicion es un
+	# estado que algun dia se alcanzara por un camino que nadie reviso.
+	if not player.escalada_habilitada():
+		fsm.cambiar(&"Fall")
+		return
 	# LEDGE SNAP: si al subir aparece un canto agarrable, el personaje se ancla a
 	# el automaticamente en vez de seguir trepando contra el aire. Es lo que evita
 	# el momento tonto de estar escalando por encima del borde sin poder subir.

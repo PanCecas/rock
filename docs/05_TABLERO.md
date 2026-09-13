@@ -93,6 +93,8 @@ puso el jugador, no el motor*.
 | **LA Z SE MANTIENE.** Mientras aguantes sigues colgado; al soltar te sueltas. Un toque da un gancho corto, mantener da el arco entero — el mismo rango continuo de intenciones que el jump cut le da al salto | `TestCuerda` 19/19 |
 | **El freno del bombeo cambió de sitio.** Con el arco de 1 s lo impedía el reloj: no había segunda pasada. Con la Z mantenida sí la hay, así que ahora frena `cuerda_perdida` — comprobado aguantando el tope entero empujando con el stick: **no sube** | `TestCuerda`, comprobación propia |
 | `cuerda_arco_max` sube a 3 s y pasa a ser techo de seguridad, no mecánica | `TestCuerda` |
+| **ESCALAR PASA A SER UNA HABILIDAD EQUIPADA** (`puede_escalar`). Era el único verbo que apagaba el moveset: llegar a un muro a 30 m/s empujando daba `Fall > WallSlide > Climb` y **30.0 → 0.0 m/s**. Sin ella: `Fall > WallSlide > Move`, y aterrizas corriendo | `TestFase2`, dos chequeos · `MedirCadena` |
+| **Rozar un muro conserva la línea.** `StateWallSlide` escribía `motor.impulso(-normal, 1.2)`, que REEMPLAZA el vector horizontal entero: la intención era «no despegarse solo» y lo que hacía era borrarte. Ahora la componente contra el muro se sustituye y la que va a lo largo se conserva con rozamiento — **97% medido a 26 m/s** | `TestFase2` · `CapturaEscalada` |
 | **El stick dirige el arco entero** — aceleración tangencial, proyectada fuera del radio. Dirige, no acumula | `TestCuerda`, desvío lateral > 1.5 m |
 | **Al soltar conserva la velocidad y la premia** (×1.15), con permiso temporal sobre el clamp global | `TestCuerda`, ratio medido en el plano |
 | **Una por tiempo de vuelo**, recargada al tocar suelo o pared, en UN solo sitio | `TestCuerda` |
@@ -211,7 +213,7 @@ puso el jugador, no el motor*.
 | Suite | |
 |---|---|
 | `TestFase1` — FSM | **12/12** |
-| `TestFase2` — postura, agua, escalada, locomoción, paredes, parry, daño recibido | **91/91** |
+| `TestFase2` — postura, agua, escalada, locomoción, paredes, parry, candado de escalada | **94/94** |
 | `TestCuerda` — el arco: enganche, radio, caducidad, dirección, cargas y filtros | **15/15** |
 | `TestPatada` — el gesto, la velocidad heredada, el rebote, la cadena y el anti-spam | **21/21** |
 | `TestEnemigos` — cono, carga, patrulla, arquetipos, punto débil | **31/31** |

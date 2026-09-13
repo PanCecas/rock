@@ -239,6 +239,33 @@ plataformas en movimiento.
 	No rompe la regla #12 ni la del `move_and_slide` unico: ahi no se mueve a
 	nadie, se corrige lo ya movido. Y la correccion de `global_position` va
 	ACOTADA por frame, porque escribirla salta por encima de las colisiones.
+29. **`motor.impulso()` REEMPLAZA EL VECTOR HORIZONTAL ENTERO**, no lo empuja.
+	Con `conservar = false` —que es el defecto— la llamada escribe
+	`velocity = direccion * magnitud`, asi que un numero pequeño puesto con la
+	intencion de "empujar un poco" BORRA todo lo que llevabas.
+	Ha mordido dos veces en el mismo parche y de la misma forma. En `StateKick`,
+	escribir 18 m/s cada frame hacia que entrar lanzado a 29.8 te dejara a 18.0:
+	**la patada te quitaba velocidad por usar tu propio moveset**. Y en
+	`StateWallSlide`, un `impulso(-normal, 1.2)` cuyo comentario decia "pegarse
+	ligeramente a la pared para no despegarse solo" dejaba a 1.2 a quien llegaba
+	rozando a 30 — la componente que iba A LO LARGO del muro desaparecia entera.
+	**Cuando lo que se quiere es un SUELO o un EMPUJON, no se usa `impulso()` a
+	secas:** o `maxf(rapidez_actual, minimo)` para un suelo, o se parte la
+	velocidad en componentes y se trata cada una como toca —la que va contra el
+	muro se sustituye, la que va a lo largo se conserva y se le aplica rozamiento—.
+	Un roce que borra la linea convierte cada pared en un castigo, y eso choca de
+	frente con la ley del moveset: encadenar limpio acumula velocidad.
+30. **ESCALAR ES UNA HABILIDAD QUE SE LLEVA PUESTA** (`puede_escalar`), y por una
+	razon de sistema y no de progresion: **es el unico verbo que APAGA el moveset
+	en vez de encadenarlo**. La adherencia automatica te agarra al muro en 0.35 s
+	de insistir y `StateClimb` escribe `velocity = Vector3.ZERO` cada frame.
+	Medido con `MedirCadena`: llegar a un muro a 30 m/s empujando daba
+	`Fall > WallSlide > Climb` y **30.0 -> 0.0 m/s**; sin la habilidad, el mismo
+	gesto da `Fall > WallSlide > Move` y aterrizas corriendo.
+	Lo comprueban las TRES puertas —los dos grupos que proponen `Climb` y la
+	adherencia automatica— mas un guardia defensivo en `StateClimb.enter()`. Cuatro
+	sitios y una sola condicion, `escalada_habilitada()`: repartir la condicion
+	seria la regla dura #13 otra vez.
 
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
@@ -306,7 +333,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Salto fuerte | C (quieto) + Espacio | |
 | Side jump | Correr, girar en seco y saltar (planta y luego sale) | |
 | Long jump | Shift + C + Espacio | |
-| Escalar | Insistir contra el muro · Shift impulsa | |
+| **Escalar** — pide la HABILIDAD equipada (`puede_escalar`) | Insistir contra el muro · Shift impulsa | |
+| | *sin ella la pared solo da wall-slide y wall-jump, y conservas la linea* | |
 | Nadar / bucear | C bucea · mantener Espacio sube · Shift acelera | |
 | | *nadar es traversal puro: en el agua no se pega* | |
 | Landing slide | Aterrizar con velocidad manteniendo C | |
@@ -380,10 +408,12 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 14 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido y que el surf no te pega a la pared. 91 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido, el CANDADO DE ESCALADA y que rozar un muro conserva la linea. 94 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
+| `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Con fila de control —el mismo muro sin la habilidad de trepar— porque un numero sin su control no dice nada. `godot --headless --path . tools/MedirCadena.tscn` |
+| `tools/CapturaEscalada.tscn` | **Cuatro fotos del candado de escalada**: el mismo gesto contra el mismo muro con la habilidad y sin ella, y un roce a 26 m/s. Necesita GPU. `godot --path . --resolution 1280x720 tools/CapturaEscalada.tscn` |
 | `tools/MedirPatada.tscn` | **Cronometra la patada**, que es donde se vio que no se sentia bien: que le hace a la velocidad que ya llevabas, que le hace a la vertical, si se puede salir de ella, que pasa al conectar y cuanto terreno cubre. Las cinco lineas que dijeron los cuatro defectos de la primera version. `godot --headless --path . tools/MedirPatada.tscn` |
 | `tools/CapturaPatada.tscn` | **Ocho fotos de la patada** con el panel de debug puesto, para leer el numero y la imagen juntos. Necesita GPU. Un numero no dice si el personaje sale por donde parecia que iba a salir; cazo que la patada no existia estando colgado del arco. `godot --path . --resolution 1280x720 tools/CapturaPatada.tscn` |
 | `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo y pared la devuelven. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 15 comprobaciones. |
