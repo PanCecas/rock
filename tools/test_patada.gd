@@ -213,6 +213,18 @@ func _construir() -> void:
 			func() -> bool: return _vy_rebote > _p.tuning.patada_rebote * 0.7,
 			"sin rebote, golpear es el final de una linea en vez de un eslabon"),
 
+		# LOS TRES RECURSOS AEREOS SON UN PRESUPUESTO, NO TRES CUENTAS.
+		#
+		# El salto aereo se reponia solo desde el suelo, el agua, un canto, un parry
+		# y el wall-jump: tocar una PARED o acertar una PATADA devolvian la cuerda y
+		# las patadas pero NO el salto. En mitad de una cadena el boton dejaba de
+		# responder mientras los otros dos seguian vivos, y eso se lee como que el
+		# salto esta roto y no como que se ha gastado.
+		_chequeo_("y el salto aéreo vuelve con ellas", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _p.saltos_aereos >= _p.tuning.saltos_aereos,
+			"tres recursos aéreos y dos cuentas distintas es una cuenta de más"),
+
 		# --- UNA POR TIEMPO DE VUELO ------------------------------------------
 		_chequeo_("sin cargas, en el aire no hay patada", 0.7,
 			func() -> void:

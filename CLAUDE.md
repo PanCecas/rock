@@ -374,7 +374,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *el stick dirige el arco entero — lo abre, lo cierra, lo inclina* | |
 | | ***Espacio** tambien suelta, y salta · las dos conservan la velocidad* | |
 | | *tope de 3 s por si no sueltas. Lo que impide bombear no es el reloj: es la perdida* | |
-| | *UNA por tiempo de vuelo. Se recarga al tocar suelo o pared* | |
+| | *alcance 19 m, elegido mirando la separacion real entre anclas vecinas* | |
+| | *UNA por tiempo de vuelo. Se recarga al tocar suelo, pared o enemigo* | |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Hoja de notas** (junto a la jam) | **E** | Y |
 | | *rejilla de rombos y circulos: una columna por musico, una fila por paso* | |
@@ -573,6 +574,18 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
   detalle: medirlo todo desde la camara le suma al alcance la distancia del brazo.
   Medido al cazarlo, `cuerda_rango` decia 12 y se enganchaba a **20.75 m** — y ese
   numero es justo el que dibuja los niveles.
+- **EL ALCANCE SE ELIGE MIRANDO EL NIVEL, no a gusto.** Estaba en 12 m y de las
+  cinco anclas del Gym —separadas 13.7, 18.3, 9.7, 18.3 y 16.7 m— **solo UNA
+  pareja se podia encadenar**. La cuerda se sentia corta con razon: no habia
+  cadena que dar. Con 19 llegan las cinco, y `MedirCadena` lo cuenta leyendo el
+  mundo en vez de una tabla, asi que el dia que se muevan las anclas sigue
+  diciendo la verdad.
+- **LOS TRES RECURSOS AEREOS SON UN PRESUPUESTO**, no tres cuentas. El salto
+  aereo lo reponia solo `recargar_aire()` —suelo, agua, canto, parry, wall-jump—
+  mientras que la cuerda y las patadas volvian tambien al tocar PARED o acertar
+  una patada. En mitad de una cadena el boton de salto dejaba de responder con los
+  otros dos vivos, y eso se lee como que el salto esta roto y no como que se ha
+  gastado. Ahora `recargar_moveset()` repone los tres con un gesto: tocar algo.
 - **El tope de velocidad pasa a ser un OBJETIVO** (regla dura #12): salir del arco
   a 34 m/s ya no se corta a 22 en un frame, decae. Con eso desaparece
   `momentum_libre`, que era el parche que hacia falta mientras el corte existia.

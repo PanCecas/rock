@@ -50,6 +50,15 @@ var _v_estado: float = -1.0
 ## Curva de la rapidez frame a frame, para ver si el tope corta o decae.
 var _curva: PackedFloat32Array = PackedFloat32Array()
 var _midiendo_curva: bool = false
+## Salto medido desde donde sea: la vertical justo antes de pulsar y la de cuatro
+## frames despues, que es cuando el impulso ya esta puesto y la gravedad apenas lo
+## ha tocado.
+var _cuerda_fija: bool = false
+var _cuerda_suelta: bool = true
+var _saltar_tras: int = -1
+var _vy_antes_salto: float = 0.0
+var _vy_tras_salto: float = -99.0
+var _contando_salto: int = -1
 
 
 func _ready() -> void:
@@ -171,6 +180,39 @@ func _construir() -> void:
 						t.append("%dfr %.1f" % [i, _curva[i]])
 				return " · ".join(t)),
 
+		# --- LA CUERDA: ALCANCE Y SALIDA -------------------------------------
+		# ¿Se pueden encadenar las anclas que hay PUESTAS? El alcance no es un numero
+		# de gusto: es la distancia entre dos anclas vecinas. Si es menor, no hay
+		# cadena que dar y la cuerda se siente corta con razon.
+		_medida("¿llega el alcance de un ancla a la siguiente?", 0.1,
+			func() -> void: pass,
+			func() -> String: return _cuerdas_entre_anclas()),
+
+		# SALTAR DESDE EL ARCO. Lo que se mide es la vertical DESPUES, comparada con
+		# la que traias: si salen iguales, el boton no esta dando ningun impulso.
+		_medida("saltar desde el arco: ¿da impulso?", 0.6,
+			func() -> void:
+				_lanzar(Vector3(16.0, 6.0, 26.0), Vector3.ZERO, false)
+				_vy_antes_salto = 0.0
+				_vy_tras_salto = -99.0
+				_cuerda_fija = true
+				_saltar_tras = 26,
+			func() -> String:
+				return "vy en el arco %.1f -> tras pulsar Espacio %.1f" % [
+					_vy_antes_salto, _vy_tras_salto]),
+
+		# EL DOBLE SALTO a secas, como fila de control: si este da impulso y el de la
+		# cuerda no, el problema es de la cuerda y no del salto.
+		_medida("doble salto en el aire — control", 0.5,
+			func() -> void:
+				_lanzar(Vector3(0.0, 14.0, 6.0), Vector3.ZERO, false)
+				_vy_antes_salto = 0.0
+				_vy_tras_salto = -99.0
+				_saltar_tras = 8,
+			func() -> String:
+				return "vy cayendo %.1f -> tras pulsar Espacio %.1f" % [
+					_vy_antes_salto, _vy_tras_salto]),
+
 		# EL CANTO. Otro receptor de momentum, y el que más se cruza en un arco:
 		# la repisa del Gym, a media altura de la pared.
 		_medida("llegar a un canto a 25 m/s", 1.4,
@@ -195,6 +237,11 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_p.velocity = vel
 	_p.stamina.llenar()
 	_p.recargar_moveset()
+	# Y LOS SALTOS AEREOS, que son otra cuenta. `recargar_moveset()` repone la
+	# cuerda y la patada; el doble salto y el dash los repone `recargar_aire()`, y
+	# olvidarlo hacia que la fila de control del doble salto midiera a un jugador
+	# que ya no le quedaba —"no salta" en vez de "no le queda"—.
+	_p.recargar_aire()
 	# La habilidad vuelve a estar puesta en cada medida: el Gym la da, y una medida
 	# no puede heredar el estado de la anterior.
 	_p.puede_escalar = true
@@ -210,6 +257,9 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_pared_frames = 0
 	_espiar = &""
 	_midiendo_curva = false
+	_cuerda_fija = false
+	_saltar_tras = -1
+	_contando_salto = -1
 	_v_al_tocar = -1.0
 	_v_tras_tocar = -1.0
 	_frames_desde_toque = -1
@@ -227,6 +277,28 @@ func _linea_roce() -> String:
 		_v_al_tocar, tras, 100.0 * tras / maxf(_v_al_tocar, 0.001), _traza()]
 
 
+## La distancia entre cada ancla del Gym y la siguiente, contra el alcance
+## configurado. Se lee del mundo, no de una tabla escrita a mano: el dia que se
+## muevan las anclas, esto sigue diciendo la verdad.
+func _cuerdas_entre_anclas() -> String:
+	var anclas: Array = get_tree().get_nodes_in_group(Ancla.GRUPO)
+	if anclas.size() < 2:
+		return "no hay anclas en el mundo"
+	var partes := PackedStringArray()
+	var alcanzables := 0
+	for i in anclas.size():
+		var a := anclas[i] as Ancla
+		var b := anclas[(i + 1) % anclas.size()] as Ancla
+		if a == null or b == null:
+			continue
+		var d := a.global_position.distance_to(b.global_position)
+		if d <= _p.tuning.cuerda_rango:
+			alcanzables += 1
+		partes.append("%.1f" % d)
+	return "%d de %d vecinas dentro de %.0f m   [%s]" % [
+		alcanzables, partes.size(), _p.tuning.cuerda_rango, " ".join(partes)]
+
+
 func _traza() -> String:
 	return " > ".join(_estados)
 
@@ -238,6 +310,28 @@ func _physics_process(delta: float) -> void:
 		_informe()
 		return
 	_t += delta
+
+	# La Z mantenida necesita el FLANCO al soltar: dejar de llamar a `action_press`
+	# no suelta nada, la accion se queda pulsada para siempre.
+	if _cuerda_fija:
+		Input.action_press(&"rope")
+		_cuerda_suelta = false
+	elif not _cuerda_suelta:
+		Input.action_release(&"rope")
+		_cuerda_suelta = true
+	if _saltar_tras > 0:
+		_saltar_tras -= 1
+		if _saltar_tras == 0:
+			_vy_antes_salto = _p.superficie.vertical(_p.velocity)
+			Input.action_press(&"jump")
+			_contando_salto = 0
+	elif _saltar_tras == 0:
+		Input.action_release(&"jump")
+		_saltar_tras = -1
+	if _contando_salto >= 0:
+		_contando_salto += 1
+		if _contando_salto == 4:
+			_vy_tras_salto = _p.superficie.vertical(_p.velocity)
 
 	var estado := _p.fsm.nombre_actual()
 	if estado != _estado_prev:

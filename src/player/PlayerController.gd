@@ -526,6 +526,19 @@ func escalada_habilitada() -> bool:
 func recargar_moveset() -> void:
 	cuerda_disponible = true
 	patada_cargas = tuning.patada_cargas
+	# Y EL SALTO AEREO, que es el tercer recurso del aire y estaba en otra cuenta.
+	#
+	# `recargar_aire()` lo reponia solo desde el suelo, el agua, un canto, un parry
+	# y el wall-jump; tocar una PARED o acertar una PATADA devolvian la cuerda y
+	# las patadas pero no el salto. O sea que en mitad de una cadena el boton de
+	# salto dejaba de responder mientras los otros dos seguian vivos, y eso se lee
+	# como que el salto esta roto y no como que se ha gastado.
+	#
+	# Los tres recursos aereos son UN presupuesto y se reponen con UN gesto: tocar
+	# algo. Es el punto 3 del documento de movimiento —"los recursos aereos son
+	# presupuesto, no cooldown"— y la unica forma de que el jugador no tenga que
+	# llevar dos cuentas distintas en la cabeza.
+	saltos_aereos = tuning.saltos_aereos
 
 
 ## EL ANCLA A LA QUE ENGANCHARIA AHORA MISMO, o null.

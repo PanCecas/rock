@@ -627,9 +627,17 @@ func velocidad_dash() -> float:
 
 ## LA CUERDA. Un arco, y se acabo.
 ##
-## A que distancia se puede enganchar un ancla, en metros. Es el numero que
-## dibuja los niveles: dos anclas a mas de esto no se encadenan, y a menos si.
-@export_range(2.0, 40.0, 0.5) var cuerda_rango: float = 12.0
+## A que distancia se puede enganchar un ancla, en metros.
+##
+## **Es el numero que dibuja los niveles**, y por eso no se elige a gusto: se
+## elige mirando la separacion real entre anclas vecinas. Con 12 m, de las cinco
+## del Gym —separadas 13.7, 18.3, 9.7, 18.3 y 16.7 m— **solo UNA pareja se podia
+## encadenar**, y por eso la cuerda se sentia corta con razon: no habia cadena que
+## dar. Con 19 llegan las cinco.
+##
+## `MedirCadena` lo cuenta leyendo el mundo, no una tabla escrita a mano: el dia
+## que se muevan las anclas, sigue diciendo la verdad.
+@export_range(2.0, 60.0, 0.5) var cuerda_rango: float = 19.0
 ## Semiangulo del cono de camara dentro del que se busca ancla, en grados.
 ##
 ## Existe para que enganchar sea una DECISION y no un sorteo: en una sala con
