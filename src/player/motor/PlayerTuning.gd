@@ -691,6 +691,16 @@ func velocidad_dash() -> float:
 ## Medido en el 3.08 con la version anterior de esto: el arco terminaba 6 m por
 ## ENCIMA de donde empezo.
 @export_range(5.0, 90.0, 0.5) var cuerda_gravedad: float = 30.0
+## ¿EL ANCLA CUENTA COMO CONTACTO? Con esto puesto, soltarse de un arco devuelve
+## la cuerda —igual que tocar suelo o pared— y se pueden encadenar anclas sin
+## pisar nada. Es la diferencia entre un verbo encadenable y un billete de un
+## solo viaje, y por eso esta aqui y no cableado: apagarlo devuelve el juego a
+## como se sentia antes, que es la unica forma de juzgar el cambio.
+##
+## Lo que impide que sea bombear no es este interruptor: es que la MISMA ancla no
+## vale dos veces seguidas (`PlayerController.ultima_ancla`). Encadenar exige un
+## ancla nueva, o sea que el techo lo pone el nivel.
+@export var cuerda_ancla_recarga: bool = true
 ## Multiplicador a la velocidad al soltar. Pequeño y siempre: soltar en el punto
 ## correcto ya es la recompensa —ahi es donde el arco va mas rapido— y esto solo
 ## lo subraya. Un multiplicador grande premiaria colgarse, no soltar bien.

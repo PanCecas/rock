@@ -61,6 +61,9 @@ func _ready() -> void:
 ##   2. CONO DE CÁMARA. Un producto escalar. El jugador engancha a lo que está
 ##      MIRANDO, no a lo que tiene detrás: sin esto, encadenar en una sala con
 ##      varias anclas te tira hacia la que acabas de soltar.
+##   2bis. Y LA QUE ACABAS DE SOLTAR se salta del todo (`excluir_ancla`), porque
+##      desde el 4.01 soltarse devuelve la cuerda. Ver `PlayerController
+##      .soltar_de_ancla()`.
 ##   3. LÍNEA DE VISIÓN. Un rayo, y solo para las que ya pasaron los dos filtros.
 ##      Engancharse a través de una pared se lee como un bug aunque sea cómodo.
 ##
@@ -80,7 +83,8 @@ static func mejor(
 	direccion: Vector3,
 	rango: float,
 	cos_cono: float,
-	excluir: Array[RID] = []
+	excluir: Array[RID] = [],
+	excluir_ancla: Ancla = null
 ) -> Ancla:
 	var mejor_ancla: Ancla = null
 	var mejor_puntos := -1.0
@@ -90,6 +94,13 @@ static func mejor(
 	for nodo in arbol.get_nodes_in_group(GRUPO):
 		var a := nodo as Ancla
 		if a == null or not a.is_inside_tree():
+			continue
+		# LA QUE ACABAS DE SOLTAR NO CUENTA. Es lo unico que separa «encadenar
+		# anclas» de «bombear una sola»: soltarse devuelve la cuerda, asi que sin
+		# este filtro el mismo punto se podria reenganchar en el aire una y otra
+		# vez y el arco volveria a ser un MODO con pasos extra (regla dura #27).
+		# Vuelve a valer en cuanto toques algo: `recargar_moveset()` la olvida.
+		if a == excluir_ancla:
 			continue
 		var hacia := a.global_position - origen
 		var d2 := hacia.length_squared()

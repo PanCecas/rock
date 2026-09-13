@@ -43,6 +43,7 @@ var _frames_desde_toque: int = -1
 var _recargas: int = 0
 var _cargas_prev: int = -1
 var _v_plano_prev: float = 0.0
+var _tocaba_prev: bool = false
 ## Rapidez en el PRIMER frame dentro de `_espiar`. Es donde se ve si el estado te
 ## recibe conservando o borrando.
 var _espiar: StringName = &""
@@ -59,6 +60,44 @@ var _saltar_tras: int = -1
 var _vy_antes_salto: float = 0.0
 var _vy_tras_salto: float = -99.0
 var _contando_salto: int = -1
+## En que estado estaba el jugador al pulsar Espacio. Sin esto, "saltar desde el
+## arco" puede estar midiendo un doble salto en el aire y no enterarse: la medida
+## imprimiria un impulso correcto de un sitio que no era el que se preguntaba.
+var _estado_al_saltar: StringName = &"?"
+
+# --- LA CADENA DE CUERDAS.
+## La camara se conduce a mano y el rig se apaga. El cono de camara es PARTE de
+## la mecanica de la cuerda —`Ancla.mejor()` lo mide desde el ojo—, asi que
+## dejarlo al azar de a donde mirase el rig convertiria una medida de la cuerda
+## en una medida del rig.
+var _cam: Camera3D = null
+var _mirar_obj: Vector3 = Vector3.ZERO
+var _mirar_activo: bool = false
+## Guion por FRAMES dentro de una medida. `_medida` solo tiene un "hacer", y una
+## cadena son tres gestos en tres momentos distintos: engancharse, soltar y
+## volver a engancharse.
+var _agenda: Array = []
+var _fr: int = 0
+var _enganches: int = 0
+var _ancla_a: Ancla = null
+## Lo que habia en el instante del SEGUNDO intento. Si falla, estas dos lineas
+## dicen por cual de las tres puertas —carga, alcance o cono— y no hay que
+## adivinarlo.
+var _cuerda_al_2o: String = "?"
+var _candidata_2o: String = "?"
+## En que estado estaba el jugador unos frames DESPUES de pulsar. Un intento que
+## falla con la carga puesta y el ancla en el cono solo puede estar fallando por
+## el estado, asi que hay que imprimirlo.
+var _estado_2o: StringName = &"?"
+## Flancos de contacto dentro de la medida. Es la condicion literal que recarga
+## el moveset, y contarla es lo unico que distingue «el segundo enganche salio de
+## la nada» de «lo pago un roce con un pilar». `_recargas` no vale para esto:
+## cuenta SUBIDAS de `patada_cargas`, y estando ya al maximo una recarga no sube.
+var _toques: int = 0
+## Los mismos, congelados en el instante del segundo intento. Es el numero que
+## prueba la cadena: si al pulsar la Z sobre la siguiente ancla el jugador no
+## habia tocado NADA y aun asi engancha, la cuerda se encadena de verdad.
+var _toques_al_2o: int = 0
 
 
 func _ready() -> void:
@@ -70,6 +109,10 @@ func _ready() -> void:
 		var e := n as Enemigo
 		if e != null and is_instance_valid(e):
 			e.vista = 0.0
+	var rig := _main.get_node_or_null("CameraRig") as Node3D
+	if rig != null:
+		rig.process_mode = Node.PROCESS_MODE_DISABLED
+	_cam = get_viewport().get_camera_3d()
 	_construir()
 
 
@@ -188,18 +231,96 @@ func _construir() -> void:
 			func() -> void: pass,
 			func() -> String: return _cuerdas_entre_anclas()),
 
+		# **Se monta entre el par de anclas MAS JUNTO del Gym** (la 2 y la 3, a
+		# 9.7 m), no entre dos cualesquiera. El primer encuadre puso la siguiente a
+		# 18.5 m de un alcance de 19 y la medida se volvio ilegible: el ancla se
+		# salia del alcance sola mientras el jugador caia, asi que el fallo podia
+		# ser del alcance o de la carga y la linea no distinguia cual.
+		#
+		# ENCADENAR CUERDA -> CUERDA, que es el criterio de exito del rediseño
+		# entero: «cuerda -> patada -> pared -> cuerda sin tocar el suelo».
+		#
+		# Se mide por el camino REAL —la tecla, el cono y el buffer— y la camara
+		# apunta sola al ancla que toca en cada momento, asi que el cono siempre
+		# pasa. Lo que queda medido son las otras dos puertas: el alcance y la
+		# carga. Si el segundo enganche no sale, la linea dice por cual.
+		_medida("encadenar ancla -> ancla sin tocar nada", 2.2,
+			func() -> void:
+				_lanzar(Vector3(-10.5, 10.0, 34.0), Vector3.ZERO, false)
+				_ancla_a = _ancla_por_nombre("Ancla_2")
+				if _ancla_a != null:
+					_mirar_a(_ancla_a.global_position)
+				_agenda = _guion_de_cadena(false),
+			func() -> String:
+				return "%d enganches   2o (tras %d toques): cuerda %s, ancla %s   %s" % [
+					_enganches, _toques_al_2o, _cuerda_al_2o, _candidata_2o, _traza()]),
+
+		# LA MISMA CADENA, recargando a mano en el hueco. FILA DE CONTROL: si con
+		# la carga puesta el segundo enganche SI sale, el que falla es el
+		# presupuesto y no el cono ni el alcance. Sin esta fila, la de arriba no
+		# distingue "no queda cuerda" de "no hay ancla".
+		_medida("la misma cadena, recargando a mano — control", 2.2,
+			func() -> void:
+				_lanzar(Vector3(-10.5, 10.0, 34.0), Vector3.ZERO, false)
+				_ancla_a = _ancla_por_nombre("Ancla_2")
+				if _ancla_a != null:
+					_mirar_a(_ancla_a.global_position)
+				_agenda = _guion_de_cadena(true),
+			func() -> String:
+				return "%d enganches   2o (tras %d toques): cuerda %s, ancla %s   %s" % [
+					_enganches, _toques_al_2o, _cuerda_al_2o, _candidata_2o, _traza()]),
+
+		# LA Z ESTANDO PEGADO A UNA PARED. Rozar un muro RECARGA la cuerda —tocar
+		# algo la devuelve—, asi que el wall-slide es justo el sitio desde el que
+		# uno intenta encadenar. Si el boton no responde ahi, encadenar sale «a
+		# veces si y a veces no» segun si rozaste algo por el camino.
+		#
+		# Sin empujar a proposito: `move_forward` sale de la camara, y la camara
+		# aqui mira al ancla —o sea en direccion contraria al muro—. Con la
+		# velocidad basta: `wallslide_entrada_min` mide lo que va CONTRA la pared.
+		_medida("pegado a una pared: ¿responde la Z?", 1.4,
+			func() -> void:
+				_lanzar(Vector3(24.0, 8.0, 21.6), Vector3.FORWARD * 6.0, false)
+				_p.puede_escalar = false
+				var a := _ancla_por_nombre("Ancla_0")
+				if a != null:
+					_mirar_a(a.global_position)
+				_agenda = [
+					{"fr": 30, "que": func() -> void:
+						_cuerda_al_2o = "lista" if _p.cuerda_disponible else "GASTADA"
+						var c := _p.buscar_ancla()
+						_candidata_2o = "ninguna en el cono"
+						if c != null:
+							_candidata_2o = "%s a %.1f m" % [c.name,
+								c.global_position.distance_to(_p.global_position)]
+						_estado_2o = _p.fsm.nombre_actual()
+						_cuerda_fija = true},
+					{"fr": 45, "que": func() -> void: _cuerda_fija = false},
+				],
+			func() -> String:
+				return "%d enganches   al pulsar: cuerda %s, ancla %s, en %s   %s" % [
+					_enganches, _cuerda_al_2o, _candidata_2o, _estado_2o, _traza()]),
+
 		# SALTAR DESDE EL ARCO. Lo que se mide es la vertical DESPUES, comparada con
 		# la que traias: si salen iguales, el boton no esta dando ningun impulso.
-		_medida("saltar desde el arco: ¿da impulso?", 0.6,
+		#
+		# **Y se imprime el ESTADO en el que se pulso.** La pasada anterior dio
+		# «-15.2 -> +10.7» y se leyo como que el arco saltaba bien; sin el nombre
+		# del estado al lado, esa linea no distingue un salto desde el arco de un
+		# doble salto en el aire, que es lo que estaba midiendo.
+		_medida("saltar desde el arco: ¿da impulso?", 1.0,
 			func() -> void:
-				_lanzar(Vector3(16.0, 6.0, 26.0), Vector3.ZERO, false)
+				_lanzar(Vector3(16.0, 8.0, 26.0), Vector3.ZERO, false)
+				_ancla_a = _ancla_por_nombre("Ancla_0")
+				if _ancla_a != null:
+					_mirar_a(_ancla_a.global_position)
 				_vy_antes_salto = 0.0
 				_vy_tras_salto = -99.0
-				_cuerda_fija = true
-				_saltar_tras = 26,
+				_agenda = [{"fr": 3, "que": func() -> void: _cuerda_fija = true}]
+				_saltar_tras = 34,
 			func() -> String:
-				return "vy en el arco %.1f -> tras pulsar Espacio %.1f" % [
-					_vy_antes_salto, _vy_tras_salto]),
+				return "en %s: vy %.1f -> tras pulsar Espacio %.1f" % [
+					_estado_al_saltar, _vy_antes_salto, _vy_tras_salto]),
 
 		# EL DOBLE SALTO a secas, como fila de control: si este da impulso y el de la
 		# cuerda no, el problema es de la cuerda y no del salto.
@@ -265,6 +386,17 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_frames_desde_toque = -1
 	_cargas_min = 99
 	_cargas_max = -1
+	_toques = 0
+	_toques_al_2o = 0
+	_agenda = []
+	_fr = 0
+	_enganches = 0
+	_mirar_activo = false
+	_ancla_a = null
+	_cuerda_al_2o = "?"
+	_candidata_2o = "?"
+	_estado_2o = &"?"
+	_estado_al_saltar = &"?"
 
 
 ## Una linea de roce, leida en el contacto. Si no llego a tocar el muro se dice,
@@ -275,6 +407,74 @@ func _linea_roce() -> String:
 	var tras: float = _v_tras_tocar if _v_tras_tocar >= 0.0 else _v_final
 	return "al tocar %.1f -> 10 frames despues %.1f   (%.0f%% conservado)   %s" % [
 		_v_al_tocar, tras, 100.0 * tras / maxf(_v_al_tocar, 0.001), _traza()]
+
+
+## EL GUION DE UNA CADENA, en frames: engancharse, soltar, mirar a la siguiente y
+## volver a pulsar. `con_recarga` es la fila de control — le devuelve la carga a
+## mano en el hueco, que es lo que haria tocar una pared.
+func _guion_de_cadena(con_recarga: bool) -> Array:
+	return [
+		{"fr": 3, "que": func() -> void: _cuerda_fija = true},
+		{"fr": 45, "que": func() -> void: _cuerda_fija = false},
+		{"fr": 48, "que": func() -> void:
+			if con_recarga:
+				_p.recargar_moveset()
+			var b := _ancla_vecina(_ancla_a)
+			if b != null:
+				_mirar_a(b.global_position)},
+		{"fr": 53, "que": func() -> void:
+			_toques_al_2o = _toques
+			_cuerda_al_2o = "lista" if _p.cuerda_disponible else "GASTADA"
+			var c := _p.buscar_ancla()
+			_candidata_2o = "ninguna en el cono"
+			if c != null:
+				_candidata_2o = "%s a %.1f m" % [
+					c.name, c.global_position.distance_to(_p.global_position)]
+			_cuerda_fija = true},
+		{"fr": 61, "que": func() -> void: _estado_2o = _p.fsm.nombre_actual()},
+	]
+
+
+## Pone la camara DETRAS del jugador y mirando al objetivo, cada frame. Asi el
+## ancla cae siempre centrada en el cono y lo que se mide es la otra mitad.
+func _mirar_a(objetivo: Vector3) -> void:
+	_mirar_obj = objetivo
+	_mirar_activo = true
+
+
+func _colocar_camara() -> void:
+	if not _mirar_activo or _cam == null or _p == null:
+		return
+	var dir := _mirar_obj - _p.global_position
+	if dir.length() < 0.5:
+		return
+	dir = dir.normalized()
+	_cam.global_position = _p.global_position - dir * 6.0 + Vector3.UP * 2.0
+	_cam.look_at(_mirar_obj, Vector3.UP)
+
+
+func _ancla_por_nombre(nombre: String) -> Ancla:
+	for n in get_tree().get_nodes_in_group(Ancla.GRUPO):
+		if n.name == nombre:
+			return n as Ancla
+	return null
+
+
+## El ancla mas cercana al jugador, saltandose una. Se busca en el mundo y no se
+## escribe a mano: los pilares del Gym se generan por codigo y una tabla no se
+## entera de que se han movido.
+func _ancla_vecina(excepto: Ancla) -> Ancla:
+	var mejor: Ancla = null
+	var mejor_d := INF
+	for n in get_tree().get_nodes_in_group(Ancla.GRUPO):
+		var a := n as Ancla
+		if a == null or a == excepto:
+			continue
+		var d := a.global_position.distance_to(_p.global_position)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = a
+	return mejor
 
 
 ## La distancia entre cada ancla del Gym y la siguiente, contra el alcance
@@ -309,6 +509,9 @@ func _physics_process(delta: float) -> void:
 	if _paso >= _guion.size():
 		_informe()
 		return
+	# La camara va PRIMERO: el jugador la lee dentro de su propio tick, y este nodo
+	# es la raiz, asi que su `_physics_process` corre antes que el de sus hijos.
+	_colocar_camara()
 	_t += delta
 
 	# La Z mantenida necesita el FLANCO al soltar: dejar de llamar a `action_press`
@@ -323,6 +526,7 @@ func _physics_process(delta: float) -> void:
 		_saltar_tras -= 1
 		if _saltar_tras == 0:
 			_vy_antes_salto = _p.superficie.vertical(_p.velocity)
+			_estado_al_saltar = _p.fsm.nombre_actual()
 			Input.action_press(&"jump")
 			_contando_salto = 0
 	elif _saltar_tras == 0:
@@ -335,12 +539,18 @@ func _physics_process(delta: float) -> void:
 
 	var estado := _p.fsm.nombre_actual()
 	if estado != _estado_prev:
+		if estado == &"Grapple":
+			_enganches += 1
 		if _estados.size() < 8:
 			_estados.append(str(estado))
 		_estado_prev = estado
 	var plano := _p.superficie.plano(_p.velocity).length()
 	_v_final = plano
 	_v_min_tras = minf(_v_min_tras, plano)
+	var tocando := _p.is_on_floor() or _p.is_on_wall()
+	if tocando and not _tocaba_prev:
+		_toques += 1
+	_tocaba_prev = tocando
 	if _p.is_on_wall():
 		_pared_frames += 1
 		if _v_al_tocar < 0.0:
@@ -364,6 +574,10 @@ func _physics_process(delta: float) -> void:
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t - delta):
 		(actual["hacer"] as Callable).call()
+	_fr += 1
+	for e in _agenda:
+		if int(e["fr"]) == _fr:
+			(e["que"] as Callable).call()
 	if _t >= float(actual["dur"]):
 		_lineas.append("  %-38s %s" % [
 			actual["nombre"], (actual["leer"] as Callable).call()])

@@ -90,9 +90,11 @@ están en `PlayerTuning`, grupo `Moveset`:
 
 | | |
 |---|---|
-| `cuerda_rango` (12 m) | **desde el jugador.** Dos anclas a más de esto no se encadenan sin tocar suelo; a menos, sí. Es el tamaño de la sala |
+| `cuerda_rango` (**19 m**) | **desde el jugador.** Es el alcance del gancho y, a la vez, la separación máxima entre dos anclas que se quieran encadenar. Es el tamaño de la sala |
 | `cuerda_cono_grados` (55°) | **desde la cámara.** Se engancha lo que se MIRA. Un ancla a la espalda no existe |
-| `cuerda_arco_max` (1 s) | cuánto dura el arco antes de soltarse solo. Multiplicado por la velocidad, es cuánto terreno cubre un enganche |
+| `cuerda_arco_max` (**3 s**) | tope de seguridad, no mecánica: quien decide cuándo sueltas eres tú soltando la Z. Lo que impide bombear es `cuerda_perdida` |
+| `cuerda_largo_min` (2 m) | radio mínimo del arco. Engancharse pegado al ancla sería un giro de radio cero |
+| `cuerda_ancla_recarga` (sí) | **si el ancla cuenta como contacto.** Con esto puesto, soltarte de un arco te devuelve la cuerda y se encadena ancla → ancla sin pisar nada. Apagarlo devuelve el juego a la cuerda de un solo uso por vuelo |
 
 **Deja caída por debajo.** Un ancla a la altura del jugador no da arco, da un
 radio fijo: mucha velocidad angular, ningún desplazamiento. Lo que convierte el
@@ -103,8 +105,54 @@ cielo, que es como el jugador aprende dónde puede engancharse.
 **Y no las tapes.** Hay comprobación de línea de visión: un ancla al otro lado de
 una pared está descartada aunque esté en rango y en el cono.
 
+**Ponlas DE DOS EN DOS, y a menos de `cuerda_rango`.** Desde el 4.01 soltarte de
+un ancla te devuelve la cuerda, así que se encadena una tras otra sin tocar el
+suelo — pero **la misma no vale dos veces seguidas**. Un ancla suelta en medio de
+la nada es un callejón: llegas, te columpias y se acabó. Dos que se vean entre sí
+son un camino. `MedirCadena` cuenta la separación real leyéndola del mundo:
+
+```
+5 de 5 vecinas dentro de 19 m   [13.7  18.3  9.7  18.3  16.7]
+```
+
 `visible_en_juego = false` apaga el testigo esférico, para anclas que ya tengan su
 propio modelo colgando —una argolla, una rama—. El testigo es de blockout.
+
+### 2.1 Dónde se tocan estos números
+
+**Todos los valores del jugador son públicos y se editan sin escribir código.**
+Son `@export` de `PlayerTuning`, o sea lo mismo que un `public` de Unity: salen en
+el Inspector con su rango, su paso y su explicación.
+
+1. En el editor, abre **`content/data/default_tuning.tres`**.
+2. El Inspector los muestra por grupos. Los del moveset están en **`Moveset`**;
+   la gravedad, el clamp y la locomoción siguen en `Salto` y `Locomoción`.
+3. Guarda (`Ctrl+S`) y, con el juego corriendo, pulsa **F5**: el tuning se recarga
+   en caliente y no hay que reiniciar la partida. (**F6** hace lo mismo con la
+   paleta.)
+
+El `.tres` está casi vacío a propósito: Godot solo escribe en él lo que cambias,
+así que un valor que no hayas tocado sigue siendo el del script y se ve en el
+Inspector igual. **Y un número tocado en el editor es un cambio de código sin
+revisar** (regla dura #25): si algo se rompe raro, `git diff content/data/`
+primero.
+
+Los que más cambian cómo se siente el moveset, en orden:
+
+| Número | Qué mueve |
+|---|---|
+| `cuerda_rango` (19 m) | hasta dónde llega el gancho. Es el que dibuja los niveles |
+| `cuerda_arco_max` (3 s) | techo del arco. La Z mantenida es lo que manda |
+| `cuerda_tangencial` (20 m/s²) | cuánto dirige el stick dentro del arco |
+| `cuerda_perdida` (0.10 /s) | el freno del bombeo. Súbelo y el arco se apaga antes |
+| `cuerda_salida_mult` (1.15) | el premio por soltar bien |
+| `cuerda_velocidad_max` (34 m/s) | techo DENTRO del arco, aparte del global |
+| `patada_cargas` (3) | el número que más cambia cómo se siente el aire |
+| `patada_velocidad` (18 m/s) | **suelo**, no valor: llegas a 30, sales a 30 |
+| `patada_duracion` (0.25 s) | por `patada_velocidad`, el ancho de vano que se salva |
+| `saltos_aereos` (1) | los tres recursos del aire se recargan juntos |
+| `velocidad_maxima` (22) y `velocidad_drag` (1.6) | el techo es un OBJETIVO: por encima se decae hacia él, no se corta |
+| `puede_escalar` | **no está aquí**: es del `Player`, porque es una habilidad que se lleva puesta |
 
 ---
 
@@ -246,6 +294,7 @@ porque describen un movimiento y no un golpe.
 | | |
 |---|---|
 | `patada_duracion` (0.25 s) | cuánto dura el gesto |
+| `patada_cargas` (3) | cuántas caben en un tiempo de vuelo |
 | `patada_velocidad` (18 m/s) | constante mientras dura, y la gravedad no cuenta |
 | `patada_giro_grados_seg` (540) | con cuánta autoridad se redirige a mitad |
 

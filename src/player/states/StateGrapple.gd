@@ -80,11 +80,27 @@ func physics_update(delta: float) -> void:
 		return
 	_punto = _ancla.global_position
 
-	# 3) SALTAR TAMBIÉN SUELTA, y es el otro gesto natural: el arco sirve para
-	#    LLEGAR a algún sitio, y llegar termina en un salto. Conserva la velocidad
-	#    igual que soltar el botón; ver `exit()`.
+	# 3) SALTAR TAMBIÉN SUELTA, Y SALTA. El arco sirve para LLEGAR a algún sitio, y
+	#    llegar termina en un salto.
+	#
+	#    **`piso_vertical` es la mitad que faltaba, y no es un detalle.** Esto
+	#    pedía `conservar_vertical` a secas, o sea que el salto no tocaba la
+	#    vertical: pulsar Espacio en la parte baja del arco —que es justo donde se
+	#    salta, porque es donde vas rápido— te mandaba a `Jump` cayendo a −8.8 m/s,
+	#    y `Jump` se va a `Fall` en el mismo frame en cuanto la vertical es
+	#    negativa. El botón SOLTABA y no saltaba: medido, `en Grapple: vy −8.8 ->
+	#    tras pulsar Espacio −10.0`, con la fila de control del doble salto a
+	#    +10.7. Es exactamente lo que se reportó —«me suelta y me caigo»—.
+	#
+	#    Va como PISO y no como asignación, por la misma razón que la patada
+	#    (regla dura #29): saltar desde la subida del arco a +18 no puede
+	#    devolverte a +12. Garantiza un salto, no lo impone.
 	if player.consumir_salto():
-		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
+		fsm.cambiar(&"Jump", {
+			"numero": 1,
+			"conservar_vertical": true,
+			"piso_vertical": tuning.velocidad_salto(),
+		}, true)
 		return
 
 	# 4) GRAVEDAD, y SIMÉTRICA. Sin ella el arco no es un arco: llegarías al radio
@@ -163,12 +179,19 @@ func post_move(_delta: float) -> void:
 
 ## TODA SALIDA CONSERVA LA VELOCIDAD, y además la premia.
 ##
+## Y TE DEVUELVE LA CUERDA, contra el ancla siguiente. Ver `soltar_de_ancla()`.
+##
 ## No hay salida "buena" y salida "mala": el multiplicador se aplica igual si
 ## sueltas tú, si caduca el arco o si te vas por un dash. Lo que cambia entre una
 ## salida y otra es CUÁNTA velocidad hay que multiplicar, y eso ya lo decide el
 ## jugador eligiendo el momento — un arco va más rápido abajo que arriba. Premiar
 ## además el gesto sería pagar dos veces por la misma decisión.
 func exit(_siguiente: StringName = &"") -> void:
+	# SOLTARSE DEVUELVE LA CUERDA. Un ancla es algo que TOCAS, y la ley 4 dice que
+	# los aereos vuelven al tocar. Va aqui —en la salida y no en cada camino de
+	# salida— porque salir es UNA cosa: soltar la Z, saltar, patear o caducar
+	# tienen que pagar y cobrar lo mismo.
+	player.soltar_de_ancla(_ancla)
 	# NO HACE FALTA PEDIR PERMISO. Aquí había un `momentum_libre`: el multiplicador
 	# se paga en este frame y se vuela en `Fall`, y con el clamp DURO el tope de 22
 	# se lo comía entero en el mismo frame, en silencio y solo en horizontal.

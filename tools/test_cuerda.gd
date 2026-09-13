@@ -45,6 +45,14 @@ var _cuerda_suelta: bool = true
 var _salto: int = 0
 ## Stick lateral mantenido, en [-1, 1]. Para medir que el arco se dirige.
 var _stick: float = 0.0
+## Vertical en el PRIMER frame dentro de `Jump`. Es el unico frame donde se puede
+## afirmar que el salto dio impulso: uno despues la gravedad ya lo ha tocado, y si
+## el salto no dio nada el estado se ha ido a `Fall` y no hay nada que leer.
+var _vy_al_saltar: float = -999.0
+## Cuantas veces se ha entrado en `Grapple` dentro del escenario. `_visto` dice si
+## se entro, no cuantas veces, y lo que se prueba con el veto del ancla es
+## exactamente la segunda.
+var _enganches: int = 0
 
 ## Dónde se recoloca el ancla cada frame, respecto a la cámara. Se mantiene viva
 ## porque teletransportar al jugador deja a la cámara persiguiéndole unos frames:
@@ -226,6 +234,51 @@ func _construir() -> void:
 			func() -> bool: return not _visto.has(&"Grapple"),
 			"la carga es la moneda: sin ella cada arco dejaría de costar nada"),
 
+		# --- EL ANCLA CUENTA COMO CONTACTO ------------------------------------
+		# La ley 4 del moveset dice que los aereos vuelven AL TOCAR, y un ancla es
+		# algo que tocas. Sin esto, encadenar ancla -> ancla era imposible en aire
+		# limpio: medido en `MedirCadena`, al pulsar la Z sobre la siguiente salia
+		# «cuerda GASTADA» con esa ancla a 13.6 m, en alcance y dentro del cono. La
+		# cadena solo aparecia cuando un pilar se cruzaba por el camino, y de ahi
+		# el «a veces si y a veces no» que se reporto.
+		_chequeo_("soltarse de un ancla DEVUELVE la cuerda", 0.7,
+			func() -> void:
+				_soltar_en(Vector3(0.0, 16.0, 20.0))
+				_ancla_viva = true
+				_cuerda = 18,
+			func() -> bool:
+				return _enganches == 1 and _p.cuerda_disponible,
+			"sin esto la cuerda es un billete de un solo viaje y no un verbo encadenable"),
+
+		# Y EL PRECIO, que es lo que separa encadenar de bombear: la que acabas de
+		# soltar no cuenta. Encadenar pide un ancla NUEVA, o sea que el techo lo
+		# pone el nivel y no el boton (regla dura #27).
+		#
+		# Se coloca a mano y sin `_soltar_en`: hay que llegar aqui con la memoria
+		# del ancla anterior puesta, que es justo lo que se prueba.
+		# SIN TELETRANSPORTE entre los dos intentos, y a proposito: mover al jugador
+		# para montar el segundo le hacia rozar el mundo al caer, y un roce llama a
+		# `recargar_moveset()`, que OLVIDA el ancla. El chequeo fallaba entonces
+		# por como estaba montado y no por lo que probaba.
+		_chequeo_("pero la MISMA ancla no vale dos veces seguidas", 0.6,
+			func() -> void:
+				_cuerda = 18,
+			func() -> bool: return _enganches == 1,
+			"reenganchar el mismo punto en el aire es bombear, y bombear es un MODO"),
+
+		_chequeo_("y tocar el mundo la vuelve a poner en juego", 1.0,
+			func() -> void:
+				_cuerda = 0
+				_cuerda_fija = false
+				_ancla_viva = false
+				_p.buffer.clear()
+				_p.global_position = Vector3(0.0, 0.6, 20.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Fall")
+				_visto.clear(),
+			func() -> bool: return _p.ultima_ancla == null,
+			"el veto es contra bombear una sola ancla, no contra volver a usarla nunca"),
+
 		_chequeo_("tocar SUELO la devuelve", 1.6,
 			func() -> void:
 				_soltar_todo()
@@ -295,11 +348,25 @@ func _construir() -> void:
 		_chequeo_("y sale de verdad, con la inercia puesta", 0.6,
 			func() -> void:
 				_visto.clear()
+				_vy_al_saltar = -999.0
 				_salto = 4,
 			func() -> bool:
 				return (_visto.has(&"Jump")
 					and _p.fsm.nombre_actual() != &"Grapple"),
 			"el arco se usa para LLEGAR a un sitio, y llegar termina en un salto"),
+
+		# Y SUBE. Este es el que faltaba y el que reporto el usuario: «al presionar
+		# espacio me saca de estar agarrado, y es como si se soltara y me caigo».
+		#
+		# El chequeo de arriba pasaba con el bug puesto —se entra en `Jump` igual—
+		# porque solo miraba el ESTADO. La vertical era negativa: el arco se pulsa
+		# abajo, que es donde vas rapido, y `Jump` se va a `Fall` en el mismo frame
+		# en cuanto la vertical no es positiva. Medido: `vy -8.8 -> -10.0`.
+		_chequeo_("y el salto SUBE, no solo suelta", 0.1,
+			func() -> void: pass,
+			func() -> bool:
+				return _vy_al_saltar >= _p.tuning.velocidad_salto() * 0.9,
+			"soltar y caer no es saltar: el boton tiene que dar un salto entero"),
 	]
 
 
@@ -321,9 +388,17 @@ func _soltar_en(pos: Vector3) -> void:
 	_plano_dir = Vector3.ZERO
 	_salida_ratio = 0.0
 	_tiron_inicial = -1.0
+	_vy_al_saltar = -999.0
+	_enganches = 0
 
 
+## Deja el input limpio y OLVIDA el ancla usada. Lo segundo hace falta desde que
+## soltarse recarga la cuerda: todos los chequeos comparten el mismo nodo `Ancla`,
+## asi que sin olvidarla el escenario siguiente heredaria el veto del anterior y
+## fallaria por una razon que no es la suya.
 func _soltar_todo() -> void:
+	if _p != null:
+		_p.ultima_ancla = null
 	for a in InputMap.get_actions():
 		if Input.is_action_pressed(a):
 			Input.action_release(a)
@@ -416,6 +491,10 @@ func _physics_process(delta: float) -> void:
 	# --- Latches del arco.
 	var estado := _p.fsm.nombre_actual()
 	_visto[estado] = true
+	if estado == &"Grapple" and _estado_prev != &"Grapple":
+		_enganches += 1
+	if estado == &"Jump" and _vy_al_saltar < -900.0:
+		_vy_al_saltar = _p.superficie.vertical(_p.velocity)
 	if estado == &"Grapple":
 		var punto: Vector3 = _p.fsm.actual.call("punto_cuerda")
 		var largo: Variant = _p.fsm.actual.get("_largo")

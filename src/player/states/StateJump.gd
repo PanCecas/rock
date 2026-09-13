@@ -17,6 +17,21 @@ func enter(msg: Dictionary = {}) -> void:
 	# sobrescribieramos aqui, el rebote de pared seria un salto normal cualquiera.
 	if not bool(msg.get("conservar_vertical", false)):
 		motor.set_vertical(tuning.velocidad_salto() + extra)
+
+	# PISO DE VERTICAL, para quien llega conservando la suya desde otro verbo.
+	#
+	# `conservar_vertical` existe para el wall-jump, que ya ha fijado la suya y
+	# mas fuerte. El arco de la cuerda tambien la conserva —ahi esta la velocidad
+	# que el jugador construyo— pero ADEMAS quiere saltar, y en la parte baja del
+	# arco esa vertical es NEGATIVA: sin piso, el salto entraba cayendo y salia a
+	# `Fall` en el mismo frame. Medido: `vy -8.8 -> -10.0`.
+	#
+	# `maxf` y no asignacion, igual que el suelo de la patada (regla dura #29):
+	# garantiza un salto sin quitarte el que ya llevabas.
+	var piso: float = float(msg.get("piso_vertical", 0.0))
+	if piso > 0.0:
+		motor.set_vertical(maxf(motor.get_vertical(), piso))
+
 	player.consumir_coyote()
 
 	# El doble salto redirige el impulso hacia donde apuntas: si no, se siente

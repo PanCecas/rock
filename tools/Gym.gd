@@ -248,7 +248,9 @@ func _pilares_gancho() -> void:
 	# ven de lejos contra el cielo —que es como el jugador aprende donde puede
 	# engancharse— y dejan caida por debajo, que es lo que convierte el enganche
 	# en un arco en vez de en un radio fijo. Separadas menos de `cuerda_rango`
-	# (12 m) entre vecinas, para que se puedan encadenar sin tocar el suelo.
+	# (19 m) entre vecinas, para que se puedan encadenar sin tocar el suelo: desde
+	# el 4.01 soltarte de un ancla te devuelve la cuerda, asi que este corro es un
+	# circuito de verdad. `MedirCadena` cuenta la separacion leyendola de aqui.
 	for i in 5:
 		var a := float(i) / 5.0 * TAU
 		var pos := Vector3(cos(a) * 16.0, 0.0, 34.0 + sin(a) * 8.0)

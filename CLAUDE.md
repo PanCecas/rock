@@ -280,6 +280,22 @@ plataformas en movimiento.
 	sitios y una sola condicion, `escalada_habilitada()`: repartir la condicion
 	seria la regla dura #13 otra vez.
 
+31. **UN BOTON QUE CAMBIA DE ESTADO NO ES UN BOTON QUE FUNCIONA.** Saltar desde
+	el arco tuvo un chequeo en verde todo el 4.00 mientras el boton solo SOLTABA:
+	el chequeo preguntaba si se habia entrado en `Jump`, y se entraba. Lo que no
+	miraba era la MAGNITUD. `Jump` con la vertical negativa se va a `Fall` en el
+	mismo frame, asi que entrar en el no prueba absolutamente nada — medido,
+	`vy -8.8 -> -10.0` con la fila de control del doble salto en `+10.7`.
+	**Todo verbo que produzca un impulso se comprueba por el numero que produce**,
+	no por el nombre del estado al que lleva. Es la misma familia que el fallo de
+	la patada —contar frames de anticipacion medía el orden de los nodos, no la
+	ley— y que la regla #22: el sitio donde se AFIRMA no puede ser el nombre de la
+	casilla.
+	Corolario para los BANCOS: una medida de un verbo imprime **el estado en el
+	que se tomó**. «saltar desde el arco: -15.2 -> +10.7» estuvo en el informe del
+	4.00 y era correcto y era de otra cosa: se pulsaba antes de que el jugador
+	llegara a `Grapple` y lo que media era un doble salto en el aire.
+
 ## Autoloads
 Propios: `EventBus`, `GameState`, `HitstopManager`, `DebugOverlay`, `DebugDraw`, `MenuControles`.
 De plugins: `PhantomCameraManager`, `Dialogic`, `CyclopsAutoload`.
@@ -372,10 +388,11 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *MANTIENES y te quedas colgado · SUELTAS y te sueltas* | |
 | | *un toque da un gancho corto; mantener, el arco entero* | |
 | | *el stick dirige el arco entero — lo abre, lo cierra, lo inclina* | |
-| | ***Espacio** tambien suelta, y salta · las dos conservan la velocidad* | |
+| | ***Espacio** salta DE VERDAD desde el arco —salto entero— y conserva tu velocidad* | |
 | | *tope de 3 s por si no sueltas. Lo que impide bombear no es el reloj: es la perdida* | |
 | | *alcance 19 m, elegido mirando la separacion real entre anclas vecinas* | |
-| | *UNA por tiempo de vuelo. Se recarga al tocar suelo, pared o enemigo* | |
+| | *UNA por tiempo de vuelo. La devuelven suelo, pared, enemigo **y soltarte de un ancla*** |
+| | *asi que se encadena ancla -> ancla sin pisar nada; lo que no vale es la MISMA dos veces seguidas* | |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Hoja de notas** (junto a la jam) | **E** | Y |
 | | *rejilla de rombos y circulos: una columna por musico, una fila por paso* | |
@@ -426,11 +443,11 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
-| `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Con fila de control —el mismo muro sin la habilidad de trepar— porque un numero sin su control no dice nada. `godot --headless --path . tools/MedirCadena.tscn` |
+| `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo, y se encadena la cuerda?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Ademas **encadena ancla -> ancla** por el camino real —la tecla, el cono y el buffer, con la camara conducida a mano porque el cono es parte de la mecanica— y dice cuantos TOQUES hicieron falta: `2 enganches tras 0 toques` es la cadena limpia. Y mide el salto desde el arco **imprimiendo el estado en el que se pulsa** (regla dura #31). Con filas de control. `godot --headless --path . tools/MedirCadena.tscn` |
 | `tools/CapturaEscalada.tscn` | **Cuatro fotos del candado de escalada**: el mismo gesto contra el mismo muro con la habilidad y sin ella, y un roce a 26 m/s. Necesita GPU. `godot --path . --resolution 1280x720 tools/CapturaEscalada.tscn` |
 | `tools/MedirPatada.tscn` | **Cronometra la patada**, que es donde se vio que no se sentia bien: que le hace a la velocidad que ya llevabas, que le hace a la vertical, si se puede salir de ella, que pasa al conectar y cuanto terreno cubre. Las cinco lineas que dijeron los cuatro defectos de la primera version. `godot --headless --path . tools/MedirPatada.tscn` |
 | `tools/CapturaPatada.tscn` | **Ocho fotos de la patada** con el panel de debug puesto, para leer el numero y la imagen juntos. Necesita GPU. Un numero no dice si el personaje sale por donde parecia que iba a salir; cazo que la patada no existia estando colgado del arco. `godot --path . --resolution 1280x720 tools/CapturaPatada.tscn` |
-| `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo y pared la devuelven. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 15 comprobaciones. |
+| `tools/TestCuerda.tscn` | **Test del arco.** Las leyes del moveset, una por una: que la Z engancha al ancla que miras y lo hace SIN tiron, que el arco no se pasa de su radio, que caduca solo, que no gana energia, que al soltar conserva la velocidad y la premia, que el stick lo dirige, que hay UNA por tiempo de vuelo y que suelo, pared **y soltarte de un ancla** la devuelven —pero que la MISMA ancla no vale dos veces seguidas—, y que saltar desde el arco SUBE y no solo suelta. Ademas los tres filtros del ancla: detras, fuera de alcance y tapada por el mundo. 23 comprobaciones. |
 | `tools/Jardin.tscn` | **El banco del sistema generativo**, lo que el Gym es al movimiento: el enjambre de Kuramoto con sus Criaturas de Tela. Clic izq. perturba una · rueda/flechas mueven el pitch · R reinicia al caos · F7 dibuja la RUEDA DE FASES. `godot --path . --resolution 960x540 tools/Jardin.tscn` |
 | `tools/Claro.tscn` | **El banco del mundo vivo**, lo que el Gym es al movimiento y el Jardin al sistema generativo: hierba con viento e interaccion, luciernagas y una bandada de criaturas de tela. Corre por la hierba y mira el rastro; espera y mira respirar a los dos enjambres. **F7** dibuja el orden de cada uno y las huellas que el shader esta leyendo. `godot --path . --resolution 960x540 tools/Claro.tscn` |
 | `tools/Jam.tscn` | **El banco de la estacion de musica.** Ocho puestos en corro tocando el mismo Kuramoto: se ESCUCHA, no se mira. **E abre la hoja de notas** · acercate y unos cuantos te cogen el compas · **1..8** golpea un puesto a mano · **R** al caos · **F7** dibuja el orden y quien te sigue. `godot --path . --resolution 960x540 tools/Jam.tscn` |
@@ -580,6 +597,27 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
   cadena que dar. Con 19 llegan las cinco, y `MedirCadena` lo cuenta leyendo el
   mundo en vez de una tabla, asi que el dia que se muevan las anclas sigue
   diciendo la verdad.
+- **EL ANCLA CUENTA COMO CONTACTO** (`cuerda_ancla_recarga`). Soltarte de un arco
+  devuelve la cuerda, igual que tocar una pared: un ancla es algo que TOCAS y la
+  ley 4 dice que los aereos vuelven al tocar. Sin eso, encadenar ancla -> ancla
+  era imposible en aire limpio —medido: al pulsar la Z sobre la siguiente salia
+  **«cuerda GASTADA» con esa ancla a 13.6 m**, en alcance y dentro del cono— y la
+  cadena solo aparecia cuando un pilar se cruzaba por el camino. Eso es lo que se
+  reporto como «a veces si puedo y a veces no».
+  **Y la MISMA ancla no vale dos veces seguidas** (`ultima_ancla`). Es lo unico
+  que separa encadenar de bombear: sin el veto, un solo punto se reengancha en el
+  aire sin fin y el arco vuelve a ser un MODO (regla dura #27). Tocar el mundo la
+  olvida, asi que el veto no te la prohibe, solo te obliga a pasar por otra cosa.
+  El techo lo pone el NIVEL: encadenar exige que haya un ancla nueva a tiro.
+- **SALTAR DESDE EL ARCO SALTA.** Pedia `conservar_vertical` a secas —que existe
+  para el wall-jump, que ya ha fijado la suya— asi que el salto no tocaba la
+  vertical: pulsar Espacio abajo del arco, que es donde se salta porque es donde
+  vas rapido, entraba en `Jump` cayendo y `Jump` se va a `Fall` en el mismo frame.
+  El boton SOLTABA y no saltaba. Medido: `vy -8.8 -> -10.0`, con la fila de
+  control del doble salto en `+10.7`. Ahora pasa un `piso_vertical`, aplicado con
+  `maxf` y no con una asignacion: garantiza un salto entero sin quitarte el que ya
+  llevabas si saltas desde la subida del arco. Misma forma que el suelo de la
+  patada (regla dura #29).
 - **LOS TRES RECURSOS AEREOS SON UN PRESUPUESTO**, no tres cuentas. El salto
   aereo lo reponia solo `recargar_aire()` —suelo, agua, canto, parry, wall-jump—
   mientras que la cuerda y las patadas volvian tambien al tocar PARED o acertar

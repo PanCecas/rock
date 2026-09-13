@@ -49,9 +49,22 @@ var lanza: Spear = null
 ## algo siempre disponible, o sea un medio de transporte— y con ella cada arco es
 ## una decision que se paga: engancharse mal cuesta el aterrizaje.
 ##
-## La gasta `Grapple` al entrar y la devuelve `recargar_moveset()`, en un solo
-## sitio. Ver ahi por que no va dentro de `recargar_aire()`.
+## La gasta `Grapple` al entrar, y la devuelven DOS cosas: tocar el mundo
+## (`recargar_moveset()`) y soltarse de un ancla (`soltar_de_ancla()`).
 var cuerda_disponible: bool = true
+## EL ANCLA DE LA QUE ACABAS DE SOLTARTE, y es media mecanica.
+##
+## Desde el 4.01 el ancla cuenta como contacto: soltar un arco te devuelve la
+## cuerda igual que tocar una pared, porque un ancla es algo que TOCAS y la ley
+## del moveset dice que los aereos vuelven al tocar. Sin eso, encadenar ancla ->
+## ancla era imposible en aire limpio —medido: al pulsar la Z sobre la siguiente,
+## «cuerda GASTADA» con el ancla a 13.6 m dentro del cono— y solo salia cuando un
+## pilar se cruzaba por el camino. De ahi el «a veces si y a veces no».
+##
+## Lo que impide que eso sea bombear es esta variable: la que acabas de soltar no
+## vale hasta que toques algo. Encadenar exige un ancla NUEVA, o sea que quien
+## decide cuanto se puede encadenar es el nivel, no el boton.
+var ultima_ancla: Ancla = null
 ## ¿PUEDE TREPAR? **Es una HABILIDAD que se lleva puesta, no algo que se sabe.**
 ##
 ## Empieza en `false` a proposito. Escalar es el unico verbo que APAGA el moveset
@@ -525,6 +538,10 @@ func escalada_habilitada() -> bool:
 
 func recargar_moveset() -> void:
 	cuerda_disponible = true
+	# Y SE OLVIDA EL ANCLA. Tocar el mundo libera tambien la que acabas de soltar:
+	# el veto existe para que no se bombee una sola ancla en el aire, no para
+	# prohibirtela para siempre.
+	ultima_ancla = null
 	patada_cargas = tuning.patada_cargas
 	# Y EL SALTO AEREO, que es el tercer recurso del aire y estaba en otra cuenta.
 	#
@@ -555,7 +572,25 @@ func buscar_ancla() -> Ancla:
 	var direccion: Vector3 = -cam.global_basis.z if cam != null else direccion_frontal()
 	var fuera: Array[RID] = [get_rid()]
 	return Ancla.mejor(get_tree(), global_position, ojo, direccion, tuning.cuerda_rango,
-		cos(deg_to_rad(tuning.cuerda_cono_grados)), fuera)
+		cos(deg_to_rad(tuning.cuerda_cono_grados)), fuera, ultima_ancla)
+
+
+## SOLTARSE DE UN ANCLA TE DEVUELVE LA CUERDA. Lo llama `Grapple.exit()`, salgas
+## como salgas: soltando la Z, saltando, caducando el arco o pateando.
+##
+## **Un ancla es algo que tocas**, y la ley 4 del moveset dice que los recursos
+## aereos vuelven al tocar. Tratarla como contacto es lo que convierte la cuerda
+## en un verbo encadenable en vez de en un billete de un solo viaje — que es como
+## se sentia: medido, soltar un arco y pulsar la Z sobre la siguiente ancla daba
+## «cuerda GASTADA» con esa ancla a 13.6 m, en alcance y dentro del cono.
+##
+## Y el precio es que la misma no vale dos veces seguidas (`ultima_ancla`). Con
+## eso, encadenar pide un ancla NUEVA y quien pone el techo es el nivel.
+func soltar_de_ancla(a: Ancla) -> void:
+	if not tuning.cuerda_ancla_recarga:
+		return
+	ultima_ancla = a
+	cuerda_disponible = true
 
 
 ## LA RECARGA SE DISPARA AL TOCAR, NO MIENTRAS TOCAS. Es un FLANCO.
@@ -1139,9 +1174,14 @@ func _debug() -> void:
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	if lanza != null and is_instance_valid(lanza):
 		DebugOverlay.set_line("lanza", lanza.debug_line())
-	DebugOverlay.set_line("moveset", "CUERDA %s   PATADA %d/%d" % [
+	# Y EL ANCLA VETADA SE DICE. Un veto invisible es indistinguible de un boton
+	# que no responde, que es el sintoma que este parche venia a quitar.
+	var veto := ""
+	if ultima_ancla != null and is_instance_valid(ultima_ancla):
+		veto = "   (ancla %s en veto)" % ultima_ancla.name
+	DebugOverlay.set_line("moveset", "CUERDA %s   PATADA %d/%d%s" % [
 		"lista" if cuerda_disponible else "gastada",
-		patada_cargas, tuning.patada_cargas])
+		patada_cargas, tuning.patada_cargas, veto])
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
 
