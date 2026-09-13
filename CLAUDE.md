@@ -326,11 +326,13 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
 | **Empunar / guardar la lanza** | **Tab** | Back |
 | | *Tirarla la desempuna. Ya no cambia como pegas: solo hay una forma* | |
-| **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** | D-pad der. |
+| **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** (mantener) | D-pad der. |
 | | *instantanea: no hay nada que tirar ni tiempo de viaje* | |
+| | *MANTIENES y te quedas colgado · SUELTAS y te sueltas* | |
+| | *un toque da un gancho corto; mantener, el arco entero* | |
 | | *el stick dirige el arco entero — lo abre, lo cierra, lo inclina* | |
-| | *dura 1 s y se suelta SOLA · soltar a tiempo es toda la habilidad* | |
-| | ***Z** otra vez suelta · **Espacio** suelta y salta · las dos conservan la velocidad* | |
+| | ***Espacio** tambien suelta, y salta · las dos conservan la velocidad* | |
+| | *tope de 3 s por si no sueltas. Lo que impide bombear no es el reloj: es la perdida* | |
 | | *UNA por tiempo de vuelo. Se recarga al tocar suelo o pared* | |
 | Recuperar (aparte) | Y | D-pad izq. |
 | **Hoja de notas** (junto a la jam) | **E** | Y |
@@ -509,11 +511,16 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
   el enganche no da tiron —empiezas exactamente sobre la esfera, medido: 0.000 m—
   y ademas el jugador elige el arco con su posicion: de cerca sale corto y rapido,
   de lejos largo y amplio.
-- **El arco caduca a 1 s.** Es el numero que define la mecanica. Sin tope se puede
-  bombear pasada tras pasada, ganar altura indefinidamente y el nivel deja de
-  importar; con tope solo hay una decision —CUANDO SUELTAS— y esa si es habilidad.
-  El stick sigue aplicando aceleracion tangencial durante todo el arco, que es
-  otra cosa: dirige, no acumula.
+- **LA Z SE MANTIENE.** Mientras aguantes sigues colgado; al soltar te sueltas. Es
+  el gesto natural, y ademas convierte el arco en un rango continuo de intenciones
+  igual que el jump cut hace con el salto: un toque da un gancho corto
+  (`cuerda_arco_min`), mantener da el arco entero.
+  **Y por eso el freno del bombeo cambio de sitio.** Mientras el arco duraba un
+  segundo, el reloj lo impedia: no habia segunda pasada que dar. Con la Z
+  mantenida si la hay, asi que quien frena ahora es `cuerda_perdida` — sin ella,
+  el stick metiendo tangencial cada frame convierte el arco en una escalera al
+  cielo. `cuerda_arco_max` sube a 3 s y se queda solo como techo de seguridad.
+  Comprobado aguantando el tope entero empujando: no sube.
 - **LA RESTRICCION CORRE DESPUES DE `move_and_slide()`**, con el gancho
   `PlayerState.post_move()`. Una restriccion de distancia corrige una POSICION,
   asi que tiene que corregir la definitiva —la que ya paso por las colisiones—;

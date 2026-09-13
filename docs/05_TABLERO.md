@@ -90,7 +90,9 @@ puso el jugador, no el motor*.
 |---|---|
 | **LA CUERDA ES UN ARCO.** Un solo verbo (`StateGrapple`) donde había cuatro. Engancha al `Ancla` que estés mirando, sin tirar nada y sin tiempo de viaje | `TestCuerda` 15/15 |
 | **El enganche no da tirón.** El radio es la distancia a la que estabas, así que empiezas exactamente sobre la esfera. Medido: **0.000 m** de separación en el frame del enganche | `TestCuerda` |
-| **El arco caduca a 1 s y se suelta solo.** Es el número que define la mecánica: sin tope se bombea pasada tras pasada y el nivel deja de importar | `TestCuerda` |
+| **LA Z SE MANTIENE.** Mientras aguantes sigues colgado; al soltar te sueltas. Un toque da un gancho corto, mantener da el arco entero — el mismo rango continuo de intenciones que el jump cut le da al salto | `TestCuerda` 19/19 |
+| **El freno del bombeo cambió de sitio.** Con el arco de 1 s lo impedía el reloj: no había segunda pasada. Con la Z mantenida sí la hay, así que ahora frena `cuerda_perdida` — comprobado aguantando el tope entero empujando con el stick: **no sube** | `TestCuerda`, comprobación propia |
+| `cuerda_arco_max` sube a 3 s y pasa a ser techo de seguridad, no mecánica | `TestCuerda` |
 | **El stick dirige el arco entero** — aceleración tangencial, proyectada fuera del radio. Dirige, no acumula | `TestCuerda`, desvío lateral > 1.5 m |
 | **Al soltar conserva la velocidad y la premia** (×1.15), con permiso temporal sobre el clamp global | `TestCuerda`, ratio medido en el plano |
 | **Una por tiempo de vuelo**, recargada al tocar suelo o pared, en UN solo sitio | `TestCuerda` |

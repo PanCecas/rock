@@ -34,6 +34,14 @@ var _visto: Dictionary = {}
 ## único camino del input (regla dura #4) y forzar el estado no probaría que se
 ## pueda llegar a él.
 var _cuerda: int = 0
+## Mantiene la Z pulsada hasta que se baje a mano. Desde que el arco se sostiene,
+## un contador de frames no vale: soltaria cuando le tocara y no cuando lo pida el
+## chequeo.
+var _cuerda_fija: bool = false
+## Flanco de bajada de `_cuerda_fija`: la tecla se suelta UNA vez, no cada frame.
+## Sin el, dejar de llamar a `action_press` no suelta nada —la accion se queda
+## pulsada para siempre— y el arco no terminaria nunca.
+var _cuerda_suelta: bool = true
 var _salto: int = 0
 ## Stick lateral mantenido, en [-1, 1]. Para medir que el arco se dirige.
 var _stick: float = 0.0
@@ -105,7 +113,7 @@ func _construir() -> void:
 			func() -> void:
 				_soltar_en(Vector3(0.0, 12.0, 20.0))
 				_ancla_viva = true
-				_cuerda = 4,
+				_cuerda_fija = true,
 			func() -> bool: return _visto.has(&"Grapple"),
 			"si la Z con un ancla delante no engancha, no hay mecánica que probar"),
 
@@ -125,13 +133,17 @@ func _construir() -> void:
 			"eso es la restricción de distancia: sin ella la cuerda es una goma"),
 
 		# --- EL ARCO TERMINA SOLO ---------------------------------------------
-		_chequeo_("y se suelta SOLO antes de su tope", 1.2,
+		# MANTENER TE DEJA COLGADO. Es el gesto entero: la Z no es un interruptor
+		# que hay que volver a pulsar, es un boton que se sostiene.
+		_chequeo_("mantener la Z te deja colgado", 0.9,
 			func() -> void: pass,
-			func() -> bool:
-				var tope: float = _p.tuning.cuerda_arco_max
-				return (_p.fsm.nombre_actual() != &"Grapple"
-					and _t_arco > 0.0 and _t_arco <= tope + 0.05),
-			"un arco que no caduca no es un movimiento, es un modo de transporte"),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Grapple",
+			"si mantener no sostiene el arco, soltar a tiempo no es una decision"),
+
+		_chequeo_("y soltarla te suelta", 0.25,
+			func() -> void: _cuerda_fija = false,
+			func() -> bool: return _p.fsm.nombre_actual() != &"Grapple",
+			"soltar el boton ES soltar la cuerda, y sin retardo"),
 
 		_chequeo_("no gana altura: no hay energía gratis", 0.1,
 			func() -> void: pass,
@@ -152,17 +164,56 @@ func _construir() -> void:
 			func() -> void:
 				_soltar_en(Vector3(0.0, 12.0, 20.0))
 				_ancla_viva = true
-				_cuerda = 4
+				_cuerda_fija = true
 				# Lateral puro: lo que se mide es que el arco se sale de su plano,
 				# y eso solo lo puede hacer una aceleración tangencial.
 				_stick = 1.0,
 			func() -> bool: return _lateral > 1.5,
 			"sin autoridad direccional el arco es una animación con la que se colisiona"),
 
+		# --- BOMBEAR NO SUBE, Y ESTA ES LA COMPROBACION QUE SOSTIENE EL DISEÑO --
+		#
+		# Mientras el arco duraba un segundo, el reloj impedia bombear: no habia
+		# segunda pasada que dar. Con la Z mantenida SI la hay, asi que el freno
+		# pasa a ser `cuerda_perdida` — y si no frenara, el stick metiendo
+		# tangencial cada frame convertiria el arco en una escalera al cielo y el
+		# nivel dejaria de importar. Se aguanta el tope entero empujando.
+		_chequeo_("bombear el arco entero NO te sube", 3.4,
+			func() -> void:
+				_soltar_en(Vector3(0.0, 14.0, 20.0))
+				_ancla_viva = true
+				_cuerda_fija = true
+				_stick = 1.0,
+			func() -> bool: return _y_max <= _y0 + 1.0,
+			"un arco que gana altura pasada tras pasada es una escalera, no un arco"),
+
+		_chequeo_("y el tope lo suelta aunque sigas mantenido", 0.3,
+			func() -> void: pass,
+			func() -> bool:
+				return (_p.fsm.nombre_actual() != &"Grapple"
+					and _t_arco <= _p.tuning.cuerda_arco_max + 0.1),
+			"colgarse no puede ser eterno aunque el jugador no suelte"),
+
+		# UN TOQUE TAMBIEN VALE. El arco minimo existe para que un toque rapido no
+		# enganche y se suelte sin llegar a mover nada: eso se lee como que la
+		# cuerda ha fallado, no como un gancho corto.
+		_chequeo_("un toque da un arco corto pero real", 0.8,
+			func() -> void:
+				_stick = 0.0
+				_soltar_en(Vector3(0.0, 12.0, 20.0))
+				_ancla_viva = true
+				_cuerda = 2,
+			func() -> bool:
+				return (_visto.has(&"Grapple")
+					and _t_arco >= _p.tuning.cuerda_arco_min - 0.02
+					and _t_arco < _p.tuning.cuerda_arco_max * 0.5),
+			"un gancho de un frame se lee como que el boton no respondio"),
+
 		# --- UNA POR TIEMPO DE VUELO ------------------------------------------
 		_chequeo_("gastada la cuerda, en el aire no hay otra", 0.8,
 			func() -> void:
 				_stick = 0.0
+				_cuerda_fija = false
 				# En el aire y ya sin carga: el chequeo anterior la gastó y no ha
 				# tocado nada desde entonces.
 				_p.global_position = Vector3(0.0, 16.0, 20.0)
@@ -237,7 +288,7 @@ func _construir() -> void:
 			func() -> void:
 				_soltar_en(Vector3(0.0, 12.0, 20.0))
 				_ancla_viva = true
-				_cuerda = 4,
+				_cuerda_fija = true,
 			func() -> bool: return _visto.has(&"Grapple"),
 			"primero hay que colgarse para poder soltarse"),
 
@@ -279,6 +330,7 @@ func _soltar_todo() -> void:
 			Input.action_release(a)
 	_p.buffer.clear()
 	_cuerda = 0
+	_cuerda_fija = false
 	_salto = 0
 	_stick = 0.0
 	_ancla_viva = false
@@ -341,7 +393,13 @@ func _physics_process(delta: float) -> void:
 		_recolocar_ancla()
 
 	# --- Teclas. Siempre por el InputMap, nunca forzando el estado.
-	if _cuerda > 0:
+	if _cuerda_fija:
+		Input.action_press(&"rope")
+		_cuerda_suelta = false
+	elif not _cuerda_suelta:
+		Input.action_release(&"rope")
+		_cuerda_suelta = true
+	elif _cuerda > 0:
 		Input.action_press(&"rope")
 		_cuerda -= 1
 		if _cuerda == 0:

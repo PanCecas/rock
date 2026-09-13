@@ -602,13 +602,35 @@ func velocidad_dash() -> float:
 ## radio cero: mucha velocidad angular, ningun desplazamiento, y una camara
 ## imposible de seguir.
 @export_range(0.5, 8.0, 0.1) var cuerda_largo_min: float = 2.0
-## DURACION MAXIMA DEL ARCO, en segundos. Pasado esto se suelta SOLA.
+## LA Z SE MANTIENE: sueltas el boton y te sueltas de la cuerda.
 ##
-## Es el numero que define la mecanica entera. Con el arco abierto sin limite la
-## cuerda deja de ser un movimiento y pasa a ser un MODO: te cuelgas, bombeas,
-## ganas altura pasada tras pasada y el nivel deja de importar. Con un tope corto
-## solo hay una decision —cuando sueltas— y esa si es habilidad.
-@export_range(0.2, 3.0, 0.05) var cuerda_arco_max: float = 1.0
+## Es el gesto natural y el que hace que soltar en el punto correcto sea una
+## decision de precision en vez de una segunda pulsacion que hay que acertar.
+## Ademas convierte el arco en un rango continuo de intenciones, igual que el
+## jump cut hace con el salto: un toque da un gancho corto, mantener da el arco
+## entero.
+##
+## ARCO MINIMO, en segundos. Aunque sueltes en el mismo frame, el arco dura esto.
+## Sin el, un toque rapido enganchaba y se soltaba sin llegar a mover nada y se
+## leia como que la cuerda habia fallado.
+@export_range(0.0, 1.0, 0.01) var cuerda_arco_min: float = 0.22
+## TOPE DEL ARCO, en segundos. Pasado esto se suelta sola, mantengas o no.
+##
+## **Ya no es la mecanica, es el techo de seguridad.** Cuando el arco no se podia
+## mantener, este numero ERA la mecanica: sin el, la cuerda dejaba de ser un
+## movimiento y pasaba a ser un MODO —te cuelgas, bombeas, ganas altura pasada
+## tras pasada y el nivel deja de importar—. Con la Z mantenida quien decide es el
+## jugador, asi que el tope sube y se queda solo para que colgarse no sea eterno.
+##
+## Lo que impide bombear ya no es el reloj: es `cuerda_perdida`.
+@export_range(0.2, 12.0, 0.1) var cuerda_arco_max: float = 3.0
+## Fraccion de velocidad que pierde el arco por segundo.
+##
+## **Es lo que sustituye al reloj como freno del bombeo.** Un pendulo sin
+## rozamiento es perpetuo, y con el stick metiendo tangencial cada frame no es
+## perpetuo: es creciente. Medido en el 3.08 sin perdida, el arco daba vueltas a
+## altura constante acelerando solo de 10 a 19 m/s.
+@export_range(0.0, 1.0, 0.01) var cuerda_perdida: float = 0.10
 ## Aceleracion TANGENCIAL que imprime el stick, en m/s².
 ##
 ## Va por el arco, nunca contra la cuerda: empujar hacia el ancla no haria nada

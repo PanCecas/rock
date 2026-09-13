@@ -57,8 +57,19 @@ func enter(msg: Dictionary = {}) -> void:
 
 
 func physics_update(delta: float) -> void:
-	# 1) EL ARCO CADUCA. Va lo primero: es la ley que define el movimiento, y una
-	#    ley que se comprueba después de las excepciones no es una ley.
+	# 1) SOLTAR EL BOTÓN TE SUELTA, y el tope sigue existiendo por encima.
+	#
+	#    Los dos, en este orden. El primero es el gesto —mantienes y te quedas
+	#    colgado, sueltas y sales— y es lo que convierte el arco en un rango
+	#    continuo de intenciones en vez de en un temporizador que hay que esperar:
+	#    un toque da un gancho corto, mantener da el arco entero. Es el mismo
+	#    perdón que el jump cut le hace al salto.
+	#
+	#    El segundo ya no es la mecánica, es el techo: colgarse no puede ser
+	#    eterno. Lo que impide BOMBEAR no es este reloj —es `cuerda_perdida`.
+	if t >= tuning.cuerda_arco_min and not buffer.is_held(InputActions.ROPE):
+		_soltar()
+		return
 	if t >= tuning.cuerda_arco_max:
 		_soltar()
 		return
@@ -69,14 +80,11 @@ func physics_update(delta: float) -> void:
 		return
 	_punto = _ancla.global_position
 
-	# 3) SOLTAR A MANO. Dos gestos, los dos naturales: saltar —que es para lo que
-	#    sirve el arco, para LLEGAR a algún sitio— y volver a pulsar la cuerda.
-	#    Los dos conservan la velocidad igual; ver `exit()`.
+	# 3) SALTAR TAMBIÉN SUELTA, y es el otro gesto natural: el arco sirve para
+	#    LLEGAR a algún sitio, y llegar termina en un salto. Conserva la velocidad
+	#    igual que soltar el botón; ver `exit()`.
 	if player.consumir_salto():
 		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true}, true)
-		return
-	if buffer.consume(InputActions.ROPE):
-		_soltar()
 		return
 
 	# 4) GRAVEDAD, y SIMÉTRICA. Sin ella el arco no es un arco: llegarías al radio
@@ -96,7 +104,12 @@ func physics_update(delta: float) -> void:
 		if not tangente.is_zero_approx():
 			player.velocity += tangente.normalized() * tuning.cuerda_tangencial * delta
 
-	# 6) Mirando hacia donde vas, no hacia el ancla: lo que se lee es el arco.
+	# 6) PÉRDIDA. Un péndulo sin rozamiento es perpetuo, y con el stick metiendo
+	#    tangencial cada frame no es perpetuo: es creciente. Esto es lo que impide
+	#    bombear ahora que el arco se puede mantener, y por eso no es un adorno.
+	player.velocity *= 1.0 - tuning.cuerda_perdida * delta
+
+	# 7) Mirando hacia donde vas, no hacia el ancla: lo que se lee es el arco.
 	var avance := sc.plano(player.velocity)
 	if avance.length() > 1.0:
 		player.orientar_a(avance)
