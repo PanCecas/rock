@@ -557,6 +557,22 @@ tecla: media la fisica del pendulo y no la ENTRADA. Todo verbo nuevo se prueba p
 su camino de entrada real —`Input.action_press()` y el `InputBuffer`— aunque
 ademas se mida su fisica aparte.
 
+**UNA SUITE QUE NO PUEDE PONERSE EN ROJO NO ES UNA SUITE.** `TestFase1` daba
+verde mientras fallaba: su titular decia «12/12 estados alcanzados» —que se lee
+como aprobado— y su `quit()` miraba SOLO los estados, asi que un chequeo roto
+salia con codigo 0. Era la unica de las diez que lo hacia. Costo dos regresiones
+el mismo dia —`rebote con altura` y `wall-jump Mario` llevaban commits fallando y
+se publicaron leyendo esa linea—.
+
+Dos reglas de aqui, y las dos son de LECTURA y no de codigo:
+
+· **El titular de una suite cuenta lo que la suite AFIRMA.** Si mide dos cosas,
+  las dice las dos.
+· **Y se lee el bloque `FALLOS` ENTERO, no la linea del resultado.** Los fallos
+  son multilinea —traen estado, traza y diagnostico—, asi que un `head -N` sobre
+  la salida corta el segundo fallo y deja una cuenta que no cuadra con la lista.
+  Paso dos veces en la misma sesion.
+
 **Los tres tests son complementarios y ninguno sustituye a otro:** el funcional
 comprueba que la FSM llega a un estado, el de medicion cronometra como se siente,
 y el visual comprueba que el personaje se VE bien estando ahi. Media docena de

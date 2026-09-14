@@ -231,12 +231,23 @@ func _informe() -> void:
 		if visitado:
 			ok += 1
 		print("  %s %s" % ["OK   " if visitado else "FALLA", e])
-	print("RESULTADO: %d/%d estados alcanzados." % [ok, esperados.size()])
+	# EL TITULAR CUENTA LAS DOS COSAS, Y EL CODIGO DE SALIDA TAMBIEN.
+	#
+	# **Esta suite daba verde mientras fallaba.** El resultado decia «12/12 estados
+	# alcanzados» —que se lee como aprobado— y `quit()` miraba SOLO los estados,
+	# asi que un chequeo roto salia con codigo 0 y no paraba nada. Era la unica de
+	# las diez que lo hacia; las demas salen por `_fallos.is_empty()`.
+	#
+	# Costó dos regresiones el mismo dia: `rebote con altura` y `wall-jump Mario`
+	# llevaban commits fallando y se publicaron leyendo esa linea.
+	var chequeos := _guion.filter(func(e: Dictionary) -> bool: return e.has("chequeo"))
+	print("RESULTADO: %d/%d estados alcanzados, %d/%d comprobaciones." % [
+		ok, esperados.size(), chequeos.size() - _fallos.size(), chequeos.size()])
 	if not _fallos.is_empty():
 		print("--- FALLOS ---")
 		for f in _fallos:
 			print("  " + f)
-	get_tree().quit(0 if ok == esperados.size() else 1)
+	get_tree().quit(0 if (ok == esperados.size() and _fallos.is_empty()) else 1)
 
 
 # --- Utilidades ---------------------------------------------------------------
