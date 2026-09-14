@@ -461,7 +461,7 @@ le esta robando la mecanica.
 | `tools/Gym.gd` | Sala de pruebas por código. Editar parámetros, no cubos. Incluye las rampas de calibración de escalada (45–90°, con el pie en la misma línea) y **EL CLARO** (hierba interactiva, luciérnagas y bandada) en (9, 0, −13). Se apaga con `con_claro`. |
 | `tools/smoke_test.gd` | Comprobación de humo. `godot --headless --path . --script tools/smoke_test.gd` |
 | `tools/medir_paleta.gd` | Imprime croma y luminancia de cada color. Mide antes de inventar umbrales. |
-| `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. |
+| `tools/MedirMovimiento.tscn` | Cronometra el feel de la locomocion: frenada, patinaje, control aereo. `-- antes` compara con los valores previos. Y **LA ESQUINA**: se construye su propio alero —el Gym no tiene ninguno— y salta contra el borde con solapes crecientes. Es la medida que dijo que **la correccion de esquina no hace falta en este juego**: con la capsula, rozar el borde 35 cm de un radio de 40 no cuesta ni un centimetro de salto. |
 | `tools/captura.gd` | Guarda capturas del Gym y del circuito sin abrir el editor. |
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 14 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |

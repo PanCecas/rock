@@ -26,6 +26,14 @@ var _vel0: float = 0.0
 var _midiendo: bool = false
 var _dir0: Vector3 = Vector3.ZERO
 var _modo: String = "DESPUES (correccion 2.05)"
+## Altura maxima alcanzada dentro de la medida. Es lo unico que dice si un salto
+## se perdio contra una esquina: el estado no cambia —sigues en `Jump`— y la
+## velocidad tampoco lo cuenta, porque `move_and_slide` la pone a cero sin avisar.
+var _y_pico: float = -999.0
+## EL ALERO: un techo con una esquina, construido por el banco porque el Gym no
+## tiene ninguno. Sin geometria que rozar no se puede medir un roce.
+var _alero: StaticBody3D = null
+const ALERO_CENTRO := Vector3(-10.0, 0.0, -34.0)
 
 
 func _ready() -> void:
@@ -43,7 +51,50 @@ func _ready() -> void:
 		_p.tuning.aceleracion_aire = 25.0
 		_p.tuning.control_aereo_techo = _p.tuning.velocidad_correr
 
+	_montar_alero()
 	_construir()
+
+
+## Un bloque con un borde limpio en x = -10 y la cara inferior a y = 2.0.
+##
+## **La altura importa y costo una pasada.** Con el alero a 3.0 el jugador se
+## paraba a 1.06 m **tambien sin solape**: el techo cortaba el salto entero,
+## control incluido, y las tres filas salian identicas por una razon que no era la
+## esquina. A 2.0 el salto limpio pasa de largo —sube sus 2.6— y solo lo para el
+## solape, que es lo unico que se quiere medir.
+func _montar_alero() -> void:
+	_alero = StaticBody3D.new()
+	_alero.name = "Alero"
+	_alero.collision_layer = Layers.WORLD
+	var caja := BoxMesh.new()
+	caja.size = Vector3(4.0, 1.0, 4.0)
+	var malla := MeshInstance3D.new()
+	malla.mesh = caja
+	_alero.add_child(malla)
+	var col := CollisionShape3D.new()
+	var forma := BoxShape3D.new()
+	forma.size = caja.size
+	col.shape = forma
+	_alero.add_child(col)
+	add_child(_alero)
+	_alero.global_position = ALERO_CENTRO + Vector3(2.0, 2.5, 0.0)
+
+
+## Un salto vertical con la capsula solapando el borde del alero `solape` metros.
+## Con 0 no toca nada y es la fila de control.
+func _saltar_bajo_el_alero(solape: float) -> void:
+	_soltar_todo()
+	# El borde del alero esta en x = -10 y la capsula mide 0.4 de radio: a
+	# -10.4 la roza justo, y cada centimetro que se suma es solape.
+	_colocar(ALERO_CENTRO + Vector3(-0.4 - 0.4 + solape, 0.05, 0.0))
+	_p.velocity = Vector3.ZERO
+	_p.motor.set_vertical(_p.tuning.velocidad_salto())
+	# SIN JUMP CUT. El banco no mantiene ninguna tecla, asi que `StateJump` recorta
+	# el salto en el primer frame por no tener el boton pulsado y lo que se medía
+	# era el salto CORTO: 1.06 m en las tres filas, tocara o no tocara el alero.
+	_p.fsm.cambiar(&"Jump",
+		{"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+	_y_pico = _p.global_position.y
 
 
 func _construir() -> void:
@@ -151,6 +202,45 @@ func _construir() -> void:
 				return _p.superficie.plano(_p.velocity).dot(_dir0) < 0.0),
 
 		# --- 5) Salto desde PARADO: cuanta velocidad se gana en el aire ------
+		# --- LA ESQUINA -------------------------------------------------------
+		# Un salto que roza un techo por un dedo se pierde entero, y el sintoma es
+		# invisible: no cambia de estado —sigues en `Jump`— y la velocidad no lo
+		# cuenta, porque `move_and_slide` la pone a cero sin avisar. Lo unico que
+		# lo dice es la ALTURA que llegaste a alcanzar.
+		#
+		# Es el punto #16 del Tier B del documento de movimiento. Antes de
+		# implementarlo hay que saber si el problema existe: una capsula resbala
+		# por las esquinas mucho mejor que una caja, y puede que Godot ya lo este
+		# resolviendo solo.
+		_medida("salto limpio bajo el alero — control", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.0),
+			func() -> String:
+				return "sube %.2f m (el salto entero son %.2f)" % [
+					_y_pico - 0.05, _p.tuning.altura_salto_max]),
+
+		_medida("el mismo salto rozando la esquina 12 cm", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.12),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		_medida("y rozandola 25 cm", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.25),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		# Y HASTA DONDE AGUANTA. El radio de la capsula es 0.4: a 0.35 solo le
+		# quedan 5 cm libres y a 0.55 ya esta mas dentro que fuera. Sin estas dos
+		# filas, "la capsula se escurre" seria una afirmacion sin limite conocido.
+		_medida("rozandola 35 cm (radio = 40)", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.35),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		_medida("y metiendose 55 cm, mas dentro que fuera", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.55),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
 		_medida("velocidad ganada saltando parado", 0.55,
 			func() -> void:
 				_soltar_todo()
@@ -174,6 +264,8 @@ func _physics_process(delta: float) -> void:
 		_informe()
 		return
 	_t += delta
+
+	_y_pico = maxf(_y_pico, _p.global_position.y)
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t - delta) or not bool(actual.get("iniciado", false)):
