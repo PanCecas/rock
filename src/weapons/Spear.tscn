@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://src/weapons/Spear.gd" id="s"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
@@ -10,8 +10,8 @@
 [ext_resource type="Script" path="res://src/weapons/states/SpearEmbedded.gd" id="e_emb"]
 [ext_resource type="Script" path="res://src/weapons/states/SpearGrounded.gd" id="e_gro"]
 [ext_resource type="Script" path="res://src/weapons/states/SpearReturning.gd" id="e_ret"]
-[ext_resource type="Script" path="res://src/weapons/states/SpearSuspendida.gd" id="e_sus"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
+[ext_resource type="Script" path="res://src/world/Ancla.gd" id="anc"]
 
 [sub_resource type="BoxShape3D" id="plat"]
 size = Vector3(0.4, 0.12, 0.4)
@@ -56,6 +56,10 @@ dueno_path = NodePath("..")
 [node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
 shape = SubResource("diana")
 
+[node name="Ancla" type="Node3D" parent="."]
+script = ExtResource("anc")
+visible_en_juego = false
+
 [node name="FSM" type="Node" parent="."]
 script = ExtResource("fsm")
 estado_inicial = &"Holstered"
@@ -77,6 +81,3 @@ script = ExtResource("e_gro")
 
 [node name="Returning" type="Node" parent="FSM"]
 script = ExtResource("e_ret")
-
-[node name="Suspendida" type="Node" parent="FSM"]
-script = ExtResource("e_sus")

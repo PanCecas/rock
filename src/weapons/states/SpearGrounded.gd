@@ -14,6 +14,13 @@ func enter(_msg: Dictionary = {}) -> void:
 	_vy = 0.0
 	_posada = false
 	lanza.soltar_plataforma()
+	# Sigue siendo pateable en el suelo: una lanza tirada que no se puede patear
+	# es una lanza que hay que ir a recoger andando.
+	lanza.armar_hurtbox(true)
+
+
+func exit(_siguiente: StringName) -> void:
+	lanza.armar_hurtbox(false)
 
 
 func physics_update(delta: float) -> void:

@@ -71,6 +71,17 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 		var hb := r.collider as Hurtbox
 		if hb == null or hb.equipo == equipo:
 			continue
+		# NADIE SE GOLPEA A SI MISMO, y el equipo no basta para garantizarlo.
+		#
+		# Mientras todo cuerpo tuviera su hitbox y su hurtbox en el MISMO equipo,
+		# el filtro de arriba bastaba. La lanza rompio esa suposicion: desde el
+		# 4.05 lleva hitbox del equipo 0 —hace daño de parte del jugador— y hurtbox
+		# del 1 —para que la patada del jugador pueda alcanzarla—, asi que se
+		# encontraba a si misma y se pateaba sola CADA FRAME. Se vio porque la
+		# velocidad de vuelo no bajaba nunca: `enter()` se llamaba sesenta veces
+		# por segundo y la reponia a 34.
+		if hb.dueno != null and hb.dueno == dueno:
+			continue
 		if _tocados.has(hb.get_instance_id()):
 			continue
 

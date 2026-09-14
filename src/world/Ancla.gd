@@ -44,12 +44,30 @@ const GRUPO := &"anclas"
 		if is_inside_tree():
 			_rehacer()
 
+## ¿Esta en juego? Un ancla plantada en un nivel lo esta siempre; una que viaja
+## —la de la lanza— solo mientras el arma este fuera.
+var activa: bool = true
+
 var _visual: MeshInstance3D = null
 
 
 func _ready() -> void:
-	add_to_group(GRUPO)
+	habilitar(activa)
 	_rehacer()
+
+
+## ENCIENDE O APAGA EL ANCLA, entrando y saliendo del grupo.
+##
+## Por GRUPO y no por un flag que `mejor()` consulte: el buscador recorre el grupo
+## y punto, asi que un ancla apagada deja de existir para el en vez de tener que
+## acordarse de preguntarle. Una lista de excepciones dentro del buscador es como
+## se llega a que una de ellas se olvide.
+func habilitar(si: bool) -> void:
+	activa = si
+	if si and not is_in_group(GRUPO):
+		add_to_group(GRUPO)
+	elif not si and is_in_group(GRUPO):
+		remove_from_group(GRUPO)
 
 
 ## LA BÚSQUEDA, y vive aquí porque es asunto del ancla.

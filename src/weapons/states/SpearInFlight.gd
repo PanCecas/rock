@@ -22,15 +22,38 @@ func enter(msg: Dictionary = {}) -> void:
 	if dir.is_zero_approx():
 		dir = -lanza.global_basis.z
 	lanza.direccion = _imantar(dir.normalized())
+	# LA VELOCIDAD ES UN VECTOR, no un numero por una direccion fija. Con el
+	# frenado y la gravedad la trayectoria se CURVA, y una direccion constante no
+	# puede describir una curva.
+	lanza.vuelo = lanza.direccion * tuning.velocidad
 	lanza.soltar_plataforma()
 	lanza.apuntar_a(lanza.direccion)
 	if lanza.hitbox != null:
 		lanza.hitbox.nuevo_swing()
+	# PATEABLE EN VUELO. Es lo que la convierte en «patear tu propia arma
+	# lanzada»: alcanzarla en el aire y redirigirla.
+	lanza.armar_hurtbox(true)
 	EventBus.camara_shake.emit(0.18, 0.08)
 
 
+func exit(_siguiente: StringName) -> void:
+	if _siguiente != &"InFlight":
+		lanza.armar_hurtbox(false)
+
+
 func physics_update(delta: float) -> void:
-	var paso := tuning.velocidad * delta
+	# FRENA Y CAE. El orden importa poco a estas escalas, pero el frenado va
+	# primero para que la gravedad del frame no se descuente a si misma.
+	lanza.vuelo *= exp(-tuning.frenado * delta)
+	lanza.vuelo += Vector3.DOWN * tuning.gravedad_vuelo * delta
+	var rapidez := lanza.vuelo.length()
+	if rapidez < tuning.velocidad_minima:
+		fsm.cambiar(&"Grounded")
+		return
+	lanza.direccion = lanza.vuelo / rapidez
+	lanza.apuntar_a(lanza.direccion)
+
+	var paso := rapidez * delta
 	var desde := lanza.global_position
 	var hasta := desde + lanza.direccion * paso
 
@@ -75,9 +98,6 @@ func physics_update(delta: float) -> void:
 	# movimiento. Antes volaba 45 m y se caia; ahora se planta a `suspension_
 	# distancia` y espera a que la patees. `alcance_maximo` y `vida_vuelo` se
 	# quedan de techo de seguridad por si alguien sube la distancia.
-	if _recorrido >= tuning.suspension_distancia:
-		fsm.cambiar(&"Suspendida")
-		return
 	if t >= tuning.vida_vuelo or _recorrido >= tuning.alcance_maximo:
 		fsm.cambiar(&"Grounded")
 

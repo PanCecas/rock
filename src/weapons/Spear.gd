@@ -40,11 +40,26 @@ signal estado_cambiado(nombre: StringName)
 ## descarta las hurtbox de su mismo equipo, asi que con 1 la alcanza la patada
 ## del jugador y la ignoran los enemigos. Un numero, las dos reglas.
 @onready var hurtbox: Hurtbox = get_node_or_null(^"Hurtbox")
+## EL ANCLA QUE VIAJA. Mientras la lanza esta fuera —volando, clavada o en el
+## suelo— es un punto de cuerda mas: la Z se engancha a ella como a cualquier
+## otra. Es el proyectil que el jugador se fabrica donde el nivel no puso ninguno.
+##
+## Se dejo constancia de la objecion en su momento —el 4.00 quito justo esto por
+## convertir un verbo de movimiento en una cadena de tres acciones, y porque la
+## COLOCACION de las anclas es el diseño de nivel— y se pidio igualmente. Queda
+## escrito aqui para que la proxima vez que alguien lo lea sepa que fue una
+## decision y no un descuido.
+@onready var ancla: Ancla = get_node_or_null(^"Ancla")
 @onready var visual: Node3D = $Visual
 @onready var plataforma: StaticBody3D = $Plataforma
 @onready var cordon: Cordon = $Cordon
 
 var dueno: Node3D = null
+## VELOCIDAD DE VUELO, en mundo. La escribe `InFlight` y la reescribe una patada.
+##
+## Vive aqui y no dentro del estado porque **la patada tiene que poder cambiarla
+## desde fuera**: `recibir_golpe()` llega por la `Hurtbox`, no por la FSM.
+var vuelo: Vector3 = Vector3.ZERO
 ## Dirección de vuelo. La escribe `InFlight`.
 var direccion: Vector3 = Vector3.FORWARD
 ## Punto y normal del clavado. Los escribe `Embedded`.
@@ -71,6 +86,8 @@ func _ready() -> void:
 		hitbox.dueno = self
 		hitbox.equipo = 0
 	armar_hurtbox(false)
+	if ancla != null:
+		ancla.habilitar(false)
 	fsm.configurar(self)
 
 
@@ -101,17 +118,32 @@ func armar_hurtbox(armada: bool) -> void:
 ## pero aqui no hay vida que descontar: una lanza no se mata. Lo unico que pasa
 ## es que sale despedida y deja de flotar, y eso es lo que cobra el pogo: **una
 ## lanzada, un pogo**.
+## PATEAR TU PROPIA ARMA LANZADA. La tiras, la alcanzas en el aire y la
+## REDIRIGES — es el verbo que el documento de movimiento pide por «casi cero
+## codigo», y lo es porque la lanza ya sabia volar.
+##
+## No es un empujon: se le reescribe la velocidad ENTERA hacia donde pateas. Un
+## empujon sumaria a lo que ya llevaba y el segundo rumbo seria una mezcla que
+## nadie pidio; asi, la lanza sale nueva y el rumbo lo decides tu.
+##
+## Devuelve IMPACTO porque el golpe SI ha ocurrido —el jugador tiene que rebotar—
+## pero aqui no hay vida que descontar: una lanza no se mata.
 func recibir_golpe(golpe: Golpe) -> int:
-	if fsm == null or fsm.nombre_actual() != &"Suspendida":
+	if fsm == null:
 		return Golpe.Resultado.INMUNE
-	var empuje := golpe.direccion
-	empuje.y = 0.0
-	if empuje.is_zero_approx():
-		empuje = direccion
-	direccion = empuje.normalized()
-	global_position += direccion * (tuning.suspension_empuje * 0.05)
-	CombatFX.impacto(get_parent(), global_position, color_de(&"oro_palido"), 1.6)
-	fsm.cambiar(&"Grounded")
+	var donde := fsm.nombre_actual()
+	if donde != &"InFlight" and donde != &"Grounded":
+		return Golpe.Resultado.INMUNE
+	var hacia := golpe.direccion
+	if hacia.is_zero_approx():
+		hacia = direccion
+	direccion = hacia.normalized()
+	vuelo = direccion * tuning.patada_empuje
+	CombatFX.impacto(get_parent(), global_position, color_de(&"oro_palido"), 1.8)
+	EventBus.camara_shake.emit(0.3, 0.12)
+	# Se reentra en el vuelo aunque ya estuviera volando: lo que empieza aqui es
+	# un tiro NUEVO, con su propio reloj y su propio alcance.
+	fsm.cambiar(&"InFlight", {"direccion": direccion}, true)
 	return Golpe.Resultado.IMPACTO
 
 
@@ -119,6 +151,18 @@ func _physics_process(delta: float) -> void:
 	if HitstopManager.global_activo():
 		return
 	fsm.physics_update(delta)
+	_actualizar_ancla()
+
+
+## El ancla vive mientras el arma este FUERA. Se mira aqui, en un sitio, en vez
+## de encenderla y apagarla en los seis estados: tres se acordarian y tres no, que
+## es el fallo de la regla dura #13 con otro nombre.
+func _actualizar_ancla() -> void:
+	if ancla == null:
+		return
+	var fuera := esta_fuera()
+	if ancla.activa != fuera:
+		ancla.habilitar(fuera)
 
 
 ## El cordon se tiende en `_process`, a ritmo de RENDER, y no con la fisica.

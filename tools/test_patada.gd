@@ -67,6 +67,22 @@ var _vy_rebote: float = -99.0
 ## este juego se prueba con capsulas grises (regla dura #7), asi que no hay
 ## animacion que parar. Si esto vale cero, conectar no se siente — y valia cero.
 var _frames_pausa: int = 0
+## Rumbo de la lanza ANTES de patearla, y si llego a cambiar.
+##
+## **Se engancha cuando pasa, no se lee al final.** La primera version comparaba
+## el rumbo en el ultimo frame de la ventana y ahi la lanza ya podia haber
+## seguido curvandose, haber aterrizado o haber recibido una segunda patada: el
+## chequeo medía el final de una historia en vez del momento del verbo.
+var _rumbo_antes: Vector3 = Vector3.ZERO
+var _rumbo_vigilado: bool = false
+var _rumbo_cambio: bool = false
+## Mantiene al jugador PEGADO a la lanza mientras dure el chequeo.
+##
+## Colocarlo una sola vez no vale: la lanza sigue volando y la patada no sale en
+## el frame en que se pulsa —el buffer, el grupo y las cargas se toman los suyos—,
+## asi que cuando por fin salia, el blanco ya se habia ido. Pegandolo cada frame
+## lo que se mide es la PATADA y no la punteria del banco.
+var _pegado_a_la_lanza: bool = false
 
 
 func _ready() -> void:
@@ -238,43 +254,61 @@ func _construir() -> void:
 			func() -> bool: return _frames_pausa >= 3,
 			"un golpe que no para nada no se siente; es lo unico que hoy se ve"),
 
-		# --- LA DIANA QUE SOBREVIVE -------------------------------------------
+		# --- PATEAR TU PROPIA ARMA LANZADA ------------------------------------
 		# Conectar con un enemigo lo MATA en el acto, asi que sobre el no hay
-		# segundo pogo: hay un rebote y se acabo lo que habia que pisar. La lanza
-		# suspendida es la pieza que convierte «conectar y rebotar» en un bucle,
-		# porque encaja la patada y no desaparece.
-		_chequeo_("la lanza tirada se queda FLOTANDO", 0.8,
+		# segundo pogo. La lanza es lo unico que sobrevive a la patada, y desde el
+		# 4.05 lo que la patada le hace no es tirarla: la REDIRIGE.
+		#
+		# El 4.02 la paraba a flotar y la patada la mandaba al suelo. Se reporto
+		# que eso estaba mal por los dos lados —«que no se quede pausada» y «al
+		# patearla que cambie de trayectoria»— y tenian razon: una diana que se
+		# cae es un escalon de un solo uso, y el verbo del documento es redirigir.
+		_chequeo_("la lanza tirada se alcanza EN VUELO", 0.35,
 			func() -> void:
-				_colocar(Vector3(0.0, 8.0, 34.0))
-				_p.cuerda_disponible = false
+				_colocar(Vector3(0.0, 10.0, 34.0))
 				var l: Spear = _p.lanza
 				if l != null and is_instance_valid(l):
 					l.fsm.cambiar(&"Wielded")
 					l.lanzar(_p.global_position, Vector3.RIGHT),
 			func() -> bool:
 				var l: Spear = _p.lanza
-				return l != null and is_instance_valid(l) \
-					and l.fsm.nombre_actual() == &"Suspendida",
-			"un proyectil que se cae no es una diana: es basura en el suelo"),
+				return (l != null and is_instance_valid(l)
+					and l.fsm.nombre_actual() == &"InFlight"
+					and l.hurtbox != null and l.hurtbox.collision_layer != 0),
+			"si no se puede alcanzar en el aire, no hay nada que redirigir"),
 
-		_chequeo_("y se le puede dar una patada", 0.5,
+		# Y AL PATEARLA CAMBIA DE RUMBO. Se mide el rumbo, no el estado: seguir en
+		# `InFlight` es lo que hacia antes de la patada tambien (regla dura #31).
+		_chequeo_("y al patearla CAMBIA DE RUMBO", 0.4,
 			func() -> void:
 				var l: Spear = _p.lanza
 				if l != null and is_instance_valid(l):
-					_p.global_position = l.global_position - Vector3.RIGHT * 1.4
-					_p.velocity = Vector3.ZERO
-					_p.call("orientar_a", Vector3.RIGHT)
+					_rumbo_antes = l.direccion
+					_rumbo_cambio = false
+					_rumbo_vigilado = true
+					# Mirando hacia -Z, que es perpendicular al rumbo que llevaba:
+					# asi el cambio no se puede confundir con la curva que la
+					# gravedad le estaba dando de todas formas.
+					_pegado_a_la_lanza = true
 					_p.fsm.cambiar(&"Fall")
 					_p.reset_physics_interpolation()
 				_vy_rebote = -99.0
-				# LA MARCA SE PONE AQUI, en el frame de la patada, y no en el
-				# chequeo anterior: mientras la lanza vuela el jugador CAE, y si le
-				# da tiempo a aterrizar el suelo le recarga el moveset y el chequeo
-				# siguiente culpa a la patada de lo que hizo el suelo.
+				# LA MARCA SE PONE AQUI, en el frame de la patada, y no antes:
+				# mientras la lanza vuela el jugador CAE, y si le da tiempo a
+				# aterrizar el suelo le recarga el moveset y el chequeo siguiente
+				# culpa a la patada de lo que hizo el suelo.
 				_p.cuerda_disponible = false
 				_atacar = 4,
+			func() -> bool:
+				_rumbo_vigilado = false
+				_pegado_a_la_lanza = false
+				return _rumbo_cambio,
+			"si el rumbo no cambia, patearla no es un verbo: es un adorno"),
+
+		_chequeo_("y ademas te rebota", 0.1,
+			func() -> void: pass,
 			func() -> bool: return _vy_rebote > _p.tuning.patada_rebote * 0.7,
-			"si no rebota en ella, la lanza es un adorno flotando"),
+			"sin rebote, alcanzarla en el aire no te devuelve nada"),
 
 		# Y LA REGLA QUE LA HACE SOSTENIBLE. La ley 4 recarga el moveset al tocar
 		# suelo, pared o enemigo: tres cosas que pone el NIVEL. Tu lanza la pones
@@ -550,6 +584,15 @@ func _physics_process(delta: float) -> void:
 	elif _estado_prev == &"Kick":
 		_v_salida = plano_ahora
 		_vy_rebote = maxf(_vy_rebote, _p.superficie.vertical(_p.velocity))
+	if _rumbo_vigilado:
+		var lv: Spear = _p.lanza
+		if lv != null and is_instance_valid(lv):
+			if _pegado_a_la_lanza and not _rumbo_cambio:
+				_p.global_position = lv.global_position + Vector3(0.0, -0.3, 1.5)
+				_p.velocity = Vector3.ZERO
+				_p.call("orientar_a", Vector3.FORWARD)
+			if lv.direccion.dot(_rumbo_antes) < 0.6:
+				_rumbo_cambio = true
 	if HitstopManager.global_activo():
 		_frames_pausa += 1
 	_v_plano_prev = plano_ahora

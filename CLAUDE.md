@@ -390,9 +390,9 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
 | **LANZA: tirarla** — y desde el 4.02 es **LA DIANA DE POGO** | **V** o **Mouse 5** | D-pad arriba |
-| | *vuela 11 m, se PARA y se queda flotando 2.5 s* | |
-| | *mientras flota se le puede dar una patada: rebotas y ella se cae* | |
-| | *una lanzada, un pogo — un escalon que te fabricas donde no hay nada* | |
+| | *vuela FRENANDO y cayendo: se ve venir, se ve frenar y se ve caer* | |
+| | ***alcanzala en el aire y pateala: CAMBIA DE RUMBO*** — el verbo sale por casi cero codigo | |
+| | ***y mientras esta fuera es un ANCLA***: la Z se engancha a ella como a cualquier otra | |
 | | *el rebote SI, la recarga NO: tu lanza la pones tu* | |
 | **Empunar / guardar la lanza** | **Tab** | Back |
 | | *Tirarla la desempuna. Ya no cambia como pegas: solo hay una forma* | |
@@ -822,7 +822,29 @@ primera version cumplia el encargo sobre el papel y se sentia mal. El banco
   para `AnimationTree`s y este juego se prueba con capsulas grises (regla dura
   #7): no hay animacion que parar. Hasta que existan, un impacto se comunica
   parando el mundo y moviendo a la victima, y nada mas.
-- **LA LANZA PASA A SER LA DIANA DE POGO** (`SpearSuspendida`). Reportado: *«no
+- **LA LANZA FRENA, NO SE PARA, Y ES UN ANCLA QUE VIAJA** (4.05). Se reporto
+  asi: *«que no se tire y se quede pausada, que se tire y pierda velocidad
+  gradualmente»* y *«que tenga las propiedades de la bola amarilla donde se
+  agarra con Z la cuerda»*. Las dos cosas y una tercera:
+  · **La velocidad es un VECTOR** con frenado exponencial y gravedad propia, asi
+	que la trayectoria se CURVA. Una lanza detenida en el aire es un objeto
+	colgado de un hilo invisible; una que frena es una lanza.
+  · **Patearla la REDIRIGE**, que es el verbo que el documento llama «patear tu
+	propia arma lanzada». No la empuja: le reescribe la velocidad entera hacia
+	donde pateas, asi que sale nueva y el segundo rumbo lo decides tu.
+  · **Y mientras esta fuera lleva un `Ancla` encima.** Se dejo constancia de la
+	objecion —el 4.00 quito justo esto por convertir un verbo de movimiento en
+	una cadena de tres acciones, y porque la COLOCACION de las anclas es el
+	diseño de nivel— y se pidio igualmente. Queda escrito para que la proxima vez
+	que se lea se sepa que fue una decision y no un descuido.
+  · **NADIE SE GOLPEA A SI MISMO, y el equipo no bastaba para garantizarlo.**
+	Mientras todo cuerpo tuviera hitbox y hurtbox en el MISMO equipo, el filtro
+	de equipo sobraba. La lanza rompio la suposicion: hitbox del 0 —hace daño de
+	parte del jugador— y hurtbox del 1 —para que la patada la alcance—, asi que
+	se encontraba a si misma y **se pateaba sola sesenta veces por segundo**. Se
+	vio porque su velocidad de vuelo no bajaba nunca: `enter()` la reponia a 34
+	cada frame. `Hitbox` compara ahora tambien el DUEÑO.
+- **LA LANZA PASO A SER LA DIANA DE POGO en el 4.02** (`SpearSuspendida`, retirado). Reportado: *«no
   le veo mucho uso a la lanza»* y *«tenia pensado un proyectil que se le pueda
   hacer pogo»*. Son el mismo hueco visto por los dos lados.
   Conectar con un enemigo lo MATA en el acto —200 de dano, 999 de poise—, asi que

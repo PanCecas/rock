@@ -15,31 +15,31 @@ extends Resource
 ## Distancia máxima a la que se aleja antes de caer. El cordón tiene un largo.
 @export_range(5.0, 200.0, 1.0) var alcance_maximo: float = 45.0
 
-@export_group("Suspension")
-## A CUANTOS METROS SE PARA A FLOTAR. Es el numero que convierte la lanza en una
-## DIANA DE POGO: se tira corto, se queda ahi, y se patea.
+@export_group("Frenado")
+## Fraccion de velocidad que pierde por segundo en el aire.
 ##
-## Corto a proposito. Un proyectil que cruza media sala es un arma; uno que se
-## planta unos metros por delante es un escalon que te fabricas donde no hay
-## nada — y con `suspension_duracion` en 2.5 s, once metros se cruzan de sobra
-## dentro de la misma ventana yendo a cualquier velocidad de este juego.
+## **Sustituye a la suspension del 4.02, que paraba la lanza en seco a los 11 m y
+## la dejaba flotando.** Se reporto asi: «que no se tire y se quede pausada, que
+## se tire y pierda velocidad gradualmente». Y tiene razon: una lanza que se
+## detiene en el aire es un objeto colgado de un hilo invisible; una que frena es
+## una lanza.
 ##
-## **Empezo en 8 y lo subio un test, con razon.** `TestLanza` comprueba que la
-## lanza ATRAVIESA a los enemigos en vez de pararse en el primero, y lo mide
-## tirandola contra uno que esta a 7 m: parandose a 8 el margen era de un metro y
-## la comprobacion dejaba de distinguir "paso de largo" de "se paro justo
-## despues". No es que el numero tuviera que ser 11: es que 8 era tan corto que
-## la lanza dejaba de ser un proyectil.
-@export_range(2.0, 40.0, 0.5) var suspension_distancia: float = 11.0
-## Cuanto aguanta flotando, en segundos. Es la ventana para llegar.
-@export_range(0.2, 10.0, 0.1) var suspension_duracion: float = 2.5
-## Periodo del bamboleo, en segundos. Una lanza absolutamente quieta en el aire
-## se lee como un objeto que el motor se ha dejado olvidado.
-@export_range(0.2, 6.0, 0.05) var suspension_bamboleo: float = 1.4
-## Empuje que se lleva al recibir la patada, en m/s. **Una lanzada, un pogo**: si
-## se quedara flotando se podria subir por ella sin fin, y eso es una escalera al
-## cielo con pasos extra (regla dura #27).
-@export_range(0.0, 40.0, 0.5) var suspension_empuje: float = 9.0
+## Con 1.6, sale a 34 m/s y al segundo va a 6.9: se ve venir, se ve frenar y se ve
+## caer, que son tres cosas que el jugador puede leer para decidir.
+@export_range(0.0, 8.0, 0.1) var frenado: float = 1.6
+## Gravedad del vuelo, en m/s². Propia y suave: la del juego (-38) convertiria
+## cualquier tiro en un mortero.
+@export_range(0.0, 40.0, 0.5) var gravedad_vuelo: float = 9.0
+## Por debajo de esta rapidez deja de volar y se cae. Sin un suelo, el frenado
+## exponencial nunca llega a cero y la lanza reptaria por el aire para siempre.
+@export_range(0.5, 20.0, 0.5) var velocidad_minima: float = 5.0
+## Rapidez que le imprime UNA PATADA en vuelo, en m/s.
+##
+## **Es el verbo que el documento de movimiento llama «patear tu propia arma
+## lanzada»**: la tiras, la alcanzas en el aire y la REDIRIGES. No es un empujon
+## —seria un matiz—: se le reescribe la velocidad entera hacia donde pateas, asi
+## que la lanza sale nueva y el jugador decide su segundo rumbo.
+@export_range(5.0, 120.0, 0.5) var patada_empuje: float = 40.0
 
 @export_group("Imantado")
 ## Corrección máxima hacia el objetivo, en grados. `docs/03 §4.2` fija 8: es

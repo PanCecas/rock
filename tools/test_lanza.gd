@@ -205,24 +205,41 @@ func _construir() -> void:
 				return _aux > 10.0,
 			"un enemigo alcanzado recibe dano y la lanza SIGUE"),
 
-		# --- SE QUEDA FLOTANDO ------------------------------------------------
-		# Desde el 4.02 el vuelo no termina en el suelo: termina PARADO en el aire,
-		# porque lo que hace falta del proyectil no es que llegue lejos sino que se
-		# quede quieto donde lo pusiste, para poder patearlo (`SpearSuspendida`).
-		_chequeo_("el vuelo termina FLOTANDO, no en el suelo", 1.0,
+		# --- FRENA, NO SE PARA ------------------------------------------------
+		# El 4.02 la paraba en seco a los 11 m y la dejaba flotando, y se reporto
+		# asi: «que no se tire y se quede pausada, que se tire y pierda velocidad
+		# gradualmente». Una lanza detenida en el aire es un objeto colgado de un
+		# hilo invisible; una que frena es una lanza.
+		_chequeo_("el vuelo FRENA de verdad", 0.55,
 			func() -> void:
 				_l.fsm.cambiar(&"Wielded")
-				_p.global_position = Vector3(4.0, 6.0, -32.0)
+				_p.global_position = Vector3(4.0, 14.0, -32.0)
 				_p.velocity = Vector3.ZERO
 				_visto.clear()
 				_l.lanzar(_p.global_position + Vector3.UP, Vector3.RIGHT),
-			func() -> bool: return _l.fsm.nombre_actual() == &"Suspendida",
-			"un proyectil que se cae no es una diana: es basura en el suelo"),
+			func() -> bool: return (
+				_l.fsm.nombre_actual() == &"InFlight"
+				and _l.vuelo.length() < _l.tuning.velocidad * 0.75),
+			"una lanza que no pierde velocidad es una bala, y una bala no informa"),
 
-		_chequeo_("y se cae sola cuando se le acaba", 3.0,
-			func() -> void: _visto.clear(),
-			func() -> bool: return _l.fsm.nombre_actual() != &"Suspendida",
-			"si no caduca, una lanza flotando es una plataforma permanente gratis"),
+		# Y ES UN ANCLA MIENTRAS ESTA FUERA. El jugador se fabrica un punto de
+		# cuerda donde el nivel no puso ninguno: la Z se engancha a la lanza igual
+		# que a cualquier otra ancla, porque para el buscador ES otra ancla.
+		_chequeo_("y sirve de ancla para la Z", 0.1,
+			func() -> void: pass,
+			func() -> bool: return (
+				_l.ancla != null and _l.ancla.activa
+				and _l.ancla.is_in_group(Ancla.GRUPO)),
+			"sin esto el proyectil es un arma, no una herramienta de movimiento"),
+
+		# Y DEJA DE SERLO AL VOLVER A LA MANO. Un ancla olvidada encendida
+		# convertiria la lanza guardada en un punto de cuerda pegado a tu espalda.
+		_chequeo_("y deja de serlo al recuperarla", 0.8,
+			func() -> void:
+				_l.fsm.cambiar(&"Wielded")
+				_visto.clear(),
+			func() -> bool: return _l.ancla != null and not _l.ancla.activa,
+			"un ancla pegada a tu espalda es una cuerda a ninguna parte"),
 
 		# EMPUÑAR Y DESEMPUÑAR. El INTERCAMBIO DE MOVESET que se comprobaba aqui
 		# —seis chequeos: ligero, pesado, sus dos versiones aereas y el eje de
@@ -364,9 +381,14 @@ func _physics_process(delta: float) -> void:
 		(actual["hacer"] as Callable).call()
 	if _t >= float(actual["dur"]):
 		if not (actual["chequeo"] as Callable).call():
-			_fallos.append("%-38s %s\n      [lanza=%s]" % [
+			# Y LA VELOCIDAD DE VUELO, que desde el 4.05 hace falta: la lanza FRENA,
+			# asi que el nombre del estado ya no basta para leer un fallo —`InFlight`
+			# a 34 m/s y `InFlight` a 6 son dos cosas distintas—.
+			_fallos.append("%-38s %s\n      [lanza=%s  vuelo=%.1f  pos=%.1f,%.1f,%.1f]" % [
 				actual["nombre"], actual["porque"],
-				_l.fsm.nombre_actual() if _l != null else "?"])
+				_l.fsm.nombre_actual() if _l != null else "?",
+				_l.vuelo.length() if _l != null else 0.0,
+				_l.global_position.x, _l.global_position.y, _l.global_position.z])
 		else:
 			print("  OK    %s" % actual["nombre"])
 		_paso += 1
