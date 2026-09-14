@@ -813,6 +813,22 @@ func velocidad_dash() -> float:
 ## como dificultad: se lee como que el juego no te deja. Ver `MedirPatada`, que
 ## cuenta cuantas caben en un tiempo de vuelo y cuanto terreno cubren.
 @export_range(1, 5, 1) var patada_cargas: int = 3
+## IMPULSO VERTICAL AL PATEAR EN EL AIRE, en m/s. **La patada ES el salto aereo
+## desde el 4.04**, asi que tiene que LEVANTAR: un salto aereo que no sube no es
+## un salto, es un empujon de lado.
+##
+## Mas bajo que un salto entero (10.7) a proposito. La patada compra ALTURA y
+## DISTANCIA a la vez; si diera la misma altura que un salto ademas de cruzar
+## cuatro metros, no habria ninguna razon para usar el salto de suelo.
+@export_range(0.0, 20.0, 0.5) var patada_impulso_vertical: float = 5.0
+## Fraccion de gravedad DURANTE el gesto. **Cero era el problema reportado**: con
+## la gravedad apagada del todo, patear se veia como volar —un planeo horizontal
+## de un cuarto de segundo— y eso no es una patada.
+##
+## Con una fraccion la trayectoria es un ARCO: sube, se dobla y cae. Se lee entera
+## antes de pulsar, que es lo que pide la fisica de Mario 64, y sigue cruzando
+## hueco porque la caida durante el gesto es una fraccion de la normal.
+@export_range(0.0, 1.0, 0.05) var patada_gravedad_mult: float = 0.35
 ## Vertical al terminar SIN acertar, en m/s. La patada suspende la gravedad
 ## mientras dura y esto es lo que devuelve al soltarte.
 ##

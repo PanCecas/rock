@@ -138,7 +138,12 @@ func _construir() -> void:
 		# 4) CONECTAR.
 		_medida("conectar con un enemigo", 1.2,
 			func() -> void:
-				_plantar_victima(Vector3(7.0, 0.3, 20.0))
+				# A CINCO METROS, NO A SIETE. La patada cubre 4.7 m y su hitbox
+				# alcanza dos mas, asi que siete era el borde exacto: la medida
+				# pasaba o no pasaba por centimetros, y en cuanto la patada cambio
+				# de forma dejo de conectar y parecio que el impacto estaba roto.
+				# `CLAUDE.md` ya documenta este mismo tropiezo con la captura.
+				_plantar_victima(Vector3(5.0, 0.3, 20.0))
 				_colocar(Vector3(0.0, 0.9, 20.0), 0.0)
 				_p.call("orientar_a", Vector3.RIGHT)
 				_vy_tras_impacto = -99.0

@@ -163,10 +163,20 @@ func _construir() -> void:
 				return absf(_v_min - v) < 0.6 and absf(_v_max - v) < 0.6,
 			"si acelera o frena, la trayectoria deja de poder leerse antes de pulsar"),
 
-		_chequeo_("y sin que la gravedad la toque", 0.1,
+		# LA GRAVEDAD LA TOCA, PERO A UNA FRACCION, y ese es el cambio del 4.04.
+		#
+		# Antes estaba apagada del todo y el chequeo pedia `_dy < 0.25`: cero caida.
+		# Eso es lo que se reporto como «parece que vuelas» — un planeo horizontal
+		# de un cuarto de segundo. Ahora describe un ARCO, asi que lo que hay que
+		# afirmar es que cae MENOS que en caida libre, no que no cae.
+		#
+		# En 0.25 s de caida libre a -38 se pierden 1.19 m. Con el impulso de
+		# entrada, la patada sube en vez de bajar; el tope de abajo es generoso a
+		# proposito porque lo que se prohibe es la caida LIBRE, no un numero.
+		_chequeo_("la gravedad la toca, pero a una fraccion", 0.1,
 			func() -> void: pass,
-			func() -> bool: return _dy < 0.25,
-			"media patada cayendo no cruza el hueco que se ve que cruza"),
+			func() -> bool: return _dy < 0.9,
+			"con la gravedad apagada del todo, patear se ve como volar"),
 
 		# --- CRUZA HUECOS -----------------------------------------------------
 		_chequeo_("cruza un hueco sin golpear nada", 0.6,
@@ -370,12 +380,18 @@ func _construir() -> void:
 			"la ley 5 del rediseño: encadenar limpio acumula velocidad"),
 
 		# --- SE PUEDE SALIR DE ELLA -------------------------------------------
-		_chequeo_("saltar a mitad la corta", 0.8,
+		# LA CUERDA LA CORTA. **Ya no el salto**, y no es una perdida: desde el 4.04
+		# Espacio en el aire ES la patada, asi que pulsarlo a mitad de una encadena
+		# otra —que es justamente poder seguir mandando— en vez de cancelarla.
+		# Lo que sigue teniendo que poder interrumpirla es un verbo DISTINTO.
+		_chequeo_("tirar de la cuerda la corta", 0.9,
 			func() -> void:
-				_colocar(Vector3(0.0, 12.0, 20.0))
+				_soltar_todo()
+				_colocar(Vector3(0.0, 16.0, 20.0))
+				_ancla_viva = true
 				_atacar = 4
-				_saltar_tras = 8,
-			func() -> bool: return _visto.has(&"Jump"),
+				_cuerda = 10,
+			func() -> bool: return _visto.has(&"Grapple"),
 			"quince frames sin poder actuar son quince frames sin ser el dueño"),
 
 		# --- LA CADENA, que es el criterio de exito ---------------------------
@@ -408,10 +424,21 @@ func _construir() -> void:
 
 func _colocar(pos: Vector3) -> void:
 	_soltar_todo()
+	# LOS VERBOS QUE DEJO PEDIDOS EL ESCENARIO ANTERIOR. Sin esto, un chequeo que
+	# pulsa la Z deja el contador corriendo y el ancla viva, y el siguiente empieza
+	# con medio gesto ya hecho: el fallo aparece en el chequeo de al lado y parece
+	# suyo.
+	_cuerda = 0
+	_ancla_viva = false
 	_p.global_position = pos
 	_p.velocity = Vector3.ZERO
 	_p.stamina.llenar()
 	_p.cuerda_disponible = true
+	# Y SE OLVIDA EL ANCLA USADA. Todos los chequeos comparten el mismo nodo
+	# `Ancla`, y desde el 4.01 la que acabas de soltar queda vetada hasta que
+	# toques el mundo: sin esto, el escenario siguiente no podia engancharse y el
+	# fallo salia en un chequeo que no tenia nada que ver.
+	_p.ultima_ancla = null
 	_p.patada_cargas = _p.tuning.patada_cargas
 	_p.fsm.cambiar(&"Fall")
 	_visto.clear()
@@ -509,7 +536,11 @@ func _physics_process(delta: float) -> void:
 		var v := plano_ahora
 		_v_min = minf(_v_min, v)
 		_v_max = maxf(_v_max, v)
-		_dy = maxf(_dy, absf(_p.global_position.y - _y0))
+		# CUANTO CAE, con signo. Antes era el desvio ABSOLUTO, y eso valia mientras
+		# la patada tuviera la gravedad apagada —no se movia en vertical, asi que
+		# subir o bajar daba igual—. Desde que describe un arco SUBE casi un metro,
+		# y un desvio absoluto contaba esa subida como si se estuviera cayendo.
+		_dy = maxf(_dy, _y0 - _p.global_position.y)
 		_recorrido = maxf(_recorrido, _p.global_position.distance_to(_origen))
 		# Desvio LATERAL respecto a la direccion en la que salio: sin stick, una
 		# patada va recta, asi que todo lo que haya aqui lo ha puesto el jugador.

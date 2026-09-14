@@ -14,15 +14,12 @@ extends PlayerState
 
 var _dir: Vector3 = Vector3.ZERO
 var _era_aereo: bool = false
-## Frames seguidos pidiendo la direccion contraria. El pivote exige constancia.
-var _frames_opuesto: int = 0
 ## Rapidez del esquive. SUELO: `max(la que traías, velocidad_dash())`. Ver `enter`.
 var _rapidez: float = 0.0
 
 
 func enter(_msg: Dictionary = {}) -> void:
 	_era_aereo = not player.is_on_floor()
-	_frames_opuesto = 0
 
 	_dir = sc.direccion_movimiento(buffer.move_vector(), player.camara())
 	if _dir.is_zero_approx():
@@ -50,8 +47,6 @@ func physics_update(delta: float) -> void:
 		_salir()
 		return
 
-	if _pivotar():
-		return
 
 	_corregir_rumbo(delta)
 	motor.impulso(_dir, _rapidez)
@@ -62,50 +57,10 @@ func physics_update(delta: float) -> void:
 		_salir()
 
 
-## PIVOTE (frenada estilo Mario 64): pedir la dirección CONTRARIA en mitad del
-## dash no gira, frena en seco y salta.
-##
-## Es una salida de emergencia con intención: cortas el compromiso del dash, matas
-## el momentum y ganas altura para replantear. Y como cuesta un salto aéreo, no
-## sale gratis encadenarlo.
-##
-## Devuelve true si ha pivotado (y por tanto el dash ya no debe seguir).
-func _pivotar() -> bool:
-	# SOLO EN SUELO. Frenar en seco es una maniobra de pies: en el aire no hay de
-	# donde agarrarse y clavarse a media trayectoria rompe la inercia, que es
-	# justo lo que el juego premia conservar.
-	if not player.is_on_floor():
-		_frames_opuesto = 0
-		return false
-	if t < tuning.dash_duracion * tuning.dash_pivote_min:
-		return false
-	var entrada := buffer.move_vector()
-	var deseada := sc.direccion_movimiento(entrada, player.camara())
-	if entrada.length() < 0.7 or deseada.is_zero_approx() or deseada.dot(_dir) > tuning.dash_pivote_umbral:
-		_frames_opuesto = 0
-		return false
-
-	# La intención tiene que SOSTENERSE. Un giro brusco de cámara cambia lo que
-	# significa "adelante" durante un frame y eso se leía como una frenada que el
-	# jugador no había pedido.
-	_frames_opuesto += 1
-	if _frames_opuesto < tuning.dash_pivote_frames:
-		return false
-
-	# Frenazo: se tira TODO el momentum del dash y se sale despacio hacia atrás.
-	motor.impulso(deseada, tuning.dash_pivote_impulso)
-	player.orientar_a(deseada)
-	player.iframes = maxf(player.iframes, tuning.dash_iframes * 0.5)
-	EventBus.camara_shake.emit(0.35, 0.1)
-	CombatFX.impacto(
-		player.get_parent(), player.global_position + Vector3.UP * 0.15,
-		player.color_de(&"crema_bruma"), 0.9
-	)
-	# `conservar_vertical` porque el salto del pivote lo fijamos aquí: es más alto
-	# que un salto normal a propósito.
-	motor.set_vertical(tuning.dash_pivote_salto)
-	fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
-	return true
+## EL PIVOTE SE MUDO A `StateSlide`. Desde el 4.04 el dash solo existe EN EL
+## AIRE, y el pivote siempre estuvo prohibido en vuelo —«frenar en seco es una
+## maniobra de pies»—, asi que aqui se habia quedado en codigo que no se podia
+## alcanzar. Lo cazo `TestFase2`, que seguia pidiendoselo al dash.
 
 
 ## La corrección que separa una evasión viva de un empujón escriptado.

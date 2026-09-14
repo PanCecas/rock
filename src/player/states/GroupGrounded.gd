@@ -84,9 +84,19 @@ func shared_update(delta: float) -> void:
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
 
-	if player.puede_dashear() and buffer.consume(InputActions.DASH):
-		fsm.cambiar(&"Dash")
-		return
+	# SHIFT EN EL SUELO ES EL SLIDE, no el dash.
+	#
+	# Los dos eran «el boton de ir rapido en linea recta» y el slide es el que lee
+	# el terreno: acelera cuesta abajo, frena cuesta arriba y se encadena con el
+	# salto. El dash se queda donde sigue significando algo —EN EL AIRE, como
+	# esquive— y el surf sigue estando donde estaba: manteniendo.
+	#
+	# Sin stamina ni cargas, igual que el slide de siempre: lo que lo limita es su
+	# propia friccion y su duracion, no un recurso.
+	if not (fsm.actual != null and fsm.actual.maneja_deslizamiento()):
+		if buffer.consume(InputActions.DASH):
+			fsm.cambiar(&"Slide")
+			return
 
 	# Combate. El parry va ANTES que el ataque: si el jugador pulsa las dos casi a
 	# la vez, casi siempre estaba reaccionando a algo que venia.

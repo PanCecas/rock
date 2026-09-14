@@ -114,6 +114,11 @@ func _terminar_en_aire() -> void:
 	fsm.cambiar(&"Fall")
 
 
+## El surf se queda Shift: es literalmente el boton con el que se sostiene.
+func maneja_deslizamiento() -> bool:
+	return true
+
+
 func maneja_salto() -> bool:
 	return true
 

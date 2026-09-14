@@ -160,13 +160,19 @@ func shared_update(delta: float) -> void:
 		fsm.cambiar(&"Dash")
 		return
 
-	# 7) Doble salto. Requiere una pulsación NUEVA, y se pide con `reentrar=true`
-	#    porque casi siempre se salta ESTANDO YA en Jump: sin eso la FSM rechazaba
-	#    la transición a sí misma, la pulsación y el salto aéreo se gastaban, y no
-	#    pasaba nada. Ese era el salto que "se quedaba pegado".
-	if player.saltos_aereos > 0 and player.consumir_salto():
-		player.saltos_aereos -= 1
-		fsm.cambiar(&"Jump", {"numero": 2}, true)
+	# 7) LA PATADA ES EL SALTO AEREO. No hay doble salto: en el aire, Espacio patea.
+	#
+	#    Es lo que hace *Pseudoregalia* y es la razon de que las Sun Greaves tengan
+	#    TRES cargas — no son un ataque con un botón propio, son tu forma de
+	#    moverte por el aire. Con el doble salto al lado, la patada era el verbo
+	#    peor: hacia lo mismo que un salto, costaba una carga y encima habia que
+	#    pulsarla en otro sitio.
+	#
+	#    Va con `reentrar=true` por lo de siempre: casi siempre se patea estando ya
+	#    en `Jump` o en `Kick`, y sin reentrada la FSM se traga la pulsacion en
+	#    silencio (regla dura #11).
+	if player.patada_cargas > 0 and player.consumir_salto():
+		fsm.cambiar(&"Kick", {}, true)
 		return
 
 	# 8) PLANEO: mantener el botón de salto en el aire, a partir del ápice.

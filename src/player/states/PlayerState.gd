@@ -81,6 +81,16 @@ func maneja_ataques() -> bool:
 ##
 ## Regla general: si una hoja tiene una versión PROPIA de una acción compartida,
 ## tiene que poder reclamarla, o el grupo se la come sin avisar.
+## ¿Esta hoja se queda el boton de DESLIZAR (Shift)? Regla dura #13.
+##
+## Desde el 4.04 Shift en el suelo entra en `Slide`, y sin este guardia el grupo
+## se lo roba a quien ya lo esta usando: surfeando —que es adonde lleva mantener
+## Shift— una pulsacion mas te sacaba del surf y te metia en un slide. Lo cazo
+## `TestFase2`, no una partida.
+func maneja_deslizamiento() -> bool:
+	return false
+
+
 func maneja_salto() -> bool:
 	return false
 

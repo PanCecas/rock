@@ -61,11 +61,18 @@ func enter(msg: Dictionary = {}) -> void:
 	_rapidez = maxf(motor.rapidez_plana(), tuning.patada_velocidad)
 	_vy_entrada = motor.get_vertical()
 
+	# Y LEVANTA, porque la patada ES el salto aereo. `maxf` y no asignacion, por
+	# la misma razon de siempre (regla dura #29): patear subiendo no te frena.
+	if not player.is_on_floor():
+		motor.set_vertical(maxf(_vy_entrada, tuning.patada_impulso_vertical))
+
 	player.patada_cargas -= 1
 	player.hitbox.nuevo_swing()
 	player.orientar_a(_dir)
 	player.set_alabeo(0.0)
-	_aplicar_vuelo()
+	# Aqui solo la horizontal: la vertical ya la ha puesto el impulso de arriba, y
+	# volver a tocarla la borraria en el mismo frame en que se acaba de dar.
+	motor.impulso(_dir, _rapidez)
 	EventBus.camara_shake.emit(0.3, 0.12)
 	CombatFX.arco(player.get_parent(), player.global_position + Vector3.UP * 0.9,
 		_dir, player.color_de(&"azul_claro"), 2.0)
@@ -102,7 +109,7 @@ func physics_update(delta: float) -> void:
 			_dir = _dir.slerp(deseada.normalized(), peso).normalized()
 			player.orientar_a(_dir)
 
-	_aplicar_vuelo()
+	_aplicar_vuelo(delta)
 
 	# 4) LA HITBOX VIVE TODO EL TRAYECTO. No hay ventana activa que acertar: no es
 	#    un golpe con anticipación, es un proyectil que eres tú. `nuevo_swing()` se
@@ -113,12 +120,19 @@ func physics_update(delta: float) -> void:
 		_al_conectar(datos)
 
 
-## Rapidez constante y vertical suspendida. Se reescribe cada frame a propósito:
-## nada —ni la gravedad, ni un roce con una pared, ni el control aéreo— puede
-## tocar la línea mientras dura el gesto.
-func _aplicar_vuelo() -> void:
+## Rapidez constante, y la vertical describiendo un ARCO.
+##
+## La horizontal se reescribe cada frame a propósito: nada —ni un roce con una
+## pared, ni el control aéreo— puede tocar la línea mientras dura el gesto.
+##
+## **La vertical ya no se clava en cero**, y eso era el «parece que vuelas» que se
+## reportó: con la gravedad apagada del todo, la patada era un planeo horizontal
+## de un cuarto de segundo. Con una fracción de gravedad sube, se dobla y cae —una
+## trayectoria que se puede leer entera antes de pulsar, que es lo que se buscaba
+## desde el principio.
+func _aplicar_vuelo(delta: float) -> void:
 	motor.impulso(_dir, _rapidez)
-	motor.set_vertical(0.0)
+	motor.aplicar_gravedad(delta * tuning.patada_gravedad_mult)
 
 
 ## CONECTAR ES SEGUIR MOVIÉNDOTE. Esto es la mecánica entera, no un extra.
@@ -194,8 +208,10 @@ func _al_conectar(datos: AttackData) -> void:
 func _terminar() -> void:
 	if player.is_on_floor():
 		motor.set_vertical(_vy_entrada)
-	else:
-		motor.set_vertical(maxf(_vy_entrada, tuning.patada_salida_vertical))
+	# EN EL AIRE NO SE TOCA. Antes se devolvia un «respiro» de vertical porque el
+	# gesto llegaba con la gravedad apagada y soltaba a plomo. Ahora la patada
+	# viene describiendo un arco: sobreescribir su vertical al terminar seria
+	# romper la curva justo en el frame en que el jugador la estaba leyendo.
 	if player.agua.en_agua:
 		fsm.cambiar(&"Swim")
 	elif player.is_on_floor():

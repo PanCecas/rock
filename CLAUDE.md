@@ -358,7 +358,12 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | Mover / camara | WASD / raton | Stick izq. / stick der. |
 | Saltar | Espacio | A |
 | **Planear** | **Ctrl** o **Mouse 4** (mantener) | LB (mantener) |
-| Dash / sprint / esquiva | Shift | B |
+| **Shift en el SUELO — DESLIZARSE** | Shift | B |
+| | *el slide lee el terreno: acelera cuesta abajo y frena cuesta arriba* | |
+| | ***Shift + Espacio = SLIDE-JUMP***, con altura extra | |
+| | *pedir la direccion CONTRARIA en pleno slide frena en seco y salta (pivote Mario 64)* | |
+| **Shift MANTENIDO — SURF** | Shift (mantener) | B |
+| **Shift EN EL AIRE — dash** (esquive de 0.12 s) | Shift | B |
 | Agacharse / slide | C | D-pad abajo |
 | Salto fuerte | C (quieto) + Espacio | |
 | Side jump | Correr, girar en seco y saltar (planta y luego sale) | |
@@ -369,7 +374,7 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *nadar es traversal puro: en el agua no se pega* | |
 | Landing slide | Aterrizar con velocidad manteniendo C | |
 | Agarrar / escalar | F (tambien desde el suelo) | Y |
-| **PATADA** — el unico movimiento ofensivo | **Click izq.** | RB |
+| **PATADA** — **es el SALTO AEREO**, no un ataque | **Espacio en el aire** | A |
 | | *impulso corto y dirigido, 0.25 s, sin gravedad* | |
 | | *18 m/s es un SUELO, no un techo: llegas a 30, sales a 30* | |
 | | *cruza huecos aunque no haya nada que golpear* | |
@@ -377,6 +382,8 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *saltar o tirar de la cuerda la cortan: no hay compromiso* | |
 | | *si conecta, DERROTA, te REBOTA arriba y recarga las dos cargas* | |
 | | *y PARA el juego 4 frames — es lo unico de un golpe que hoy se ve* | |
+| | *NO hay doble salto: en el aire, Espacio patea. Las Sun Greaves de* Pseudoregalia *SON el salto aereo* | |
+| | *describe un ARCO: sube, se dobla y cae. Con la gravedad apagada del todo parecia que volabas* | |
 | | *TRES por tiempo de vuelo. Vuelven al TOCAR suelo, pared o enemigo —al tocar, no mientras tocas* | |
 | Parry | Q | LT |
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
@@ -441,12 +448,20 @@ negociar cada pulsacion entre doble salto y capa, y resultaba incomodo. Ahora
 
 ```
 sin Shift ->  caminar -> trotar -> correr   (rampa continua por CARRERILLA)
-con Shift ->  DASH (esquive corto, unidireccional) -> SURF (fluido, sostenido)
+con Shift ->  SLIDE (toque, lee el terreno) -> SURF (mantenido, fluido)
+en el aire -> DASH (esquive corto, unidireccional)
 ```
 
-El dash es un **esquive**, no un desplazamiento: 0.12 s y casi sin giro. Quien
-pilota es el `Surf`, que **no caduca**: se sostiene mientras mantengas Shift y su
-unico limite es la stamina. Soltarlo lo corta en el acto.
+**El dash de suelo se retiro en el 4.04.** El dash y el slide eran los dos «el
+boton de ir rapido en linea recta», y el slide es el que lee el terreno: acelera
+cuesta abajo, frena cuesta arriba y se encadena con el salto. El dash se queda
+donde sigue significando algo —EN EL AIRE, como esquive de 0.12 s y casi sin
+giro—. Quien pilota en suelo es el `Surf`, que **no caduca**: se sostiene
+mientras mantengas Shift y su unico limite es la stamina.
+
+**Y las hojas reclaman Shift con `maneja_deslizamiento()`** (regla dura #13). Sin
+ese guardia el grupo se lo robaba a quien ya lo estaba usando: surfeando, una
+pulsacion mas te sacaba del surf y te metia en un slide. Lo cazo `TestFase2`.
 
 La locomocion sin Shift no tiene peldanos: acumula **carrerilla** (segundos
 manteniendo la direccion) y la velocidad recorre caminar -> trotar -> correr de
@@ -454,8 +469,16 @@ forma continua, con suavizado exponencial (`suavizado_velocidad`, constante de
 tiempo en segundos, independiente del framerate). El stick solo pone el techo:
 empujar a medias camina aunque lleves carrerilla.
 
-**Pivote del dash:** pedir la direccion CONTRARIA en pleno dash frena en seco y
-salta (estilo Mario 64). Ese salto esta exento de jump cut: no lo pidio el boton.
+**Pivote del SLIDE:** pedir la direccion CONTRARIA en pleno deslizamiento frena
+en seco y salta (estilo Mario 64). Ese salto esta exento de jump cut: no lo pidio
+el boton.
+
+**Se mudo del dash al slide en el 4.04, y no por gusto.** El pivote siempre fue
+una maniobra de PIES —estaba prohibido en vuelo por su propio comentario: «en el
+aire no hay de donde agarrarse»— asi que cuando el dash de suelo paso a ser el
+slide, el pivote se quedo en codigo INALCANZABLE: el unico dash que queda es el
+aereo, donde nunca se permitio. Lo cazo `TestFase2`, que seguia pidiendoselo al
+dash.
 
 Colgado de un canto: **empujar arriba sube**, **saltar salta desde el canto**.
 Junto a una pared, **saltar rebota** en vez de gastar el salto aereo, y sigue

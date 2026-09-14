@@ -90,11 +90,31 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(45.0, 0.3, -35.0)
 			_p.fsm.cambiar(&"Idle")
 			_pulsar(&"move_forward"), &"Move"),
-		_paso_("dashear", 0.10, func() -> void: _pulsar(&"dash"), &"Dash"),
-		_chequeo_("pivote frena y salta", 0.10,
+		# SHIFT EN EL SUELO DESLIZA. El dash de suelo se retiro en el 4.04: los dos
+		# eran «el boton de ir rapido en linea recta» y el slide es el que lee el
+		# terreno. El dash se queda EN EL AIRE, como esquive.
+		_paso_("Shift en el suelo desliza", 0.10,
+			func() -> void: _pulsar(&"dash"), &"Slide"),
+
+		# EL PIVOTE, AHORA DESDE EL SLIDE. Se mudo con el: siempre fue una maniobra
+		# de PIES y el unico dash que queda es el aereo, donde nunca se permitio.
+		#
+		# Se monta APARTE y con la camara fijada, en dos tiempos. Colgarlo del paso
+		# anterior medía la suerte: el pivote exige que lo pedido este a mas de
+		# 127 grados de la direccion del slide (`dash_pivote_umbral`), y sin fijar
+		# el yaw «lo contrario» es contrario a donde mirase el rig, no al
+		# deslizamiento. Y necesita 0.225 s de slide antes de aceptarse, asi que la
+		# pulsacion tiene que llegar DESPUES: por eso son dos entradas.
+		_paso_("deslizar hacia +X para el pivote", 0.30,
 			func() -> void:
-				_soltar(&"move_forward")
-				_soltar(&"dash")
+				_soltar_todo()
+				_reponer()
+				_mirar_a(-90.0)
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3(12.0, 0.0, 0.0)
+				_p.fsm.cambiar(&"Slide"), &"Slide"),
+		_chequeo_("pivote frena y salta", 0.12,
+			func() -> void:
 				_pulsar(&"move_back"),
 			func() -> bool: return (
 				_p.fsm.actual.categoria == &"Airborne"
@@ -264,13 +284,22 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(0.0, 0.3, 0.0)
 			_p.velocity = Vector3.ZERO
 			_p.fsm.cambiar(&"Idle"), &"Idle"),
-		_chequeo_("doble toque rapido = 2 saltos", 0.4,
+		# DOS PULSACIONES = SALTO Y PATADA. Desde el 4.04 no hay doble salto: en el
+		# aire, Espacio patea (las Sun Greaves de *Pseudoregalia* SON el salto
+		# aereo, y por eso tienen tres cargas).
+		#
+		# Lo que este chequeo sigue protegiendo es lo que protegia antes: que las
+		# dos pulsaciones SALGAN, sin cooldown que se coma la segunda. Es justo lo
+		# que rompio el intervalo minimo de la 2.5; lo unico que cambia es en que
+		# se gasta la segunda.
+		_chequeo_("doble toque rapido = salto y patada", 0.4,
 			func() -> void:
 				_saltos_contados = 0
 				_pulsar(&"jump")
 				_esperar_salto2 = 4,
-			func() -> bool: return _saltos_contados == 2,
-			"dos pulsaciones rapidas deben dar exactamente dos saltos"),
+			func() -> bool:
+				return _saltos_contados == 1 and _visitados.has(&"Kick"),
+			"la segunda pulsacion debe salir: si se la come un cooldown, el aire se muere"),
 
 		# Altura variable: soltar pronto recorta, mantener no.
 		_paso_("asentar para altura", 0.35, func() -> void:
