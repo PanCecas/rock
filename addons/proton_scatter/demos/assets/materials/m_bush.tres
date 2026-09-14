@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://bn3fr3m3glrnp"]
 
-[ext_resource type="Shader" uid="uid://danbpfauu75jl" path="res://addons/proton_scatter/demos/assets/materials/grass.gdshader" id="1_peshr"]
+[ext_resource type="Shader" uid="uid://dfhcj0io07kr8" path="res://addons/proton_scatter/demos/assets/materials/grass.gdshader" id="1_peshr"]
 [ext_resource type="Texture2D" uid="uid://b2a6ylo2enm4g" path="res://addons/proton_scatter/demos/assets/textures/t_bush.png" id="2_mbhvd"]
 
 [sub_resource type="Gradient" id="Gradient_122hb"]

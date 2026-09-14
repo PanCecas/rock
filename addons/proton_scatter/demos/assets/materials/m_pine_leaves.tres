@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://d28lq2qtgdyie"]
 
-[ext_resource type="Shader" uid="uid://chnyql81vi2a8" path="res://addons/proton_scatter/demos/assets/materials/leaves.gdshader" id="1_hlncd"]
+[ext_resource type="Shader" uid="uid://cbk27cxwx7cfo" path="res://addons/proton_scatter/demos/assets/materials/leaves.gdshader" id="1_hlncd"]
 [ext_resource type="Texture2D" uid="uid://ctpb1w0cr8tqc" path="res://addons/proton_scatter/demos/assets/textures/t_pine_branch.png" id="2_yef44"]
 
 [sub_resource type="Gradient" id="Gradient_pookg"]

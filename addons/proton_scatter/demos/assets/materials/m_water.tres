@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://c7mw5tryqfggw"]
 
-[ext_resource type="Shader" uid="uid://bm6mx4nhj0iww" path="res://addons/proton_scatter/demos/assets/materials/m_water.gdshader" id="1_j8rl3"]
+[ext_resource type="Shader" uid="uid://cb8q0nbmy2syr" path="res://addons/proton_scatter/demos/assets/materials/m_water.gdshader" id="1_j8rl3"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_7bjdc"]
 noise_type = 2
