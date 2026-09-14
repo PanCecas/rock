@@ -34,6 +34,12 @@ signal estado_cambiado(nombre: StringName)
 
 @onready var fsm: SpearStateMachine = $FSM
 @onready var hitbox: Hitbox = $Hitbox
+## LA CARA QUE SE DEJA PATEAR. Apagada salvo mientras flota (`Suspendida`).
+##
+## Es del bando ENEMIGO (`equipo = 1`) y no por narrativa: `Hitbox.golpear()`
+## descarta las hurtbox de su mismo equipo, asi que con 1 la alcanza la patada
+## del jugador y la ignoran los enemigos. Un numero, las dos reglas.
+@onready var hurtbox: Hurtbox = get_node_or_null(^"Hurtbox")
 @onready var visual: Node3D = $Visual
 @onready var plataforma: StaticBody3D = $Plataforma
 @onready var cordon: Cordon = $Cordon
@@ -64,7 +70,49 @@ func _ready() -> void:
 	if hitbox != null:
 		hitbox.dueno = self
 		hitbox.equipo = 0
+	armar_hurtbox(false)
 	fsm.configurar(self)
+
+
+## Enciende o apaga la cara pateable. Lo pide `Suspendida` al entrar y al salir:
+## fuera de ahi la lanza no es un blanco, y una hurtbox olvidada encendida
+## convertiria una lanza guardada en la mano en algo a lo que patear.
+func armar_hurtbox(armada: bool) -> void:
+	if hurtbox == null:
+		return
+	# **SE APAGA POR CAPA, NO POR `monitorable`.** Es la diferencia entre apagarla
+	# y creer que la apagas: `monitorable` solo decide si OTRAS areas la detectan
+	# monitorizando, y la `Hitbox` de este proyecto no monitoriza — pregunta una
+	# forma al espacio (`intersect_shape`), y eso encuentra cualquier area por su
+	# CAPA sin mirar `monitorable` en absoluto.
+	#
+	# Lo cazo el banco: con la lanza guardada en la mano, «conectar con un
+	# enemigo» pasaba a decir `victima: sigue en pie` — la patada estaba
+	# golpeando la lanza del propio jugador, a distancia cero, y como
+	# `max_objetivos` es 1 el enemigo no llegaba a existir para el golpe.
+	hurtbox.collision_layer = Layers.HURTBOX if armada else 0
+	hurtbox.monitorable = armada
+	hurtbox.dueno = self
+
+
+## LA PATADA LA TIRA, NO LA ROMPE.
+##
+## Devuelve IMPACTO porque el golpe SI ha ocurrido —el jugador tiene que rebotar—
+## pero aqui no hay vida que descontar: una lanza no se mata. Lo unico que pasa
+## es que sale despedida y deja de flotar, y eso es lo que cobra el pogo: **una
+## lanzada, un pogo**.
+func recibir_golpe(golpe: Golpe) -> int:
+	if fsm == null or fsm.nombre_actual() != &"Suspendida":
+		return Golpe.Resultado.INMUNE
+	var empuje := golpe.direccion
+	empuje.y = 0.0
+	if empuje.is_zero_approx():
+		empuje = direccion
+	direccion = empuje.normalized()
+	global_position += direccion * (tuning.suspension_empuje * 0.05)
+	CombatFX.impacto(get_parent(), global_position, color_de(&"oro_palido"), 1.6)
+	fsm.cambiar(&"Grounded")
+	return Golpe.Resultado.IMPACTO
 
 
 func _physics_process(delta: float) -> void:

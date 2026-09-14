@@ -228,6 +228,53 @@ func _construir() -> void:
 			func() -> bool: return _frames_pausa >= 3,
 			"un golpe que no para nada no se siente; es lo unico que hoy se ve"),
 
+		# --- LA DIANA QUE SOBREVIVE -------------------------------------------
+		# Conectar con un enemigo lo MATA en el acto, asi que sobre el no hay
+		# segundo pogo: hay un rebote y se acabo lo que habia que pisar. La lanza
+		# suspendida es la pieza que convierte «conectar y rebotar» en un bucle,
+		# porque encaja la patada y no desaparece.
+		_chequeo_("la lanza tirada se queda FLOTANDO", 0.8,
+			func() -> void:
+				_colocar(Vector3(0.0, 8.0, 34.0))
+				_p.cuerda_disponible = false
+				var l: Spear = _p.lanza
+				if l != null and is_instance_valid(l):
+					l.fsm.cambiar(&"Wielded")
+					l.lanzar(_p.global_position, Vector3.RIGHT),
+			func() -> bool:
+				var l: Spear = _p.lanza
+				return l != null and is_instance_valid(l) \
+					and l.fsm.nombre_actual() == &"Suspendida",
+			"un proyectil que se cae no es una diana: es basura en el suelo"),
+
+		_chequeo_("y se le puede dar una patada", 0.5,
+			func() -> void:
+				var l: Spear = _p.lanza
+				if l != null and is_instance_valid(l):
+					_p.global_position = l.global_position - Vector3.RIGHT * 1.4
+					_p.velocity = Vector3.ZERO
+					_p.call("orientar_a", Vector3.RIGHT)
+					_p.fsm.cambiar(&"Fall")
+					_p.reset_physics_interpolation()
+				_vy_rebote = -99.0
+				# LA MARCA SE PONE AQUI, en el frame de la patada, y no en el
+				# chequeo anterior: mientras la lanza vuela el jugador CAE, y si le
+				# da tiempo a aterrizar el suelo le recarga el moveset y el chequeo
+				# siguiente culpa a la patada de lo que hizo el suelo.
+				_p.cuerda_disponible = false
+				_atacar = 4,
+			func() -> bool: return _vy_rebote > _p.tuning.patada_rebote * 0.7,
+			"si no rebota en ella, la lanza es un adorno flotando"),
+
+		# Y LA REGLA QUE LA HACE SOSTENIBLE. La ley 4 recarga el moveset al tocar
+		# suelo, pared o enemigo: tres cosas que pone el NIVEL. Tu lanza la pones
+		# tu, asi que recargar pateandola seria una maquina de movimiento perpetuo
+		# con dos pasos —tirar, patear, recargar, recuperar, tirar—.
+		_chequeo_("pero NO recarga el moveset", 0.1,
+			func() -> void: pass,
+			func() -> bool: return not _p.cuerda_disponible,
+			"recargar con tus propias cosas es un movimiento perpetuo con pasos extra"),
+
 		# LOS TRES RECURSOS AEREOS SON UN PRESUPUESTO, NO TRES CUENTAS.
 		#
 		# El salto aereo se reponia solo desde el suelo, el agua, un canto, un parry

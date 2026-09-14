@@ -133,7 +133,22 @@ func _al_conectar(datos: AttackData) -> void:
 	if _conectado:
 		return
 	_conectado = true
-	player.recargar_moveset()
+
+	# LA RECARGA ES POR TOCAR EL MUNDO, NO POR TOCAR TUS PROPIAS COSAS.
+	#
+	# La ley 4 dice que los aereos vuelven al tocar suelo, pared o enemigo — tres
+	# cosas que pone el NIVEL. Tu lanza la pones tu, asi que recargar el moveset
+	# pateandola seria una maquina de movimiento perpetuo con dos pasos: la tiras,
+	# la pateas, recargas, la recuperas, la tiras. El rebote SI se lo queda: eso es
+	# lo que hace que tirarla valga la pena.
+	var suya: bool = (
+		player.lanza != null
+		and is_instance_valid(player.lanza)
+		and player.hitbox.ultimo != null
+		and player.hitbox.ultimo.victima == player.lanza
+	)
+	if not suya:
+		player.recargar_moveset()
 
 	# EL GOLPE PARA A LOS DOS, no solo al que pega.
 	#

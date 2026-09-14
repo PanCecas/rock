@@ -71,6 +71,13 @@ func physics_update(delta: float) -> void:
 			CombatFX.impacto(lanza.get_parent(), lanza.global_position,
 				lanza.color_de(&"carmesi"), 0.9)
 
+	# SE PARA A FLOTAR, y ese es el cambio que la convierte en herramienta de
+	# movimiento. Antes volaba 45 m y se caia; ahora se planta a `suspension_
+	# distancia` y espera a que la patees. `alcance_maximo` y `vida_vuelo` se
+	# quedan de techo de seguridad por si alguien sube la distancia.
+	if _recorrido >= tuning.suspension_distancia:
+		fsm.cambiar(&"Suspendida")
+		return
 	if t >= tuning.vida_vuelo or _recorrido >= tuning.alcance_maximo:
 		fsm.cambiar(&"Grounded")
 

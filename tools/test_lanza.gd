@@ -199,8 +199,30 @@ func _construir() -> void:
 				_l.lanzar(_origen, Vector3(1, 0.02, 0).normalized()),
 			func() -> bool:
 				# Recorrio camino de verdad: no se quedo clavado en el primer cuerpo.
+				# El enemigo esta a 7 m y desde el 4.02 la lanza se planta a flotar a
+				# `suspension_distancia` (11 m), asi que lo que este numero afirma es
+				# "paso de largo al bicho", no "vuela sin fin".
 				return _aux > 10.0,
 			"un enemigo alcanzado recibe dano y la lanza SIGUE"),
+
+		# --- SE QUEDA FLOTANDO ------------------------------------------------
+		# Desde el 4.02 el vuelo no termina en el suelo: termina PARADO en el aire,
+		# porque lo que hace falta del proyectil no es que llegue lejos sino que se
+		# quede quieto donde lo pusiste, para poder patearlo (`SpearSuspendida`).
+		_chequeo_("el vuelo termina FLOTANDO, no en el suelo", 1.0,
+			func() -> void:
+				_l.fsm.cambiar(&"Wielded")
+				_p.global_position = Vector3(4.0, 6.0, -32.0)
+				_p.velocity = Vector3.ZERO
+				_visto.clear()
+				_l.lanzar(_p.global_position + Vector3.UP, Vector3.RIGHT),
+			func() -> bool: return _l.fsm.nombre_actual() == &"Suspendida",
+			"un proyectil que se cae no es una diana: es basura en el suelo"),
+
+		_chequeo_("y se cae sola cuando se le acaba", 3.0,
+			func() -> void: _visto.clear(),
+			func() -> bool: return _l.fsm.nombre_actual() != &"Suspendida",
+			"si no caduca, una lanza flotando es una plataforma permanente gratis"),
 
 		# EMPUÑAR Y DESEMPUÑAR. El INTERCAMBIO DE MOVESET que se comprobaba aqui
 		# —seis chequeos: ligero, pesado, sus dos versiones aereas y el eje de

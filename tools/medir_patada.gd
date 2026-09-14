@@ -60,6 +60,16 @@ var _victima_helada: bool = false
 ## que no puede distinguir «no paso» de «no pude mirar» es un latch que miente.
 var _victima_al_impacto: String = "sin tocar"
 
+# --- LA LANZA SUSPENDIDA como diana de pogo. Es la pieza que faltaba para que
+#     «conectar y rebotar» sea un BUCLE: algo que sobrevive al golpe.
+## Frames dentro de la medida actual. La lanza tarda en llegar a flotar, asi que
+## el guion de esta medida tiene tres momentos y `_medida` solo tiene uno.
+var _fr: int = 0
+var _guion_lanza: bool = false
+var _lanza_estado: String = "—"
+var _vy_pogo: float = -99.0
+var _cuerda_tras_pogo: String = "?"
+
 # --- LA CADENA. Con mas de una carga, lo que se mide deja de ser un gesto suelto
 #     y pasa a ser cuanto aire compras encadenando.
 ## Encadena patadas sola: pulsa en cuanto puede y suelta para que la siguiente
@@ -173,6 +183,27 @@ func _construir() -> void:
 					_patadas, _p.tuning.patada_cargas]),
 
 		# 6) TERRENO.
+		# --- LA DIANA QUE SOBREVIVE -------------------------------------------
+		# La medida de arriba dice `victima: MURIO en el acto`: con 200 de dano
+		# todo se muere de un golpe, asi que sobre un enemigo no hay segundo pogo.
+		# Esto comprueba la pieza que lo arregla — una lanza flotando, que encaja
+		# la patada y NO desaparece— y ademas que **no recarga el moveset**: tu
+		# lanza la pones tu, y recargar con tus propias cosas es una maquina de
+		# movimiento perpetuo con dos pasos.
+		_medida("patear tu propia lanza suspendida", 1.2,
+			func() -> void:
+				_colocar(Vector3(0.0, 8.0, 34.0), 0.0)
+				_p.cuerda_disponible = false
+				_p.patada_cargas = 2
+				var l: Spear = _p.lanza
+				if l != null and is_instance_valid(l):
+					l.fsm.cambiar(&"Wielded")
+					l.lanzar(_p.global_position, Vector3.RIGHT)
+				_guion_lanza = true,
+			func() -> String:
+				return "%s   vy tras el pogo %.1f   cuerda: %s" % [
+					_lanza_estado, _vy_pogo, _cuerda_tras_pogo]),
+
 		_medida("terreno cubierto", 0.9,
 			func() -> void:
 				_colocar(Vector3(0.0, 14.0, 20.0), 0.0)
@@ -191,6 +222,39 @@ func _plantar_victima(pos: Vector3) -> void:
 	_victima.global_position = pos
 	_victima.vista = 0.0
 	_victima.ataque = null
+
+
+## EL GUION DE LA DIANA, en tres tiempos: la lanza vuela, se planta a flotar, y
+## el jugador se coloca al lado y la patea.
+##
+## Va por frames y no por `await` porque el resto del banco es un
+## `_physics_process` y mezclar los dos relojes es como se llega a que una foto
+## salga un paso tarde — ya paso en `CapturaPatada`.
+func _correr_guion_lanza() -> void:
+	var l: Spear = _p.lanza
+	if l == null or not is_instance_valid(l):
+		_lanza_estado = "NO HAY LANZA en el mundo"
+		_guion_lanza = false
+		return
+	var donde := str(l.fsm.nombre_actual())
+	if _fr == 30:
+		_lanza_estado = "tras volar: %s" % donde
+	# Colocarse PEGADO a ella y mirarla. El cono de la hitbox es horizontal, asi
+	# que hay que llegar a su altura: lo que se prueba es que la patada la
+	# encuentra, no que el jugador sabe apuntar.
+	if _fr == 34:
+		_p.global_position = l.global_position - Vector3.RIGHT * 1.4
+		_p.velocity = Vector3.ZERO
+		_p.call("orientar_a", Vector3.RIGHT)
+		_p.fsm.cambiar(&"Fall")
+		_p.reset_physics_interpolation()
+	if _fr == 38:
+		_atacar = 4
+	if _fr == 52:
+		_vy_pogo = _p.superficie.vertical(_p.velocity)
+		_cuerda_tras_pogo = "RECARGADA" if _p.cuerda_disponible else "sigue gastada"
+		_lanza_estado += "   ·   tras la patada: %s" % str(l.fsm.nombre_actual())
+		_guion_lanza = false
 
 
 ## Arranca la cuenta del tiempo de vuelo. Se cierra sola al tocar suelo.
@@ -238,6 +302,11 @@ func _colocar(pos: Vector3, rapidez: float) -> void:
 	_frames_pausa = 0
 	_victima_helada = false
 	_victima_al_impacto = "sin tocar"
+	_fr = 0
+	_guion_lanza = false
+	_lanza_estado = "—"
+	_vy_pogo = -99.0
+	_cuerda_tras_pogo = "?"
 
 
 func _physics_process(delta: float) -> void:
@@ -275,6 +344,10 @@ func _physics_process(delta: float) -> void:
 	if _victima != null and is_instance_valid(_victima):
 		if HitstopManager.esta_congelado(_victima):
 			_victima_helada = true
+
+	_fr += 1
+	if _guion_lanza:
+		_correr_guion_lanza()
 
 	var estado := _p.fsm.nombre_actual()
 	var plano := _p.superficie.plano(_p.velocity).length()

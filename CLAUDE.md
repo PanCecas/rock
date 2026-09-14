@@ -375,12 +375,17 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *el stick la dirige durante TODO el gesto, no solo al empezar* | |
 | | *saltar o tirar de la cuerda la cortan: no hay compromiso* | |
 | | *si conecta, DERROTA, te REBOTA arriba y recarga las dos cargas* | |
+| | *y PARA el juego 4 frames — es lo unico de un golpe que hoy se ve* | |
 | | *TRES por tiempo de vuelo. Vuelven al TOCAR suelo, pared o enemigo —al tocar, no mientras tocas* | |
 | Parry | Q | LT |
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
-| **Lanza: tirar / recuperar** | **V** o **Mouse 5** | D-pad arriba |
+| **LANZA: tirarla** — y desde el 4.02 es **LA DIANA DE POGO** | **V** o **Mouse 5** | D-pad arriba |
+| | *vuela 11 m, se PARA y se queda flotando 2.5 s* | |
+| | *mientras flota se le puede dar una patada: rebotas y ella se cae* | |
+| | *una lanzada, un pogo — un escalon que te fabricas donde no hay nada* | |
+| | *el rebote SI, la recarga NO: tu lanza la pones tu* | |
 | **Empunar / guardar la lanza** | **Tab** | Back |
 | | *Tirarla la desempuna. Ya no cambia como pegas: solo hay una forma* | |
 | **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** (mantener) | D-pad der. |
@@ -441,8 +446,8 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
 | `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido, el CANDADO DE ESCALADA y que rozar un muro conserva la linea. 94 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
-| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
-| `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
+| `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado, **y que el vuelo termina FLOTANDO y caduca solo**. 19 comprobaciones. |
+| `tools/TestPatada.tscn` | **Test del unico ataque.** Ademas de lo suyo, que conectar **PARA el juego** (regla dura #31: la magnitud, no el estado) y el bucle del pogo — que la lanza tirada se queda flotando, que se le puede patear, y que eso NO recarga el moveset. 26 comprobaciones. Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
 | `tools/Moveset.tscn` | **EL CIRCUITO DEL MOVESET, y el unico sitio donde el criterio de exito se puede COMPROBAR jugando.** Cuatro hitos en fila y obligatorios —cuerda, patada, pared, cuerda— y **nada de suelo entre ellos**: la condicion «sin tocar el suelo» deja de ser una regla que vigilar y pasa a ser la forma del sitio. Lleva el marcador puesto: el panel dice que eslabones llevas y si has pisado algo. **F4 reinicia** y caerse tambien. `-- auto` lo corre solo con sus filas de control —¿se cruza el hueco pateando? ¿y sin patear?— y `-- foto` guarda el plano general en `user://moveset/`. `godot --path . --resolution 1280x720 tools/Moveset.tscn` |
 | `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo, y se encadena la cuerda?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Ademas **encadena ancla -> ancla** por el camino real —la tecla, el cono y el buffer, con la camara conducida a mano porque el cono es parte de la mecanica— y dice cuantos TOQUES hicieron falta: `2 enganches tras 0 toques` es la cadena limpia. Y mide el salto desde el arco **imprimiendo el estado en el que se pulsa** (regla dura #31). Con filas de control. `godot --headless --path . tools/MedirCadena.tscn` |
 | `tools/CapturaEscalada.tscn` | **Cuatro fotos del candado de escalada**: el mismo gesto contra el mismo muro con la habilidad y sin ella, y un roce a 26 m/s. Necesita GPU. `godot --path . --resolution 1280x720 tools/CapturaEscalada.tscn` |
@@ -724,6 +729,55 @@ primera version cumplia el encargo sobre el papel y se sentia mal. El banco
   sin hacer nada con ella, y eso es la decision: nadar es traversal puro, y una
   patada de 18 m/s con gravedad cero dentro del agua seria un atajo que se salta
   la fisica del medio entero.
+- **EL GOLPE NO SE SENTIA, Y ERAN TRES NUMEROS.** Reportado como «la patada se
+  siente meh, no es como que sienta que conecte». El banco lo dijo en una linea:
+  `conectar con un enemigo   PAUSA 0 frames   victima: MURIO en el acto`.
+  · **La pausa global duraba CERO.** Se pedia desde el `_physics_process` del
+	jugador y se descontaba en el del autoload, que corre ANTES: la pausa de un
+	frame se apagaba antes de que nadie llegara a leerla. Ahora es un NUMERO DE
+	FRAME absoluto (`Engine.get_physics_frames() + n`), contra el que no hay orden
+	que respetar. Medido: 0 -> 4 frames.
+	Y la tabla que la calculaba producia 1..3 frames donde `docs/03 §3.2`
+	documenta 50/90/160/250 ms: llevaba mintiendo desde el 3.03.
+  · **No congelaba a la VICTIMA.** `StateKick` pasaba solo `[player]` y era el
+	unico sitio del proyecto que lo hacia. El enemigo seguia moviendose mientras
+	tu te congelabas, y eso no se lee como un impacto sino como que te ha pasado
+	algo A TI. `Golpe` lleva ahora `victima`, que la rellena la `Hurtbox`.
+  · **El impacto se dibujaba en el pecho del jugador**, a un metro largo de lo
+	golpeado. Ahora sale en `golpe.punto`.
+  **Y LO QUE HOY SE VE DE UN GOLPE ES SOLO LA PAUSA.** `HitstopManager.congelar()`
+  para `AnimationTree`s y este juego se prueba con capsulas grises (regla dura
+  #7): no hay animacion que parar. Hasta que existan, un impacto se comunica
+  parando el mundo y moviendo a la victima, y nada mas.
+- **LA LANZA PASA A SER LA DIANA DE POGO** (`SpearSuspendida`). Reportado: *«no
+  le veo mucho uso a la lanza»* y *«tenia pensado un proyectil que se le pueda
+  hacer pogo»*. Son el mismo hueco visto por los dos lados.
+  Conectar con un enemigo lo MATA en el acto —200 de dano, 999 de poise—, asi que
+  sobre el no hay segundo pogo: hay un rebote y se acabo lo que habia que pisar.
+  Para que «conectar y rebotar» sea un BUCLE hace falta algo que SOBREVIVA al
+  golpe, y eso no se arregla bajando un numero de dano —eso es balance— sino
+  teniendo un objeto que no es un enemigo.
+  Ahora el vuelo no termina en el suelo: la lanza se para a los 11 m y **se queda
+  flotando 2.5 s**. Mientras flota lleva una `Hurtbox` del bando enemigo, asi que
+  **la patada no sabe que esto existe**: la consulta de `Hitbox` es la de siempre
+  y encuentra una hurtbox mas. Un verbo nuevo que no toca el verbo viejo.
+  · **Una lanzada, un pogo.** Al recibir la patada se cae. Si se quedara flotando
+	se podria subir por ella sin fin, y eso es una escalera al cielo (regla #27).
+  · **El rebote SI, la recarga NO.** La ley 4 recarga al tocar suelo, pared o
+	enemigo: tres cosas que pone el NIVEL. Tu lanza la pones tu, y recargar
+	pateandola seria movimiento perpetuo con dos pasos.
+  · **NO es un ancla de cuerda**, y se descarto a proposito: el 4.00 quito justo
+	eso —tirar la lanza, acertar, y solo entonces tener un punto— por ser un verbo
+	de movimiento convertido en una cadena de tres acciones. Y ademas la
+	COLOCACION de las anclas es el diseño de nivel (es contra lo que se eligio el
+	alcance de 19 m): un ancla portatil hace cualquier pared enganchable y el
+	nivel deja de importar.
+  · **Y una hurtbox se apaga por CAPA, no por `monitorable`.** Lo cazo el banco:
+	con la lanza guardada en la mano, «conectar con un enemigo» pasaba a decir
+	`victima: sigue en pie` — la patada estaba golpeando la lanza del propio
+	jugador a distancia cero, y como `max_objetivos` es 1 el enemigo no llegaba a
+	existir para el golpe. `monitorable` solo decide si otras areas la detectan
+	monitorizando; `intersect_shape` encuentra cualquier area por su capa.
 - **La patada es la LLAVE del punto debil** (`etiquetas = [perforante]`). Con un
   solo ataque tiene que serlo, o un coloso seria invencible. Y por eso el
   `ColosoMediano` pasa de 400 de vida a **3000**: con la llave la patada hace

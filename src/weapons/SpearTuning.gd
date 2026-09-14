@@ -15,6 +15,32 @@ extends Resource
 ## Distancia máxima a la que se aleja antes de caer. El cordón tiene un largo.
 @export_range(5.0, 200.0, 1.0) var alcance_maximo: float = 45.0
 
+@export_group("Suspension")
+## A CUANTOS METROS SE PARA A FLOTAR. Es el numero que convierte la lanza en una
+## DIANA DE POGO: se tira corto, se queda ahi, y se patea.
+##
+## Corto a proposito. Un proyectil que cruza media sala es un arma; uno que se
+## planta unos metros por delante es un escalon que te fabricas donde no hay
+## nada — y con `suspension_duracion` en 2.5 s, once metros se cruzan de sobra
+## dentro de la misma ventana yendo a cualquier velocidad de este juego.
+##
+## **Empezo en 8 y lo subio un test, con razon.** `TestLanza` comprueba que la
+## lanza ATRAVIESA a los enemigos en vez de pararse en el primero, y lo mide
+## tirandola contra uno que esta a 7 m: parandose a 8 el margen era de un metro y
+## la comprobacion dejaba de distinguir "paso de largo" de "se paro justo
+## despues". No es que el numero tuviera que ser 11: es que 8 era tan corto que
+## la lanza dejaba de ser un proyectil.
+@export_range(2.0, 40.0, 0.5) var suspension_distancia: float = 11.0
+## Cuanto aguanta flotando, en segundos. Es la ventana para llegar.
+@export_range(0.2, 10.0, 0.1) var suspension_duracion: float = 2.5
+## Periodo del bamboleo, en segundos. Una lanza absolutamente quieta en el aire
+## se lee como un objeto que el motor se ha dejado olvidado.
+@export_range(0.2, 6.0, 0.05) var suspension_bamboleo: float = 1.4
+## Empuje que se lleva al recibir la patada, en m/s. **Una lanzada, un pogo**: si
+## se quedara flotando se podria subir por ella sin fin, y eso es una escalera al
+## cielo con pasos extra (regla dura #27).
+@export_range(0.0, 40.0, 0.5) var suspension_empuje: float = 9.0
+
 @export_group("Imantado")
 ## Corrección máxima hacia el objetivo, en grados. `docs/03 §4.2` fija 8: es
 ## suficiente para perdonar un error de puntería y demasiado poco para apuntar

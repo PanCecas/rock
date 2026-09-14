@@ -118,6 +118,41 @@ son un camino. `MedirCadena` cuenta la separación real leyéndola del mundo:
 `visible_en_juego = false` apaga el testigo esférico, para anclas que ya tengan su
 propio modelo colgando —una argolla, una rama—. El testigo es de blockout.
 
+### 1.9 La lanza como diana de pogo
+
+**Dónde:** `src/weapons/states/SpearSuspendida.gd`, y los números en
+`SpearTuning`, grupo `Suspension`.
+
+Tirar la lanza (**V**) ya no la manda al otro lado del mapa: vuela `suspension_
+distancia` (11 m), **se para y se queda flotando** `suspension_duracion` (2.5 s).
+Mientras flota se le puede dar una patada: rebotas y ella se cae.
+
+Para qué: un enemigo **muere de una patada**, así que sobre él no hay segundo
+pogo. La lanza flotando es lo único que sobrevive al golpe, o sea un escalón que
+te fabricas donde no hay nada.
+
+| | |
+|---|---|
+| `suspension_distancia` (11 m) | dónde se planta. Corto: es un escalón, no un arma |
+| `suspension_duracion` (2.5 s) | la ventana para llegar |
+| `suspension_empuje` (9 m/s) | lo que se lleva al recibir la patada |
+
+Dos reglas que la hacen sostenible, y las dos son a propósito:
+
+- **Una lanzada, un pogo.** Al patearla se cae. Si se quedara flotando se podría
+  subir por ella sin fin.
+- **El rebote sí, la recarga no.** La ley 4 repone el moveset al tocar suelo,
+  pared o enemigo — tres cosas que pone el nivel. Tu lanza la pones tú.
+
+**No es un ancla de cuerda**, y no por descuido: el parche 4.00 quitó justo eso
+—tirar la lanza, acertar, y solo entonces tener un punto de enganche— por
+convertir un verbo de movimiento en una cadena de tres acciones. Y la colocación
+de las anclas *es* el diseño de nivel: es contra lo que se eligió el alcance de
+19 m. Un ancla portátil hace cualquier pared enganchable y el nivel deja de
+importar.
+
+---
+
 ### 2.0 Dónde se prueba todo esto junto
 
 **`tools/Moveset.tscn`** — el circuito del moveset.
