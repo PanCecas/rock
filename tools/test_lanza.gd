@@ -22,6 +22,12 @@ var _aux: float = 0.0
 var _origen: Vector3 = Vector3.ZERO
 var _salto: int = 0
 var _boton_lanza: int = 0
+## Altura a la que la bola EMPEZO a flotar, y la mas baja vista desde entonces.
+## Un solo numero no puede decir si algo se ha caido: hacen falta los dos.
+var _y_flotando: float = -9999.0
+var _y_flotando_min: float = 9999.0
+## A que distancia del tirador se quedo.
+var _dist_flotando: float = -1.0
 var _atk_lig: int = 0
 ## Latch de altura. Se mide MIENTRAS pasa, no al final: cuando termina la ventana
 ## del chequeo la pertiga ya ha subido y ha vuelto a caer.
@@ -241,6 +247,65 @@ func _construir() -> void:
 			func() -> bool: return _l.ancla != null and not _l.ancla.activa,
 			"un ancla pegada a tu espalda es una cuerda a ninguna parte"),
 
+		# --- LA BOLA FLOTA, NO SE CAE --------------------------------------
+		#
+		# Se pidio en el 4.07: *«que la lanza ya no sea lanza sino una bolita, y
+		# que flote, que no se caiga mas bien»*. Las cuatro comprobaciones de aqui
+		# son esa frase partida en trozos que se pueden poner en rojo.
+		_chequeo_("el vuelo termina FLOTANDO", 2.0,
+			func() -> void:
+				_l.fsm.cambiar(&"Wielded")
+				_p.global_position = Vector3(0.0, 20.0, -60.0)
+				_p.velocity = Vector3.ZERO
+				_visto.clear()
+				_y_flotando = -9999.0
+				_y_flotando_min = 9999.0
+				_origen = _p.global_position + Vector3.UP
+				_l.lanzar(_origen, Vector3.RIGHT),
+			func() -> bool: return _l.fsm.nombre_actual() == &"Flotando",
+			"si acaba en el suelo, la bola es una lanza con otra malla"),
+
+		# **LA QUE IMPORTA**, y se mide comparando dos alturas y no mirando un
+		# estado (regla dura #31): quedarse en `Flotando` no dice nada sobre si el
+		# objeto ha bajado. Medido: 21.00 al pararse y 21.00 cuatro segundos
+		# despues.
+		_chequeo_("y NO se cae ni un centimetro", 2.0,
+			func() -> void: pass,
+			func() -> bool: return (
+				_y_flotando > -9000.0
+				and absf(_y_flotando - _y_flotando_min) < 0.02),
+			"si pierde altura no flota: cae despacio, que es otra cosa"),
+
+		# Y SIGUE SIENDO LAS DOS COSAS QUE ERA. Una bola quieta que no se puede
+		# enganchar ni patear es un adorno.
+		_chequeo_("y sigue siendo ancla y diana", 0.1,
+			func() -> void: pass,
+			func() -> bool: return (
+				_l.ancla != null and _l.ancla.activa
+				and _l.hurtbox != null and _l.hurtbox.collision_layer != 0),
+			"flotando tiene que seguir enganchando la Z y dejandose patear"),
+
+		# **PERO NO ES PLATAFORMA.** Es el limite que sostiene todo lo demas: una
+		# plataforma que puedes dejar flotando donde quieras es una escalera al
+		# cielo —tirarla arriba, subirte, recuperarla, repetir— y no tiene techo.
+		# La lanza CLAVADA si es plataforma y esa mecanica no se toca.
+		_chequeo_("pero NO es plataforma", 0.1,
+			func() -> void: pass,
+			func() -> bool: return (
+				_l.plataforma != null and _l.plataforma.collision_layer == 0),
+			"subirse a una bola que flota donde quieras es una escalera al cielo"),
+
+		# Y SE QUEDA AL ALCANCE DE LA CUERDA, que es lo que hace que tirarla sea
+		# un gesto de dos tiempos y no de tres. No es un numero suelto: sale de
+		# `velocidad`, `frenado` y `velocidad_minima` a la vez, asi que se
+		# comprueba leyendo el mundo y no copiando una constante.
+		_chequeo_("y queda dentro del alcance de la Z", 0.1,
+			func() -> void: pass,
+			func() -> bool: return (
+				_dist_flotando > 0.0
+				and _dist_flotando <= _p.tuning.cuerda_rango),
+			"si se para mas lejos que la cuerda, tirarla y engancharse son dos viajes"),
+
 		# EMPUÑAR Y DESEMPUÑAR. El INTERCAMBIO DE MOVESET que se comprobaba aqui
 		# —seis chequeos: ligero, pesado, sus dos versiones aereas y el eje de
 		# cada par— se fue con el combate en el parche 4.00. La lanza ya no
@@ -375,6 +440,14 @@ func _physics_process(delta: float) -> void:
 		_visto[_l.fsm.nombre_actual()] = true
 		if _l.fsm.nombre_actual() == &"InFlight":
 			_aux = maxf(_aux, _l.global_position.distance_to(_origen))
+		# LA ALTURA DEL FLOTADO, latcheada en el frame en que se para y vigilada
+		# despues. Preguntar por ella al cerrar la ventana no distingue «no se ha
+		# caido» de «se cayo y ya toco suelo»: hace falta la foto de antes.
+		if _l.fsm.nombre_actual() == &"Flotando":
+			if _y_flotando < -9000.0:
+				_y_flotando = _l.global_position.y
+				_dist_flotando = _l.global_position.distance_to(_origen)
+			_y_flotando_min = minf(_y_flotando_min, _l.global_position.y)
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t - delta):
@@ -420,6 +493,9 @@ func _soltar_todo() -> void:
 	_p.buffer.clear()
 	_salto = 0
 	_boton_lanza = 0
+	_y_flotando = -9999.0
+	_y_flotando_min = 9999.0
+	_dist_flotando = -1.0
 	_atk_lig = 0
 
 

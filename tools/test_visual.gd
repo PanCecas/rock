@@ -569,7 +569,27 @@ func _sostener_cordon() -> void:
 	# cuanto tiempo real pase, y eso cambia con la maquina: la toma bailaba entre
 	# 0.36% y 0.54% con el tope en 0.40.
 	var l: Spear = _p.get("lanza")
-	if l != null and is_instance_valid(l) and l.clavada_en_algo():
+	if l == null or not is_instance_valid(l):
+		return
+
+	# LA BOLA SE APARCA EN UN PUNTO FIJO, y no se espera a que llegue sola.
+	#
+	# Desde el 4.07 tarda 1.23 s en frenar hasta quedarse flotando, y esta toma
+	# dispara antes: fotografiaba un objeto EN MOVIMIENTO, asi que un frame de
+	# desfase lo movia medio metro y con el toda la curva del cordon. Medido en
+	# cuatro pasadas seguidas: 0.71, 0.79, 0.83 y 0.84 por ciento, con el tope
+	# en 0.40. Un test que no puede repetir su propio resultado no es un test.
+	#
+	# Es el mismo criterio que `_asentar_postura()`: **una referencia no puede
+	# fotografiar algo a medio camino.** Se le pone el punto final a mano y la
+	# toma mide la CURVA DEL CORDON, que es lo unico que viene a mirar.
+	l.global_position = _p.global_position + Vector3(0.0, 2.4, -5.0)
+	l.fsm.cambiar(&"Flotando")
+
+	# Y AHORA SI se asienta. Quieta, no clavada: hasta el 4.07 solo se paraba
+	# clavandose, asi que preguntar por el clavado bastaba; con la bola flotando,
+	# ese guardia se quedo contestando a medias y el cordon no se asentaba nunca.
+	if l.esta_quieta():
 		l.cordon.asentar()
 
 

@@ -250,12 +250,24 @@ jugador.set("lanza", l)          # y el jugador se entera de que la tiene
 una decisión. Si duplicas, tendrás que llevar la cuenta de cuál está dónde, y eso
 no es una mecánica: es contabilidad.
 
-**Ya no cuelga de ella ninguna cuerda.** Desde el parche 4.00 el punto de enganche
-lo pone el nivel (`Ancla`) y la lanza vuelve a ser lo que era: un arma que además
-es plataforma y pértiga.
+**Desde el 4.07 es una BOLA y FLOTA.** Se tira, frena, y se queda en el aire
+donde se paró — medido: 1.23 s y 17.8 m del tirador, justo dentro de los 19 m de
+la cuerda. Mientras está fuera es a la vez:
+
+| | |
+|---|---|
+| **un ancla** | la Z se engancha a ella como a cualquier otra |
+| **una diana de pogo** | se le puede patear, y patearla la manda volando otra vez |
+| **NO una plataforma** | subirse a algo que dejas flotando donde quieras es una escalera al cielo |
+
+La lanza **clavada** (`Embedded`) sí sigue siendo plataforma y pértiga: esa
+mecánica no se tocó. Lo que se retiró es `Grounded`, el estado "en el suelo" —
+ya no llega al suelo nunca.
 
 Números en `SpearTuning` (`src/weapons/SpearTuning.gd`): velocidad de vuelo,
-alcance, imantado y tamaño de la plataforma.
+frenado, `velocidad_minima` (dónde se queda), `radio` de la bola, imantado y
+tamaño de la plataforma. **`gravedad_vuelo` está en 0**; ponerlo en 9 devuelve la
+lanza balística del 4.05 sin tocar código.
 
 ---
 

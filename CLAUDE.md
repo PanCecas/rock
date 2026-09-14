@@ -400,11 +400,15 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
 | Fijar objetivo | Click medio | R3 |
 | Apuntar | R | L3 |
-| **LANZA: tirarla** — y desde el 4.02 es **LA DIANA DE POGO** | **V** o **Mouse 5** | D-pad arriba |
-| | *vuela FRENANDO y cayendo: se ve venir, se ve frenar y se ve caer* | |
+| **LA BOLA** (antes la lanza) — **tirarla** | **V** o **Mouse 5** | D-pad arriba |
+| | *desde el 4.07 es una ESFERA, no un asta: un palo apunta a algun sitio y una bola quieta no miente sobre lo que es* | |
+| | *vuela FRENANDO y **SE QUEDA FLOTANDO** donde se para. Ya no se cae* | |
+| | *medido: se para a los 1.23 s y a 17.8 m — justo dentro de los 19 de la cuerda* | |
+| | ***NO es plataforma flotando***: subirse a algo que dejas donde quieras es una escalera al cielo. Clavada SI lo es | |
 | | ***alcanzala en el aire y pateala: CAMBIA DE RUMBO*** — el verbo sale por casi cero codigo | |
 | | ***y mientras esta fuera es un ANCLA***: la Z se engancha a ella como a cualquier otra | |
-| | *el rebote SI, la recarga NO: tu lanza la pones tu* | |
+| | *el rebote SI, la recarga NO: tu bola la pones tu* | |
+| | *se pinta como un `Ancla` a proposito —el jugador ya las llamaba «la bola amarilla»—; lo que la distingue es **el cordon que te sale a la mano*** | |
 | **Empunar / guardar la lanza** | **Tab** | Back |
 | | *Tirarla la desempuna. Ya no cambia como pegas: solo hay una forma* | |
 | **CUERDA** — engancha al `Ancla` que estes MIRANDO, dentro de alcance | **Z** (mantener) | D-pad der. |
@@ -978,6 +982,52 @@ gimnasio, 0 colosos, 0 minutos de juego**— no ha cambiado con este parche.
   `ColosoMediano` pasa de 400 de vida a **3000**: con la llave la patada hace
   200 x 3.5 = 700 en el punto debil, asi que con 400 moria de un golpe — y un
   coloso no se mata a golpes, se abre.
+
+**Parche 4.07 — LA LANZA ES UNA BOLA, Y FLOTA.**
+
+Se pidio asi: *«que la lanza ya no sea lanza sino una bolita, y que flote, que no
+se caiga mas bien»*. Las dos mitades del encargo son la misma cosa vista por los
+dos lados.
+
+- **LA MALLA ES UNA ESFERA.** Un asta APUNTA a algun sitio, asi que hay que
+  decidir a donde mira cuando esta quieta y cualquier respuesta se lee como una
+  intencion que el objeto no tiene. Una bola flotando no miente sobre lo que es.
+  Y se pinta como un `Ancla` —`oro_palido` con emision— porque eso es
+  informacion y no decoracion: el jugador ya las llamaba «la bola amarilla» antes
+  de que esto existiera. **Lo que la distingue de un ancla del nivel no es el
+  color ni el tamaño: es el cordon que le sale a tu mano.**
+- **`gravedad_vuelo` PASA A CERO** y `Grounded` se retira entero: la bola ya no
+  tiene un estado "en el suelo" porque no llega al suelo nunca. En su sitio entra
+  `Flotando`. No es el `Suspendida` del 4.02 con otro nombre —aquel PARABA EN
+  SECO a los 11 m, y esa fue la queja— sino el final natural del frenado: se ve
+  venir, se ve frenar y se ve quedarse.
+- **Y donde se para lo decide el jugador, no el motor.** Con gravedad, el punto
+  final lo ponia la caida; sin ella lo ponen hacia donde apuntaste y cuanto frena.
+  Un punto de cuerda que aterriza donde tu no elegiste no es una herramienta.
+- **17.8 m, y ese numero no es libre.** Medido: cruza `velocidad_minima` a los
+  **1.23 s** y a **17.8 m** del tirador, y `cuerda_rango` son 19. O sea que la
+  bola recien puesta queda **justo dentro** del alcance de la Z: tirarla y
+  engancharse a ella es un gesto de dos tiempos y no de tres. Sale de
+  `velocidad`, `frenado` y `velocidad_minima` a la vez, asi que el test lo
+  comprueba leyendo el mundo y no copiando la constante.
+- **NO SE CAE, y se comprueba con DOS alturas y no con un estado** (regla dura
+  #31): seguir en `Flotando` no dice nada sobre si el objeto ha bajado. Medido:
+  **21.00 al pararse y 21.00 cuatro segundos despues**.
+- **NO ES PLATAFORMA FLOTANDO, y ese es el limite que sostiene lo demas.** La
+  lanza CLAVADA sigue siendolo y esa mecanica no se toca; pero una plataforma que
+  puedes dejar donde quieras es una escalera al cielo —tirarla arriba, subirte,
+  recuperarla, repetir— y no tiene techo. El proyecto ya rechazo eso en el 4.02
+  con estas palabras —«si se quedara flotando se podria subir por ella sin fin»—
+  y el argumento no cambia porque la malla sea redonda. Tiene comprobacion propia.
+- **Y no caduca, a proposito.** Hay UNA sola bola en todo el juego: dejarla
+  puesta cuesta quedarse sin ella y recuperarla es un boton. Esa escasez es el
+  limite, no un reloj.
+
+`TestLanza` sube de 20 a **25 comprobaciones**. Y el screenshot test bajo a 7/14
+—las siete tomas donde el arma sale en la mano— con el diff enseñando
+exactamente lo que tenia que enseñar: **desaparece el asta vertical y aparece la
+bola**. Siete referencias regeneradas despues de mirarlo, que es la unica forma
+en que la regla dura #18 lo permite.
 
 **Sistema generativo (`src/generative/`).** Aparte del juego, con su propio banco
 (`tools/Jardin.tscn`). N agentes acoplados como osciladores de Kuramoto: cada uno

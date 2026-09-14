@@ -8,7 +8,7 @@
 [ext_resource type="Script" path="res://src/weapons/states/SpearWielded.gd" id="e_wie"]
 [ext_resource type="Script" path="res://src/weapons/states/SpearInFlight.gd" id="e_fly"]
 [ext_resource type="Script" path="res://src/weapons/states/SpearEmbedded.gd" id="e_emb"]
-[ext_resource type="Script" path="res://src/weapons/states/SpearGrounded.gd" id="e_gro"]
+[ext_resource type="Script" path="res://src/weapons/states/SpearFlotando.gd" id="e_flo"]
 [ext_resource type="Script" path="res://src/weapons/states/SpearReturning.gd" id="e_ret"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
 [ext_resource type="Script" path="res://src/world/Ancla.gd" id="anc"]
@@ -76,8 +76,8 @@ script = ExtResource("e_fly")
 [node name="Embedded" type="Node" parent="FSM"]
 script = ExtResource("e_emb")
 
-[node name="Grounded" type="Node" parent="FSM"]
-script = ExtResource("e_gro")
+[node name="Flotando" type="Node" parent="FSM"]
+script = ExtResource("e_flo")
 
 [node name="Returning" type="Node" parent="FSM"]
 script = ExtResource("e_ret")

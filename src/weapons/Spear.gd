@@ -7,7 +7,7 @@ extends Node3D
 ## `_physics_process` es exactamente el archivo de 372 líneas que hubo que
 ## extraer en la 3.03. Aquí se empieza ya extraído.
 ##
-##   Holstered -> Wielded -> InFlight -> Embedded | Grounded -> Returning
+##   Holstered -> Wielded -> InFlight -> Embedded | Flotando -> Returning
 ##
 ## `docs/03_ARQUITECTURA_MECANICAS.md §4` tiene el diseño completo.
 ##
@@ -132,7 +132,7 @@ func recibir_golpe(golpe: Golpe) -> int:
 	if fsm == null:
 		return Golpe.Resultado.INMUNE
 	var donde := fsm.nombre_actual()
-	if donde != &"InFlight" and donde != &"Grounded":
+	if donde != &"InFlight" and donde != &"Flotando":
 		return Golpe.Resultado.INMUNE
 	var hacia := golpe.direccion
 	if hacia.is_zero_approx():
@@ -224,11 +224,27 @@ func en_mano() -> bool:
 ## es donde el viaje se nota.
 func esta_fuera() -> bool:
 	var n := fsm.nombre_actual()
-	return n == &"InFlight" or n == &"Embedded" or n == &"Grounded"
+	return n == &"InFlight" or n == &"Embedded" or n == &"Flotando"
 
 
 func clavada_en_algo() -> bool:
 	return fsm.nombre_actual() == &"Embedded"
+
+
+## ¿Ha dejado de moverse? Clavada o flotando: las dos son "se quedo ahi".
+##
+## Existe porque quien pregunta casi siempre quiere saber si el objeto esta
+## QUIETO, no como llego a estarlo, y hasta el 4.07 esas dos cosas eran la misma
+## —solo se paraba clavandose—. Al aparecer `Flotando`, cada sitio que preguntaba
+## `clavada_en_algo()` se quedo contestando a medias.
+##
+## Lo cazo el screenshot test, y de la peor forma: la toma del cordon solo lo
+## asienta cuando la lanza esta quieta, asi que con la bola flotando no asentaba
+## nunca y la referencia empezo a bailar entre pasadas —0.79% y 0.83% con el tope
+## en 0.40—. Un test intermitente no es un test.
+func esta_quieta() -> bool:
+	var n := fsm.nombre_actual()
+	return n == &"Embedded" or n == &"Flotando"
 
 
 ## Lanza la lanza. Lo llama el jugador; el estado hace el resto.
@@ -269,7 +285,7 @@ func alternar_empunada() -> bool:
 ## Pide que vuelva. Vale desde clavada y desde el suelo.
 func recuperar() -> bool:
 	var actual := fsm.nombre_actual()
-	if actual != &"Embedded" and actual != &"Grounded" and actual != &"InFlight":
+	if actual != &"Embedded" and actual != &"Flotando" and actual != &"InFlight":
 		return false
 	fsm.cambiar(&"Returning")
 	return true
@@ -333,29 +349,43 @@ func color_de(nombre: StringName) -> Color:
 	return v if v is Color else Color.WHITE
 
 
+## LA BOLA. Antes eran dos cajas —asta y punta— y desde el 4.07 es una esfera.
+##
+## **Se pinta como un `Ancla`, y eso es informacion, no decoracion.** El jugador
+## las llamaba «la bola amarilla» antes de que esto existiera, asi que darle el
+## mismo `oro_palido` con emision dice lo unico que hace falta saber de ella: que
+## la Z se engancha ahi. Un proyectil que ademas es un punto de cuerda tiene que
+## PARECERSE a un punto de cuerda.
+##
+## Lo que la distingue de un ancla del nivel no es el color ni el tamaño: **es el
+## cordon que le sale a tu mano**. Las del nivel estan ahi; esta la has puesto tu.
 func _preparar_visual() -> void:
 	var malla := get_node_or_null("Visual/Asta") as MeshInstance3D
 	if malla == null:
 		return
-	var caja := BoxMesh.new()
-	caja.size = Vector3(tuning.grosor, tuning.grosor, tuning.largo)
-	malla.mesh = caja
+	var esfera := SphereMesh.new()
+	esfera.radius = tuning.radio
+	esfera.height = tuning.radio * 2.0
+	esfera.radial_segments = 14
+	esfera.rings = 7
+	malla.mesh = esfera
+	malla.position = Vector3.ZERO
 	_mat = StandardMaterial3D.new()
-	_mat.albedo_color = color_de(&"caliza_sol")
-	_mat.roughness = 0.55
+	_mat.albedo_color = color_de(&"oro_palido")
+	_mat.emission_enabled = true
+	_mat.emission = color_de(&"oro_palido")
+	_mat.emission_energy_multiplier = 0.5
+	_mat.roughness = 0.4
+	_mat.metallic = 0.35
 	malla.material_override = _mat
 
+	# LA PUNTA SE APAGA. El nodo se queda en la escena porque quitarlo obligaria a
+	# tocar el `.tscn` de todo el que la haya instanciado, y una bola no tiene
+	# punta: dejarle una malla seria una pincho saliendo de una esfera.
 	var punta := get_node_or_null("Visual/Punta") as MeshInstance3D
 	if punta != null:
-		var p := BoxMesh.new()
-		p.size = Vector3(tuning.grosor * 1.6, tuning.grosor * 1.6, tuning.largo * 0.18)
-		punta.mesh = p
-		punta.position = Vector3(0, 0, -tuning.largo * 0.5)
-		var mp := StandardMaterial3D.new()
-		mp.albedo_color = color_de(&"oro_palido")
-		mp.metallic = 0.6
-		mp.roughness = 0.3
-		punta.material_override = mp
+		punta.mesh = null
+		punta.visible = false
 
 	# La plataforma se dimensiona desde el tuning, no desde la escena: es un
 	# número de diseño y tiene que poder tocarse sin abrir el editor.

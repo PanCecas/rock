@@ -4,7 +4,7 @@ extends Node
 ## no necesitan grupos, y anadirlos "por si acaso" seria arquitectura por
 ## adelantado.
 ##
-##   Holstered -> Wielded -> InFlight -> Embedded | Grounded -> Returning
+##   Holstered -> Wielded -> InFlight -> Embedded | Flotando -> Returning
 
 @export var estado_inicial: StringName = &"Wielded"
 

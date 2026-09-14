@@ -48,7 +48,8 @@ func physics_update(delta: float) -> void:
 	lanza.vuelo += Vector3.DOWN * tuning.gravedad_vuelo * delta
 	var rapidez := lanza.vuelo.length()
 	if rapidez < tuning.velocidad_minima:
-		fsm.cambiar(&"Grounded")
+		# SE QUEDA FLOTANDO, no se cae. Ver `SpearFlotando`.
+		fsm.cambiar(&"Flotando")
 		return
 	lanza.direccion = lanza.vuelo / rapidez
 	lanza.apuntar_a(lanza.direccion)
@@ -94,12 +95,14 @@ func physics_update(delta: float) -> void:
 			CombatFX.impacto(lanza.get_parent(), lanza.global_position,
 				lanza.color_de(&"carmesi"), 0.9)
 
-	# SE PARA A FLOTAR, y ese es el cambio que la convierte en herramienta de
-	# movimiento. Antes volaba 45 m y se caia; ahora se planta a `suspension_
-	# distancia` y espera a que la patees. `alcance_maximo` y `vida_vuelo` se
-	# quedan de techo de seguridad por si alguien sube la distancia.
+	# LOS DOS TECHOS DE SEGURIDAD, y hoy no los alcanza ninguno: con gravedad
+	# cero y `frenado` 1.6 la bola cruza `velocidad_minima` a los 1.2 s y a 18 m,
+	# muy por debajo de `vida_vuelo` (4 s) y `alcance_maximo` (45 m). Se quedan
+	# por si alguien baja el frenado, y llevan al mismo sitio que el camino
+	# normal: **flotando**. Un techo que te deja en otro estado distinto del que
+	# produce el caso normal es una segunda mecanica escondida en un numero.
 	if t >= tuning.vida_vuelo or _recorrido >= tuning.alcance_maximo:
-		fsm.cambiar(&"Grounded")
+		fsm.cambiar(&"Flotando")
 
 
 ## Barrido del tramo de ESTE frame contra las superficies clavables.

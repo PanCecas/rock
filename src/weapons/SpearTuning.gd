@@ -27,11 +27,31 @@ extends Resource
 ## Con 1.6, sale a 34 m/s y al segundo va a 6.9: se ve venir, se ve frenar y se ve
 ## caer, que son tres cosas que el jugador puede leer para decidir.
 @export_range(0.0, 8.0, 0.1) var frenado: float = 1.6
-## Gravedad del vuelo, en m/s². Propia y suave: la del juego (-38) convertiria
-## cualquier tiro en un mortero.
-@export_range(0.0, 40.0, 0.5) var gravedad_vuelo: float = 9.0
-## Por debajo de esta rapidez deja de volar y se cae. Sin un suelo, el frenado
-## exponencial nunca llega a cero y la lanza reptaria por el aire para siempre.
+## Gravedad del vuelo, en m/s².
+##
+## **EN CERO desde el 4.07, y es el encargo entero**: *«que flote, que no se
+## caiga mas bien»*. La bola ya no describe una parabola: sale recta, frena, y se
+## queda donde se quedo.
+##
+## Y no es solo estetica. Con gravedad, donde acaba la bola lo decide la caida
+## —o sea el motor—; sin ella lo decide hacia donde apuntaste y cuanto frena, que
+## son dos numeros que el jugador puede leer antes de tirar. Un punto de cuerda
+## que aterriza donde el no eligio no es una herramienta, es un sorteo.
+##
+## Se deja como numero y no como una constante en cero por si algun dia se quiere
+## una version pesada: en 9.0 vuelve la lanza balistica del 4.05 sin tocar codigo.
+@export_range(0.0, 40.0, 0.5) var gravedad_vuelo: float = 0.0
+## Por debajo de esta rapidez deja de volar **y se queda flotando ahi**.
+##
+## Hace falta un suelo porque el frenado exponencial nunca llega a cero: sin el,
+## la bola reptaria por el aire para siempre unos centimetros por segundo, que es
+## lo peor de los dos mundos —ni se mueve ni esta quieta—.
+##
+## Con `velocidad` 34 y `frenado` 1.6, cruza este umbral a los 1.2 s y a unos
+## 18 m del tirador. Ese numero no es casual y conviene no romperlo:
+## `cuerda_rango` son 19 m, asi que la bola recien puesta queda **justo dentro**
+## del alcance de la Z. Tirarla y engancharse a ella es un gesto de dos tiempos,
+## no de tres.
 @export_range(0.5, 20.0, 0.5) var velocidad_minima: float = 5.0
 ## Rapidez que le imprime UNA PATADA en vuelo, en m/s.
 ##
@@ -51,7 +71,11 @@ extends Resource
 
 @export_group("Clavado")
 ## Profundidad a la que se hunde en la superficie al clavarse.
-@export_range(0.0, 1.5, 0.05) var hundimiento: float = 0.35
+##
+## Bajo desde el 4.07: una BOLA de radio 0.32 que se hunde 0.35 desaparece dentro
+## del muro. Con 0.12 se queda medio metida, que es como se lee "esto se ha
+## quedado agarrado ahi".
+@export_range(0.0, 1.5, 0.01) var hundimiento: float = 0.12
 ## Lado de la plataforma cuadrada que aparece al clavarse. `docs/03 §4.3` fija
 ## 0.4 m: cabe una cápsula de pie y no tanto como para caminar por encima.
 @export_range(0.1, 2.0, 0.05) var plataforma_lado: float = 0.4
@@ -77,5 +101,16 @@ extends Resource
 @export_range(0.1, 3.0, 0.05) var radio_atrape: float = 0.9
 
 @export_group("Presentacion")
-@export_range(0.2, 4.0, 0.05) var largo: float = 1.9
-@export_range(0.01, 0.5, 0.01) var grosor: float = 0.07
+## RADIO DE LA BOLA, en metros.
+##
+## **La lanza dejo de ser una lanza en el 4.07** y paso a ser una bola, que es lo
+## que se pidio. El asta tenia un problema que la bola no tiene: un palo apunta a
+## algun sitio, asi que hay que decidir a donde mira cuando esta quieta, y
+## cualquier respuesta se lee como una intencion que el objeto no tiene. Una
+## esfera flotando no miente sobre lo que es.
+##
+## Un pelo mas grande que el testigo de un `Ancla` (0.28) para que se lea como un
+## objeto del mundo y no como un marcador de blockout. Lo que la distingue de un
+## ancla del nivel no es el tamaño ni el color: **es el cordon que le sale a tu
+## mano**.
+@export_range(0.05, 1.5, 0.01) var radio: float = 0.32
