@@ -8,11 +8,21 @@ extends Node
 ## Escala de referencia (docs/03_ARQUITECTURA_MECANICAS.md §3.2):
 ##   ligero 50 ms · pesado 90 ms · parry 160 ms · punto débil de coloso 250 ms
 
-## Frames de micro-pausa global según la duración pedida.
-const FRAMES_GLOBALES := {0.05: 1, 0.09: 2, 0.16: 2, 0.25: 3}
+## Tope de la pausa global, en frames. 10 a 60 Hz son 167 ms: por encima deja de
+## leerse como un impacto y pasa a leerse como que el juego se ha colgado.
+const PAUSA_MAX_FRAMES := 10
 
 var _congelados: Dictionary = {}   # Node -> segundos restantes
-var _pausa_global: float = 0.0
+## FRAME DE FISICA EN EL QUE SE REANUDA, no un contador que se descuenta.
+##
+## **Con un contador la pausa duraba cero.** Se pedia desde el
+## `_physics_process` del jugador y se descontaba en el del autoload, que corre
+## ANTES: la pausa de un frame se apagaba antes de que nadie llegara a leerla.
+## Medido con `MedirPatada`: `PAUSA 0 frames` al conectar una patada.
+##
+## Contra un numero de frame absoluto eso no puede pasar — no hay orden que
+## respetar, solo una comparacion.
+var _pausa_hasta: int = 0
 
 
 func _ready() -> void:
@@ -20,9 +30,6 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _pausa_global > 0.0:
-		_pausa_global = maxf(0.0, _pausa_global - delta)
-
 	if _congelados.is_empty():
 		return
 	var terminados: Array = []
@@ -42,7 +49,8 @@ func _physics_process(delta: float) -> void:
 func golpe(duracion: float, participantes: Array[Node] = []) -> void:
 	for nodo in participantes:
 		congelar(nodo, duracion)
-	_pausa_global = maxf(_pausa_global, _frames_a_segundos(duracion))
+	var frames: int = clampi(roundi(duracion * 60.0), 1, PAUSA_MAX_FRAMES)
+	_pausa_hasta = maxi(_pausa_hasta, Engine.get_physics_frames() + frames)
 	EventBus.hitstop_requested.emit(duracion)
 
 
@@ -57,8 +65,13 @@ func congelar(nodo: Node, duracion: float) -> void:
 
 
 ## ¿Estamos en la micro-pausa global? El gameplay la consulta para no avanzar.
+##
+## **Y LA PAUSA ES LA UNICA PARTE DEL HITSTOP QUE HOY SE VE.** `congelar()` para
+## `AnimationTree`s, y este juego todavia se prueba con capsulas grises (regla
+## dura #7): no hay animacion que parar. Hasta que existan, el impacto se
+## comunica parando el mundo y moviendo a la victima, y nada mas.
 func global_activo() -> bool:
-	return _pausa_global > 0.0
+	return Engine.get_physics_frames() < _pausa_hasta
 
 
 func esta_congelado(nodo: Node) -> bool:
@@ -69,7 +82,7 @@ func limpiar() -> void:
 	for nodo in _congelados:
 		_descongelar(nodo)
 	_congelados.clear()
-	_pausa_global = 0.0
+	_pausa_hasta = 0
 
 
 func _descongelar(nodo: Node) -> void:
@@ -97,10 +110,3 @@ func _buscar(raiz: Node, clase: String) -> Node:
 			return r
 	return null
 
-
-func _frames_a_segundos(duracion: float) -> float:
-	var frames := 1
-	for umbral in FRAMES_GLOBALES:
-		if duracion >= float(umbral):
-			frames = maxi(frames, int(FRAMES_GLOBALES[umbral]))
-	return float(frames) / 60.0

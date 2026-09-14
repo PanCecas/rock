@@ -1,0 +1,59 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://src/weapons/Sword.gd" id="s"]
+[ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="hb"]
+[ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="hu"]
+[ext_resource type="Script" path="res://src/weapons/SwordStateMachine.gd" id="fsm"]
+[ext_resource type="Script" path="res://src/weapons/states/SwordWielded.gd" id="e_wie"]
+[ext_resource type="Script" path="res://src/weapons/states/SwordSwing.gd" id="e_swi"]
+[ext_resource type="Script" path="res://src/weapons/states/SwordInFlight.gd" id="e_fly"]
+[ext_resource type="Script" path="res://src/weapons/states/SwordHoming.gd" id="e_hom"]
+[ext_resource type="Script" path="res://src/weapons/states/SwordReturning.gd" id="e_ret"]
+
+[sub_resource type="SphereShape3D" id="diana"]
+radius = 0.7
+
+[node name="Sword" type="Node3D"]
+script = ExtResource("s")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Hoja" type="MeshInstance3D" parent="Visual"]
+
+[node name="Guarda" type="MeshInstance3D" parent="Visual"]
+
+[node name="Hitbox" type="Node3D" parent="."]
+script = ExtResource("hb")
+equipo = 0
+dueno_path = NodePath("..")
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 0
+monitoring = false
+monitorable = false
+script = ExtResource("hu")
+equipo = 1
+dueno_path = NodePath("..")
+
+[node name="Forma" type="CollisionShape3D" parent="Hurtbox"]
+shape = SubResource("diana")
+
+[node name="FSM" type="Node" parent="."]
+script = ExtResource("fsm")
+estado_inicial = &"Wielded"
+
+[node name="Wielded" type="Node" parent="FSM"]
+script = ExtResource("e_wie")
+
+[node name="Swing" type="Node" parent="FSM"]
+script = ExtResource("e_swi")
+
+[node name="InFlight" type="Node" parent="FSM"]
+script = ExtResource("e_fly")
+
+[node name="Homing" type="Node" parent="FSM"]
+script = ExtResource("e_hom")
+
+[node name="Returning" type="Node" parent="FSM"]
+script = ExtResource("e_ret")

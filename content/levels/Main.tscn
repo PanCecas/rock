@@ -1,29 +1,45 @@
 [gd_scene format=3 uid="uid://btyhml3avr6at"]
 
 [ext_resource type="Script" uid="uid://d3hp2dloe4u0y" path="res://src/art/WorldMood.gd" id="1_mood"]
+[ext_resource type="Shader" uid="uid://mbbni3jtuipq" path="res://src/art/shaders/cielo.gdshader" id="1_w43ei"]
 [ext_resource type="Resource" path="res://content/data/default_palette.tres" id="2_palette"]
 [ext_resource type="Script" uid="uid://0fm64rmn8vb8" path="res://tools/Gym.gd" id="3_gym"]
 [ext_resource type="PackedScene" path="res://src/player/Player.tscn" id="4_player"]
 [ext_resource type="PackedScene" path="res://src/camera/CameraRig.tscn" id="5_camera"]
 [ext_resource type="Script" uid="uid://cigtgmwkixwb6" path="res://tools/Circuito.gd" id="6_circuito"]
 [ext_resource type="Script" uid="uid://cbmjc1r4m0nge" path="res://tools/Arena.gd" id="7_arena"]
+[ext_resource type="Script" uid="uid://csjccrhj5wnx7" path="res://addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd" id="8_kk0tq"]
+[ext_resource type="Script" uid="uid://8umksf8e80fw" path="res://addons/phantom_camera/scripts/resources/tween_resource.gd" id="9_w43ei"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o8nxp"]
-sky_top_color = Color(0.81058824, 0.7780392, 0.7529412, 1)
-sky_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
-sky_curve = 0.18
-ground_bottom_color = Color(0.14117648, 0.1882353, 0.10980392, 1)
-ground_horizon_color = Color(0.9372549, 0.9098039, 0.84705883, 1)
-ground_curve = 0.04
-sun_angle_max = 25.0
-sun_curve = 0.12
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_c1i3f"]
+shader = ExtResource("1_w43ei")
+shader_parameter/color_cenit = Color(0.5568628, 0.53333336, 0.627451, 1)
+shader_parameter/color_horizonte = Color(0.9372549, 0.9098039, 0.84705883, 1)
+shader_parameter/color_nube = Color(0.9490196, 0.9411765, 0.9019608, 1)
+shader_parameter/color_nube_sombra = Color(0.5129412, 0.49901962, 0.542353, 1)
+shader_parameter/color_sol = Color(1, 0.9529412, 0.84705883, 1)
+shader_parameter/cobertura = 0.32
+shader_parameter/bandas = 3.0
+shader_parameter/suavidad = 0.13
+shader_parameter/escala = 1.9
+shader_parameter/velocidad = 0.09
+shader_parameter/viento_dir = Vector2(1, 0.35)
+shader_parameter/evolucion = 0.06
+shader_parameter/esponjado = 1.7
+shader_parameter/ganancia = 1.35
+shader_parameter/deformacion = 0.75
+shader_parameter/suelo_nubes = 0.04
+shader_parameter/sol_tamano = 0.018
+shader_parameter/sol_halo = 0.3
+shader_parameter/luz_nube = 0.85
+shader_parameter/tiempo_fijo = -1.0
 
-[sub_resource type="Sky" id="Sky_oma3v"]
-sky_material = SubResource("ProceduralSkyMaterial_o8nxp")
+[sub_resource type="Sky" id="Sky_jo2k7"]
+sky_material = SubResource("ShaderMaterial_c1i3f")
 
-[sub_resource type="Environment" id="Environment_kk0tq"]
+[sub_resource type="Environment" id="Environment_iho8k"]
 background_mode = 2
-sky = SubResource("Sky_oma3v")
+sky = SubResource("Sky_jo2k7")
 ambient_light_source = 3
 ambient_light_color = Color(0.7207843, 0.7356863, 0.76235294, 1)
 ambient_light_sky_contribution = 0.75
@@ -55,6 +71,9 @@ adjustment_enabled = true
 adjustment_contrast = 1.02
 adjustment_saturation = 0.92
 
+[sub_resource type="Resource" id="Resource_s6xgd"]
+script = ExtResource("9_w43ei")
+
 [node name="Main" type="Node3D" unique_id=490195209]
 
 [node name="Sol" type="DirectionalLight3D" parent="." unique_id=1130198979]
@@ -70,7 +89,7 @@ directional_shadow_blend_splits = true
 directional_shadow_max_distance = 220.0
 
 [node name="WorldMood" type="WorldEnvironment" parent="." unique_id=939690339]
-environment = SubResource("Environment_kk0tq")
+environment = SubResource("Environment_iho8k")
 script = ExtResource("1_mood")
 palette = ExtResource("2_palette")
 
@@ -78,7 +97,7 @@ palette = ExtResource("2_palette")
 script = ExtResource("3_gym")
 palette = ExtResource("2_palette")
 angulos_rampa = PackedFloat32Array(15, 25, 35, 45, 60)
-angulos_escalada = null
+angulos_escalada = PackedFloat32Array(30, 40, 44, 45, 50, 60, 75, 90, 110)
 huecos = PackedFloat32Array(2, 4, 6, 8, 10, 12)
 alturas_repisa = PackedFloat32Array(1, 2, 3, 4.2)
 
@@ -94,3 +113,10 @@ palette = ExtResource("2_palette")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 4)
 
 [node name="CameraRig" parent="." unique_id=436052055 instance=ExtResource("5_camera")]
+transform = Transform3D(0.9978588, -0.065404385, 0, 0.065404385, 0.9978588, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="PhantomCamera3D" type="Node3D" parent="." unique_id=73720898]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0613194, 0)
+script = ExtResource("8_kk0tq")
+tween_resource = SubResource("Resource_s6xgd")
+metadata/_custom_type_script = "uid://csjccrhj5wnx7"

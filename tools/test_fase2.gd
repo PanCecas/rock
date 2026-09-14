@@ -24,6 +24,9 @@ func _ready() -> void:
 	_main = load("res://content/levels/Main.tscn").instantiate()
 	add_child(_main)
 	_p = _main.get_node("Player") as PlayerController
+	# Antes de la primera comprobacion: la Arena y el corral se pueblan solos en
+	# su `_ready`, asi que para cuando arranca el guion ya hay enemigos despiertos.
+	_pacificar()
 	EventBus.player_jumped.connect(func(_n: int) -> void: _saltos_contados += 1)
 	EventBus.player_state_changed.connect(
 		func(a: StringName, n: StringName) -> void:
@@ -39,75 +42,6 @@ func _construir_guion() -> void:
 		_paso_("colocarse", 0.6, func() -> void:
 			_lancero()
 			_colocar(2.0), &"Idle"),
-
-		# --- Cadena ligera ----------------------------------------------------
-		_chequeo_("golpe 1 conecta", 0.35,
-			func() -> void:
-				_vida_antes = _g.salud.actual
-				_pulsar(&"attack_light"),
-			func() -> bool: return _g.salud.actual < _vida_antes,
-			"el primer golpe debe quitar vida"),
-		# La cadena solo encadena DENTRO del ataque, pasado `frame_cadena`. Pulsar
-		# cuando L1 ya termino no encadena: empieza un L1 nuevo. Por eso los pasos
-		# son cortos y encajan con las ventanas reales del .tres.
-		_paso_("abrir cadena", 0.16, func() -> void:
-			_soltar_todo()
-			_reponer()
-			_colocar(2.0)
-			_pulsar(&"attack_light"), &"Attack"),
-		# 0.10 s = 6 frames. Hacen falta: ~2 de latencia entre action_press y que el
-		# InputBuffer lo vea, 1 para que StateAttack lo consuma, y margen.
-		_chequeo_("encadena a L2", 0.10,
-			func() -> void:
-				_soltar_todo()
-				_pulsar(&"attack_light"),
-			func() -> bool: return _indice_ataque() >= 2,
-			"pulsar dentro de la ventana debe encadenar al segundo golpe"),
-		_paso_("esperar ventana", 0.16, func() -> void: _soltar_todo(), &"Attack"),
-		_chequeo_("encadena a L3", 0.10,
-			func() -> void: _pulsar(&"attack_light"),
-			func() -> bool: return _indice_ataque() >= 3,
-			"la cadena debe llegar al finisher"),
-
-		# --- Cancelaciones ----------------------------------------------------
-		_chequeo_("ataque -> dash", 0.4,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(2.0)
-				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_ligero, "indice": 1})
-				_esperar_frames = 8,
-			func() -> bool: return _visitados.has(&"Dash"),
-			"el dash debe poder cancelar el ataque tras la ventana activa"),
-
-		# --- Aéreo: LA regla del sistema --------------------------------------
-		_chequeo_("aéreo repone dash", 0.45,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(1.8)
-				_p.global_position += Vector3.UP * 1.2
-				_p.fsm.cambiar(&"Fall")
-				_p.dash_cargas = 0
-				_pulsar(&"attack_light"),
-			func() -> bool: return _p.dash_cargas > 0,
-			"conectar en el aire debe devolver una carga de dash"),
-
-		# --- Picado -----------------------------------------------------------
-		# El picado se pide ahora con AGACHADO + pesado: el pesado a secas en el aire
-		# pasa a ser el clavado pesado con rebote.
-		_chequeo_("picado golpea en área", 1.2,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(1.5)
-				_p.global_position += Vector3.UP * 3.0
-				_p.fsm.cambiar(&"Fall")
-				_vida_antes = _g.salud.actual
-				_pulsar(&"crouch")
-				_pulsar(&"attack_heavy"),
-			func() -> bool: return _visitados.has(&"Plunge") and _g.salud.actual < _vida_antes,
-			"el picado debe entrar y reventar en área al aterrizar"),
 
 		# --- Parry ------------------------------------------------------------
 		_chequeo_("parry quiebra la guardia", 0.35,
@@ -149,52 +83,6 @@ func _construir_guion() -> void:
 			func() -> bool: return is_equal_approx(_p.salud.actual, _vida_antes),
 			"con i-frames activos el golpe no debe entrar"),
 
-		# --- Correccion 2.2: fisicas del pesado -------------------------------
-		# En vida solo tambalea. Nada de mandar a todo el mundo por los aires: eso
-		# convertia cada intercambio en un malabar y se comia la lectura del suelo.
-		_chequeo_("pesado NO lanza", 0.3,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(2.0)
-				_g.velocity = Vector3.ZERO
-				# Postura alta para aislar el STAGGER: con la suya real (30) el
-				# pesado (32 de poise) la quiebra y el estado seria QUEBRADO.
-				_g.poise.actual = 100.0
-				_g.recibir_golpe(Golpe.new(
-					_p, _p.ataque_pesado, _g.global_position,
-					(_g.global_position - _p.global_position).normalized()))
-				_aux = _g.velocity.y,
-			func() -> bool: return (_aux < 1.5
-				and _g.estado == Guardian.Estado.ATURDIDO
-				and is_equal_approx(_g._stagger, _p.ataque_pesado.stagger)),
-			"el pesado debe dejar knockback terrestre y stagger, no lanzamiento"),
-
-		# --- Correccion 2.2: movilidad en combo -------------------------------
-		# Dos medidas: atacar quieto y atacar empujando. La segunda tiene que
-		# recorrer mas, o el personaje sigue clavandose en cada golpe.
-		_chequeo_("ataque sin input (base)", 0.45,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(45.0, 0.3, -35.0)
-				_pos_antes = _p.global_position
-				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_ligero, "indice": 1}),
-			func() -> bool:
-				_dist_sin_input = _p.global_position.distance_to(_pos_antes)
-				return true,
-			"medicion base"),
-		_chequeo_("ataque con input recorre mas", 0.45,
-			func() -> void:
-				_soltar_todo()
-				_p.global_position = Vector3(45.0, 0.3, -35.0)
-				_p.velocity = Vector3.ZERO
-				_pos_antes = _p.global_position
-				_pulsar(&"move_forward")
-				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_ligero, "indice": 1}),
-			func() -> bool: return _p.global_position.distance_to(_pos_antes) > _dist_sin_input + 0.4,
-			"el jugador debe poder desplazarse mientras ataca"),
-
 		# --- Correccion 2.2: pivote del dash ----------------------------------
 		_paso_("carrerilla", 0.2, func() -> void:
 			_soltar_todo()
@@ -202,11 +90,31 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(45.0, 0.3, -35.0)
 			_p.fsm.cambiar(&"Idle")
 			_pulsar(&"move_forward"), &"Move"),
-		_paso_("dashear", 0.10, func() -> void: _pulsar(&"dash"), &"Dash"),
-		_chequeo_("pivote frena y salta", 0.10,
+		# SHIFT EN EL SUELO DESLIZA. El dash de suelo se retiro en el 4.04: los dos
+		# eran «el boton de ir rapido en linea recta» y el slide es el que lee el
+		# terreno. El dash se queda EN EL AIRE, como esquive.
+		_paso_("Shift en el suelo desliza", 0.10,
+			func() -> void: _pulsar(&"dash"), &"Slide"),
+
+		# EL PIVOTE, AHORA DESDE EL SLIDE. Se mudo con el: siempre fue una maniobra
+		# de PIES y el unico dash que queda es el aereo, donde nunca se permitio.
+		#
+		# Se monta APARTE y con la camara fijada, en dos tiempos. Colgarlo del paso
+		# anterior medía la suerte: el pivote exige que lo pedido este a mas de
+		# 127 grados de la direccion del slide (`dash_pivote_umbral`), y sin fijar
+		# el yaw «lo contrario» es contrario a donde mirase el rig, no al
+		# deslizamiento. Y necesita 0.225 s de slide antes de aceptarse, asi que la
+		# pulsacion tiene que llegar DESPUES: por eso son dos entradas.
+		_paso_("deslizar hacia +X para el pivote", 0.30,
 			func() -> void:
-				_soltar(&"move_forward")
-				_soltar(&"dash")
+				_soltar_todo()
+				_reponer()
+				_mirar_a(-90.0)
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3(12.0, 0.0, 0.0)
+				_p.fsm.cambiar(&"Slide"), &"Slide"),
+		_chequeo_("pivote frena y salta", 0.12,
+			func() -> void:
 				_pulsar(&"move_back"),
 			func() -> bool: return (
 				_p.fsm.actual.categoria == &"Airborne"
@@ -268,33 +176,6 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.fsm.nombre_actual() != &"Surf",
 			"sin mantener Shift el dash no debe entrar en Surf"),
 
-		# --- Correccion 2.3: ataque de dash -----------------------------------
-		_chequeo_("ataque de dash", 0.35,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(4.0)
-				_vida_antes = _g.salud.actual
-				# Dash primero y ataque 2 frames despues: con ~2 frames de latencia
-				# de input, el ataque cae dentro de los 7 frames que dura el dash.
-				_pulsar(&"dash")
-				_esperar_ataque = 2,
-			func() -> bool: return _g.salud.actual < _vida_antes,
-			"atacar en pleno dash debe cerrar distancia y conectar"),
-
-		# --- Correccion 2.4: la estocada no frena -----------------------------
-		_chequeo_("el ataque de dash atraviesa", 0.16,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(45.0, 0.3, -35.0)
-				_p.fsm.cambiar(&"Idle")
-				_p.velocity = Vector3(0, 0, -12.0)
-				_p.orientar_a(Vector3(0, 0, -1))
-				_p.fsm.cambiar(&"Attack", {"datos": _p.ataque_dash, "indice": 1}),
-			func() -> bool: return _p.motor.rapidez_plana() > 10.0,
-			"la estocada debe conservar el avance, no frenar en seco"),
-
 		# --- Correccion 2.4: rampa caminar -> trotar -> correr ----------------
 		_chequeo_("arranca caminando", 0.18,
 			func() -> void:
@@ -325,16 +206,47 @@ func _construir_guion() -> void:
 			func() -> bool: return _saltos_contados <= 2,
 			"machacar salto solo debe dar el salto y el doble salto, no mas"),
 
-		# El clamp impide que encadenar momentum saque al jugador del mapa.
-		_chequeo_("clamp de velocidad", 0.3,
+		# EL TOPE ES UN OBJETIVO, NO UN CORTE (4.00, punto 17 del documento).
+		#
+		# Este chequeo decia antes "la velocidad nunca supera `velocidad_maxima`", y
+		# esa era la contrata vieja: el clamp duro recortaba de golpe y salir de un
+		# arco a 34 m/s te dejaba a 22.0 EN EL PRIMER FRAME. La contrata nueva es
+		# otra y hay que escribirla entera, que son tres cosas:
+		#
+		#   · el tope DURO si corta, y no es de game feel: es la red que impide
+		#     atravesar geometria entre dos frames de fisica;
+		#   · por encima del tope blando la rapidez DECAE en vez de cortarse; y
+		#   · acaba llegando, o "decae" seria un eufemismo de "no limita".
+		_chequeo_("el tope duro si corta", 0.2,
 			func() -> void:
 				_soltar_todo()
 				_reponer()
-				_p.global_position = Vector3(0.0, 0.05, 0.0)
-				_p.fsm.cambiar(&"Idle")
-				_p.velocity = Vector3(80.0, 0.0, 0.0),
-			func() -> bool: return _p.motor.rapidez_plana() <= _p.tuning.velocidad_maxima + 0.1,
-			"la velocidad horizontal nunca debe superar velocidad_maxima"),
+				_p.global_position = Vector3(0.0, 8.0, 0.0)
+				_p.fsm.cambiar(&"Fall")
+				_p.velocity = Vector3(300.0, 0.0, 0.0),
+			func() -> bool:
+				return _p.motor.rapidez_plana() <= _p.tuning.velocidad_tope_duro + 0.1,
+			"sin red, a 300 m/s un muro de un metro deja de ser un muro"),
+
+		_chequeo_("y el blando NO: decae hacia el tope", 0.25,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(0.0, 12.0, 0.0)
+				_p.fsm.cambiar(&"Fall")
+				_p.velocity = Vector3(34.0, 0.0, 0.0),
+			func() -> bool:
+				# A un cuarto de segundo todavia queda bastante por encima del tope:
+				# eso es lo que hace que el momentum ganado se sienta ganado.
+				var v := _p.motor.rapidez_plana()
+				return v > _p.tuning.velocidad_maxima + 3.0 and v < 34.0,
+			"cortar de golpe borra en un frame lo que costo encadenar"),
+
+		_chequeo_("pero acaba llegando", 1.6,
+			func() -> void: pass,
+			func() -> bool:
+				return _p.motor.rapidez_plana() <= _p.tuning.velocidad_maxima + 1.0,
+			"un decaimiento que no converge no es un tope, es una sugerencia"),
 
 		# El frenazo de Mario 64 es una maniobra de pies: en el aire, nunca.
 		_chequeo_("no se frena en el aire", 0.35,
@@ -372,13 +284,22 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(0.0, 0.3, 0.0)
 			_p.velocity = Vector3.ZERO
 			_p.fsm.cambiar(&"Idle"), &"Idle"),
-		_chequeo_("doble toque rapido = 2 saltos", 0.4,
+		# DOS PULSACIONES = SALTO Y PATADA. Desde el 4.04 no hay doble salto: en el
+		# aire, Espacio patea (las Sun Greaves de *Pseudoregalia* SON el salto
+		# aereo, y por eso tienen tres cargas).
+		#
+		# Lo que este chequeo sigue protegiendo es lo que protegia antes: que las
+		# dos pulsaciones SALGAN, sin cooldown que se coma la segunda. Es justo lo
+		# que rompio el intervalo minimo de la 2.5; lo unico que cambia es en que
+		# se gasta la segunda.
+		_chequeo_("doble toque rapido = salto y patada", 0.4,
 			func() -> void:
 				_saltos_contados = 0
 				_pulsar(&"jump")
 				_esperar_salto2 = 4,
-			func() -> bool: return _saltos_contados == 2,
-			"dos pulsaciones rapidas deben dar exactamente dos saltos"),
+			func() -> bool:
+				return _saltos_contados == 1 and _visitados.has(&"Kick"),
+			"la segunda pulsacion debe salir: si se la come un cooldown, el aire se muere"),
 
 		# Altura variable: soltar pronto recorta, mantener no.
 		_paso_("asentar para altura", 0.35, func() -> void:
@@ -401,28 +322,6 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(0.0, 0.3, 0.0)
 			_p.velocity = Vector3.ZERO
 			_p.fsm.cambiar(&"Idle"), &"Idle"),
-		_chequeo_("Shift + ligero = estocada de surf", 0.3,
-			func() -> void:
-				# `sprint` y no `dash`: sprint no esta en InputActions.BUFFERED, asi
-				# que mantiene Shift para el surf sin encolar una pulsacion que
-				# GroupGrounded convertiria en un dash de verdad.
-				_pulsar(&"sprint")
-				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0})
-				_esperar_ataque = 3,
-			func() -> bool: return _ataque_actual() == _p.ataque_surf_ligero,
-			"atacar surfeando debe lanzar el ataque de surf, no el de suelo"),
-		_paso_("volver al surf", 0.5, func() -> void: pass, &"Surf"),
-
-		# El pesado de surf frena en seco.
-		_chequeo_("Shift + pesado frena en seco", 0.25,
-			func() -> void:
-				_pulsar(&"sprint")
-				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(1, 0, 0), "rapidez": 15.0})
-				_esperar_pesado = 3,
-			func() -> bool: return (_ataque_actual() == _p.ataque_surf_pesado
-				and _p.motor.rapidez_plana() < 2.0),
-			"el pesado de surf debe plantar al personaje en el sitio"),
-
 		# Dash aereo manteniendo Shift: al aterrizar, surf.
 		_chequeo_("dash aereo aterriza en surf", 1.2,
 			func() -> void:
@@ -469,20 +368,6 @@ func _construir_guion() -> void:
 			func() -> void: _soltar(&"crouch"),
 			func() -> bool: return _p.techo_bloquea() and _p.fsm.nombre_actual() == &"Crouch",
 			"bajo un techo bajo, soltar el boton no debe levantar al personaje"),
-
-		# Patada baja: derriba, no tambalea.
-		_chequeo_("la patada baja derriba", 0.4,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_colocar(1.8)
-				_g.velocity = Vector3.ZERO
-				_g.poise.actual = 100.0
-				_g.recibir_golpe(Golpe.new(
-					_p, _p.ataque_agachado, _g.global_position,
-					(_g.global_position - _p.global_position).normalized())),
-			func() -> bool: return _g.estado == Guardian.Estado.DERRIBADO,
-			"la patada baja debe derribar, no solo tambalear"),
 
 		# Escalada estilo BotW: cualquier pared, no solo las marcadas.
 		_chequeo_("se escala pared no marcada", 0.5,
@@ -541,22 +426,6 @@ func _construir_guion() -> void:
 			func() -> bool: return _vy_max > _p.tuning.velocidad_salto() * 1.15,
 			"saltar dentro de la ventana debe dar un salto mas alto"),
 
-		# El dive es UNA sola pulsacion y no exige carrera previa.
-		_chequeo_("atacar en el aire = dive", 0.3,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(0.0, 10.0, 0.0)
-				_p.velocity = Vector3.ZERO
-				_p.fsm.cambiar(&"Fall")
-				_esperar_ataque = 3,
-			func() -> bool: return _p.fsm.nombre_actual() == &"Dive",
-			"atacar en el aire debe entrar en Dive sin necesitar carrera"),
-		_chequeo_("el dive mantiene velocidad constante", 0.25,
-			func() -> void: _aux = _p.motor.rapidez_plana(),
-			func() -> bool: return absf(_p.motor.rapidez_plana() - _aux) < 0.6,
-			"la velocidad horizontal del clavado debe ser constante"),
-
 		# AGUA: la piscina del Gym esta en (28, 0, -28).
 		_chequeo_("caer al agua = nado en superficie", 1.2,
 			func() -> void:
@@ -600,14 +469,6 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(0.0, 0.05, 0.0)
 			_p.fsm.cambiar(&"Idle")
 			_pulsar(&"move_forward"), &"Move"),
-		_chequeo_("slide kick sale con impulso", 0.2,
-			func() -> void:
-				_pulsar(&"crouch")
-				_p.fsm.cambiar(&"Crouch")
-				_esperar_ataque = 2,
-			func() -> bool: return _visitados.has(&"SlideKick"),
-			"atacar agachado con velocidad debe lanzar la patada deslizante"),
-
 		_chequeo_("adherencia automatica a la pared", 0.9,
 			func() -> void:
 				_soltar_todo()
@@ -620,6 +481,44 @@ func _construir_guion() -> void:
 				_pulsar(&"move_forward"),
 			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
 			"insistir contra un muro perpendicular debe enganchar solo"),
+
+		# --- 3.12: y su otra mitad -------------------------------------------
+		# INSISTIR NO ES CHOCAR. El mismo muro, la misma tecla, pero llegando
+		# surfeando: eso no es pedir escalar, es terminar una linea. Medido antes
+		# de la correccion, 4 de las 5 adherencias automaticas de 60 s de juego
+		# salian directamente de `Surf`, y la salida del surf acababa pegada a la
+		# geometria con la velocidad a cero — el "al salir del surf no puedo
+		# direccionar al personaje" que se reporto. El surf en si salia limpio:
+		# ocho caminos de salida medidos en pista libre, los ocho obedeciendo.
+		_chequeo_("surfear contra el muro NO engancha solo", 1.0,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(-0.9, 0.05, -34.0)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(90.0)
+				_pulsar(&"move_forward")
+				_pulsar(&"dash")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(-1, 0, 0), "rapidez": 15.0}),
+			func() -> bool: return _p.fsm.nombre_actual() != &"Climb",
+			"el agarre automatico es para quien CAMINA contra el muro, no para quien llega a 15 m/s"),
+
+		# Y LA MECANICA NO SE PIERDE: quien quiera trepar el muro al que llega
+		# surfeando, lo pide con el boton. Sin esta mitad, la de arriba se podria
+		# aprobar rompiendo la escalada entera.
+		_chequeo_("pero pedir agarre desde el surf SI engancha", 1.0,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.global_position = Vector3(-0.9, 0.05, -34.0)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(90.0)
+				_pulsar(&"move_forward")
+				_pulsar(&"dash")
+				_pulsar(&"grab")
+				_p.fsm.cambiar(&"Surf", {"direccion": Vector3(-1, 0, 0), "rapidez": 15.0}),
+			func() -> bool: return _p.fsm.nombre_actual() == &"Climb",
+			"apagar la adherencia automatica no puede llevarse por delante el agarre a mano"),
 
 		# --- Correccion 2.01 ---------------------------------------------------
 		# LANDING SLIDE: aterrizar con velocidad manteniendo agachado no frena.
@@ -641,17 +540,9 @@ func _construir_guion() -> void:
 			_p.global_position = Vector3(28.0, 12.0, -28.0)
 			_p.fsm.cambiar(&"Fall"), &"Swim"),
 		_paso_("bucear", 0.5, func() -> void: _pulsar(&"crouch"), &"Underwater"),
-		_chequeo_("el ataque acuatico desplaza", 0.2,
-			func() -> void:
-				_soltar_todo()
-				_p.velocity = Vector3.ZERO
-				_pos_antes = _p.global_position
-				_esperar_ataque = 2,
-			func() -> bool: return (_visitados.has(&"WaterAttack")
-				and _p.global_position.distance_to(_pos_antes) > 0.5),
-			"atacar bajo el agua debe impulsar en la direccion del ataque"),
-
-		# STAMINA: flotar quieto NO debe costar.
+		# SOLTAR LO DE ANTES. `bucear` deja el agachado PULSADO, y bajo el agua eso
+		# es descender: sin soltarlo, "flotar quieto" mide a alguien que esta
+		# nadando hacia abajo y la stamina baja con razon.
 		_paso_("volver a bucear", 0.5, func() -> void:
 			_soltar_todo()
 			_p.stamina.llenar()
@@ -834,37 +725,6 @@ func _construir_guion() -> void:
 			func() -> bool: return _p.motor.rapidez_plana() >= _p.tuning.velocidad_correr - 0.6,
 			"la rampa de carrerilla debe alcanzar velocidad_correr"),
 
-		_chequeo_("el ataque aereo recorre distancia", 0.55,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(0.0, 6.0, 0.0)
-				_p.velocity = Vector3.ZERO
-				_p.orientar_a(Vector3(0, 0, -1))
-				_pos_antes = _p.global_position
-				# Se entra al estado a mano: que el aereo salga o no depende de que haya
-				# un enemigo cerca, y aqui lo que se mide es el DESPLAZAMIENTO.
-				_p.fsm.cambiar(&"AirAttack", {"datos": _p.ataque_aereo}),
-			func() -> bool: return _distancia_plana(_pos_antes) > 3.5,
-			"el aereo debe desplazar de verdad, no caer en el mismo sitio"),
-
-		_paso_("carrerilla para la patada", 1.2, func() -> void:
-			_soltar_todo()
-			_reponer()
-			_p.global_position = Vector3(-6.0, 0.05, 0.0)
-			_p.fsm.cambiar(&"Idle")
-			_mirar_a(-90.0)
-			_pulsar(&"move_forward"), &"Move"),
-		_chequeo_("la patada deslizante llega lejos", 1.4,
-			func() -> void:
-				_pos_antes = _p.global_position
-				_pulsar(&"crouch")
-				_p.fsm.cambiar(&"Crouch")
-				_esperar_ataque = 2,
-			func() -> bool: return _visitados.has(&"SlideKick") and _distancia_plana(_pos_antes) > 9.0,
-			"la patada es movilidad ademas de ataque: tiene que recorrer camino"),
-
-		# SIDE JUMP EN DOS TIEMPOS: primero planta, despues salta.
 		_paso_("correr para el side jump", 1.0, func() -> void:
 			_soltar_todo()
 			_reponer()
@@ -914,7 +774,13 @@ func _construir_guion() -> void:
 			func() -> void: pass,
 			func() -> bool: return (
 				not _p.enderezando()
-				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.999
+				# NORMALIZADO. `global_basis.y` lleva la ESCALA dentro, asi que su
+				# producto escalar con UP no mide inclinacion: mide inclinacion por
+				# altura. Pasaba solo porque el visual estaba siempre a escala 1 en
+				# este punto; desde que el aplastado de `PlayerFeedback` la mueve,
+				# aterrizar hacia fallar un chequeo de VERTICALIDAD. Una direccion se
+				# compara normalizada — es la misma familia que la regla dura #22.
+				and _p.visual.global_basis.y.normalized().dot(Vector3.UP) > 0.999
 				and absf(angle_difference(_p.visual.rotation.y, _aux)) < deg_to_rad(20.0)),
 			"al salir del agua debe quedar upright conservando el yaw"),
 
@@ -955,150 +821,161 @@ func _construir_guion() -> void:
 				and _p.tuning.surf_velocidad > _p.tuning.surf_crucero),
 			"surfear tiene que notarse claramente por encima de correr"),
 
-		# CLAVADO LIGERO. Antes solo salia si NO habia enemigo cerca; ahora es el
-		# ataque aereo ligero siempre, y baja de verdad.
-		_chequeo_("el ligero en el aire es un clavado", 0.15,
+		# no saltaba ninguna.
+		# EL ABANICO DEL WALL KICK. «El angulo con el que sales de una pared es el
+		# reflejo del angulo al que estabas mirando al tocarla»: perpendicular da
+		# ALTURA, rasante da DISTANCIA. Medido antes de existir, las tres miradas
+		# contra el mismo muro daban `vy 10.5 / plano 9.0` — el angulo era un dato
+		# que el juego ignoraba.
+		#
+		# **Se comprueba por la MAGNITUD, no por el estado** (regla dura #31): que
+		# se entre en `Jump` desde una pared ya lo cubre `TestFase1`; lo que aqui
+		# se afirma es que las dos magnitudes se mueven en SENTIDOS CONTRARIOS.
+		# Si crecieran las dos a la vez esto no seria una eleccion del jugador,
+		# seria un premio por mirar a un sitio.
+		_chequeo_("el wall kick es un ABANICO, no un vector fijo", 0.3,
 			func() -> void:
 				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(0.0, 9.0, 0.0)
-				_p.velocity = Vector3.ZERO
-				_p.orientar_a(Vector3(1, 0, 0))
-				_mirar_a(-90.0)
-				_p.fsm.cambiar(&"Fall")
-				_pos_antes = _p.global_position
-				_esperar_ataque = 2,
-			func() -> bool: return _p.fsm.nombre_actual() == &"Dive",
-			"el ligero aereo debe ser SIEMPRE un clavado, haya enemigo o no"),
-		_chequeo_("y el clavado se proyecta lejos y abajo", 0.4,
-			func() -> void: pass,
-			func() -> bool: return (
-				_distancia_plana(_pos_antes) > 5.0
-				and _p.global_position.y < _pos_antes.y - 3.0),
-			"un clavado avanza Y baja; si solo avanza es un desplazamiento aereo"),
-
-		# CLAVADO PESADO CON REBOTE. Golpear desde arriba devuelve al aire.
-		_paso_("repoblar para el rebote", 0.35, func() -> void:
-			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("el clavado pesado rebota en el enemigo", 0.8,
-			func() -> void:
-				_soltar_todo()
-				_lancero()
-				_reponer()
-				# El Guardian se lleva a un sitio conocido: dejarlo donde lo dejara
-				# la IA hacia que el test midiera el estanque en vez del rebote.
-				_g.estado = Guardian.Estado.DORMIDO
-				_g.global_position = Vector3(0.0, 0.1, 0.0)
-				_g.velocity = Vector3.ZERO
-				_g.salud.actual = _g.salud.maxima
-				# El clavado pesado es una DIAGONAL de 25 m/s, no una caida: desde
-				# 5 m de altura recorre casi seis metros antes de llegar abajo.
-				# Colocarse encima del enemigo lo sobrevuela entero.
-				_p.global_position = Vector3(0.0, 5.0, 5.8)
-				_p.velocity = Vector3.ZERO
-				_p.orientar_a(Vector3(0, 0, -1))
-				_mirar_a(180.0)
-				_p.fsm.cambiar(&"Fall")
-				_vy_max = -99.0
-				_esperar_pesado = 2,
-			func() -> bool: return _vy_max > 6.0,
-			"clavarse sobre un enemigo debe pisarle la cabeza y devolverte al aire"),
-
-		# GROUND POUND: el picado vertical no se pierde, se muda a agachado + pesado.
-		_chequeo_("agachado + pesado sigue siendo picado", 0.4,
-			func() -> void:
-				_soltar_todo()
-				_reponer()
-				_p.global_position = Vector3(0.0, 6.0, 0.0)
-				_p.velocity = Vector3.ZERO
-				_p.fsm.cambiar(&"Fall")
-				_pulsar(&"crouch")
-				_esperar_pesado = 3,
-			func() -> bool: return _visitados.has(&"Plunge"),
-			"el ground pound se mantiene, solo cambia de gesto"),
-
-		# PATADA DESLIZANTE: mas lejos, pero con peaje.
-		_paso_("carrerilla para la espera", 1.2, func() -> void:
-			_soltar_todo()
-			_reponer()
-			_p.cd_slide_kick = 0.0
-			_p.global_position = Vector3(-6.0, 0.05, 0.0)
-			_p.fsm.cambiar(&"Idle")
-			_mirar_a(-90.0)
-			_pulsar(&"move_forward"), &"Move"),
-		_chequeo_("la patada arma su cooldown", 0.3,
-			func() -> void:
-				_pulsar(&"crouch")
-				_p.fsm.cambiar(&"Crouch")
-				_esperar_ataque = 2,
-			func() -> bool: return _p.cd_slide_kick > 0.0,
-			"lanzar la patada tiene que armar la espera que impide spamearla"),
-
-		# --- Correccion 2.05: el picado escala con la altura de la caida -------
-		# Es el unico ataque cuya fuerza la decide una decision de TRAVERSAL. Se mide
-		# el mismo golpe contra el mismo enemigo desde dos alturas: lo unico que
-		# cambia entre los dos pasos es desde donde te tiraste.
-		_paso_("repoblar para el picado", 0.35, func() -> void:
-			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("picado bajo: dano de base", 1.0,
-			func() -> void:
-				_soltar_todo()
-				_lancero()
-				_reponer()
-				_plantar_guardian()
-				_p.global_position = Vector3(1.4, 3.0, 0.0)
-				_p.velocity = Vector3.ZERO
-				_vida_antes = _g.salud.actual
-				_p.fsm.cambiar(&"Plunge"),
+				_reponer(),
 			func() -> bool:
-				_aux = _vida_antes - _g.salud.actual
-				return _aux > 1.0,
-			"un picado corto tiene que conectar y hacer su dano de base"),
-		_chequeo_("picado alto: mucho mas dano", 1.6,
+				# El muro del wall-run en x=+1.8: su cara mira a -X, asi que mirar
+				# hacia +X es mirarlo de frente y hacia -Z es mirarlo rasante.
+				var frontal := _saltar_mirando(Vector3.RIGHT)
+				var rasante := _saltar_mirando(Vector3.FORWARD)
+				if frontal == Vector2.ZERO or rasante == Vector2.ZERO:
+					return false
+				return (frontal.x > rasante.x + 1.0) and (rasante.y > frontal.y + 1.0),
+			"sin abanico el wall kick es un boton con un solo resultado"),
+
+		_chequeo_("los verbos de pared no se pisan ni dejan hueco", 0.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer(),
+			func() -> bool:
+				var umbral: float = _p.tuning.pared_umbral_frontal
+				# Cara interior del muro de wall-run en x=+1.8, grosor 1.
+				for g in [0, 15, 30, 40, 49, 52, 55, 58, 65, 80, 90]:
+					var a := deg_to_rad(float(g))
+					_p.global_position = Vector3(0.95, 3.0, -34.0)
+					_p.velocity = Vector3(cos(a), 0.0, sin(a)) * 9.0
+					_p.pared.sondear(_p.velocity.normalized())
+					if not _p.pared.hay_pared:
+						return false
+					var medido: float = _p.angulo_contra_pared()
+					var frontal := medido < umbral
+					var rozando := medido >= umbral
+					# EXACTAMENTE uno. Ni los dos (solape) ni ninguno (hueco).
+					if frontal == rozando:
+						return false
+					if absf(medido - float(g)) > 1.5:
+						return false
+				return true,
+			"dos criterios sobre dos vectores es como se llega a que la pared quiera hacer todo a la vez"),
+
+		# --- 4.00: ESCALAR ES UNA HABILIDAD QUE SE LLEVA PUESTA ---------------
+		#
+		# Escalar era el unico verbo que APAGABA el moveset en vez de encadenarlo:
+		# la adherencia automatica te agarraba al muro en 0.35 s de insistir y
+		# `StateClimb` escribe `velocity = Vector3.ZERO` cada frame. Medido con
+		# `MedirCadena`: llegar a un muro a 30 m/s empujando daba
+		# `Fall > WallSlide > Climb` y 30.0 -> 0.0 m/s.
+		#
+		# Con la habilidad detras de un objeto, la pared vuelve a ser un sitio del
+		# que rebotar mientras no lo lleves puesto.
+		_chequeo_("con la habilidad puesta, insistir trepa", 1.4,
 			func() -> void:
 				_soltar_todo()
 				_reponer()
-				_plantar_guardian()
-				_p.global_position = Vector3(1.4, 22.0, 0.0)
+				_p.puede_escalar = true
+				_p.global_position = Vector3(24.0, 0.05, 21.2)
 				_p.velocity = Vector3.ZERO
-				_vida_antes = _g.salud.actual
-				_p.fsm.cambiar(&"Plunge"),
-			func() -> bool: return (_vida_antes - _g.salud.actual) > _aux * 1.8,
-			"caer desde 20 m tiene que pegar MUCHO mas que caer desde 3"),
-		_chequeo_("y ademas derriba", 0.3,
-			func() -> void: pass,
-			func() -> bool: return _g.estado == Guardian.Estado.DERRIBADO,
-			"pasada la altura de derribo el enemigo no se tambalea: se cae"),
+				_mirar_a(0.0)
+				_p.fsm.cambiar(&"Idle")
+				_visitados.erase(&"Climb")
+				_pulsar(&"move_forward"),
+			func() -> bool: return _visitados.has(&"Climb"),
+			"es el comportamiento de siempre: sin el, el candado no estaria apagando nada"),
 
-		# DESTRUCTIVO Y AL FINAL. Se repuebla primero en su propio paso: los tests
-		# anteriores pueden haber dejado al Guardian muerto y liberado.
+		_chequeo_("SIN la habilidad, la misma insistencia NO trepa", 1.4,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.puede_escalar = false
+				_p.global_position = Vector3(24.0, 0.05, 21.2)
+				_p.velocity = Vector3.ZERO
+				_mirar_a(0.0)
+				_p.fsm.cambiar(&"Idle")
+				_visitados.erase(&"Climb")
+				_pulsar(&"move_forward"),
+			func() -> bool: return not _visitados.has(&"Climb"),
+			"un vestuario que no cambia nada no es un vestuario, es un adorno"),
+
+		# ROZAR UN MURO CONSERVA LA LINEA. Es la regla del genero —"encadenar
+		# limpio acumula velocidad"— vista desde el lado del mundo, y el guardia
+		# que impide que alguien vuelva a escribir `motor.impulso()` en un estado
+		# de pared: `impulso()` con `conservar = false` REEMPLAZA el vector
+		# horizontal entero, asi que rozar a 30 m/s te dejaba a 1.2 yendo hacia la
+		# pared. Medido tras el arreglo: 98% conservado a 16 y a 35 grados.
+		_chequeo_("rozar un muro conserva la velocidad", 0.55,
+			func() -> void:
+				_soltar_todo()
+				_reponer()
+				_p.puede_escalar = false
+				# El corredor de wall-run: dos muros de 24 m a x = +-1.3, sin suelo
+				# cerca. Se llega casi paralelo, que es lo que hace un ROCE.
+				_p.global_position = Vector3(0.0, 6.0, -24.0)
+				_p.velocity = Vector3(0.28, 0.0, -0.96).normalized() * 26.0
+				_p.fsm.cambiar(&"Fall")
+				_v_roce = 0.0,
+			func() -> bool: return _v_roce > 26.0 * 0.85,
+			"un roce que borra la linea convierte cada pared en un castigo"),
+
 		_paso_("repoblar arena", 0.35, func() -> void:
 			_soltar_todo()
-			(_main.get_node("Arena") as Arena).poblar(), &""),
-		_chequeo_("pesado mata con ragdoll", 0.4,
+			(_main.get_node("Arena") as Arena).poblar()
+			_pacificar(), &""),
+		# prueba lo que le pasa al PERSONAJE, que es lo que se reporto.
+		_chequeo_("con una interfaz modal abierta el jugador no se mueve", 0.8,
 			func() -> void:
-				_lancero()
-				_reponer()
-				_colocar(2.0)
-				_g.salud.actual = 5.0
-				_g.recibir_golpe(Golpe.new(
-					_p, _p.ataque_pesado, _g.global_position,
-					(_g.global_position - _p.global_position).normalized())),
-			func() -> bool: return _velocidad_cadaver() > 10.0,
-			"rematar con el pesado debe lanzar un cadaver fisico con fuerza"),
+				_soltar_todo()
+				_p.global_position = Vector3(0.0, 0.3, 0.0)
+				_p.velocity = Vector3.ZERO
+				_p.fsm.cambiar(&"Idle")
+				_marca = _p.global_position
+				EventBus.interfaz_modal.emit(true)
+				Input.action_press(&"move_forward")
+				Input.action_press(&"attack_light"),
+			func() -> bool:
+				# EN HORIZONTAL. Colocado a 0.3 m del suelo el cuerpo CAE, y esos
+				# 30 cm de caida contaban como desplazamiento: la comprobacion
+				# salia roja con el jugador perfectamente quieto.
+				return (_plano(_p.global_position - _marca) < 0.25
+					and _p.fsm.actual.categoria != &"Combat"),
+			"si el input no se corta, escribir una nota es tambien correr y atacar"),
+
+		_chequeo_("y cerrarla se lo devuelve", 0.6,
+			func() -> void:
+				EventBus.interfaz_modal.emit(false)
+				_marca = _p.global_position,
+			func() -> bool: return _plano(_p.global_position - _marca) > 0.6,
+			"un corte que no se levanta es peor que no cortar"),
 	]
 
 
 var _vida_antes: float = 0.0
+## Donde estaba el jugador al empezar la medida. Para las dos comprobaciones del
+## modo hoja: lo que se mide es CUANTO se ha movido, no donde esta.
+var _marca: Vector3 = Vector3.ZERO
 var _esperar_frames: int = 0
+## Rapidez maxima vista rozando un muro EN EL AIRE. Se mide mientras pasa: al
+## final de la ventana el jugador ya ha aterrizado y lo que se leeria es la
+## friccion del suelo echandole la culpa al muro.
+var _v_roce: float = 0.0
 var _esperar_ataque: int = 0
 var _esperar_salto: int = 0
 var _spam_salto: int = 0
 var _esperar_salto2: int = 0
 var _soltar_pronto: int = 0
-var _esperar_pesado: int = 0
 var _esperar_dash: int = 0
 var _saltos_contados: int = 0
 ## Latches: registran si algo ocurrio EN ALGUN momento del paso. Comprobar solo
@@ -1115,6 +992,12 @@ var _latch_climb: bool = false
 ## Velocidad vertical MAXIMA vista durante la plantada del side jump. Si el
 ## frenado y el salto ocurrieran a la vez, aqui apareceria el impulso.
 var _vy_sidejump: float = -99.0
+## ¿Se ha visto gravedad cero en algun momento del paso? El hang time dura tres
+## decimas: comprobarlo solo en el frame final mediria el reloj, no la mecanica.
+var _latch_hangtime: bool = false
+## Altura MAXIMA que alcanza el Guardian durante el paso. El lanzamiento sube y
+## baja: comprobarlo en el frame final mediria la caida, no el golpe.
+var _alto_enemigo: float = -99.0
 
 
 ## Coloca al jugador delante de la rampa de `angulo` del Gym, pidiendo agarre.
@@ -1169,7 +1052,7 @@ func _ante_rampa(angulo: float) -> Callable:
 
 func _physics_process(delta: float) -> void:
 	_reloj += delta
-	if _reloj > 190.0:
+	if _reloj > 220.0:
 		_fallos.append("el test se colgó")
 		_informe()
 		return
@@ -1203,10 +1086,6 @@ func _physics_process(delta: float) -> void:
 		_soltar_pronto -= 1
 		if _soltar_pronto == 0:
 			_soltar(&"jump")
-	if _esperar_pesado > 0:
-		_esperar_pesado -= 1
-		if _esperar_pesado == 0:
-			_pulsar(&"attack_heavy")
 	if _esperar_dash > 0:
 		_esperar_dash -= 1
 		if _esperar_dash == 0:
@@ -1221,9 +1100,18 @@ func _physics_process(delta: float) -> void:
 		_latch_climb = true
 	if _p.fsm.nombre_actual() == &"SideJump":
 		_vy_sidejump = maxf(_vy_sidejump, _p.motor.get_vertical())
+	if _p.hangtime > 0.0:
+		_latch_hangtime = true
+	if is_instance_valid(_g):
+		_alto_enemigo = maxf(_alto_enemigo, _g.global_position.y)
 	if _p.ventana_sidejump > 0.0:
 		_vio_ventana = true
 	_vy_max = maxf(_vy_max, _p.motor.get_vertical())
+
+	# El roce se lee EN EL AIRE y contra la pared: es la unica ventana en la que el
+	# numero habla del muro y no del suelo.
+	if _p != null and _p.is_on_wall() and not _p.is_on_floor():
+		_v_roce = maxf(_v_roce, _p.superficie.plano(_p.velocity).length())
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t):
@@ -1269,18 +1157,41 @@ func _paso_(nombre: String, dur: float, hacer: Callable, espera: StringName) -> 
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "espera": espera}
 
 
+## Cuanto se ha movido en HORIZONTAL. Lo vertical es la gravedad, no el jugador.
+func _plano(v: Vector3) -> float:
+	return Vector2(v.x, v.z).length()
+
+
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "espera": &"",
 		"chequeo": chequeo, "porque": porque}
 
 
+## El Lancero **DE LA ARENA**, no el primero que devuelva el grupo global.
+##
+## Buscaba en `get_tree().get_nodes_in_group(&"guardianes")` y se quedaba con el
+## primero, y eso lo ataba al orden en que se instancian las escenas. En cuanto el
+## Gym estreno su puesto de patrulla —con un Guardian, tambien Lancero— el test
+## empezo a coger ESE: lo mataba correctamente y luego buscaba el cadaver dentro
+## de `Arena`, donde por supuesto no estaba. La comprobacion decia "el pesado no
+## lanza cadaver" cuando el pesado funcionaba perfectamente.
+##
+## Buscar dentro de la Arena ata el test a lo que el test controla. Un test que
+## depende de que nadie mas del proyecto instancie un enemigo es un test que se
+## rompera otra vez.
 func _lancero() -> void:
-	for g in get_tree().get_nodes_in_group(&"guardianes"):
-		if g.is_queued_for_deletion():
-			continue
-		if (g as Guardian).tipo == Guardian.Tipo.LANCERO:
-			_g = g
-			return
+	_g = _buscar_lancero(_main.get_node("Arena"))
+
+
+func _buscar_lancero(n: Node) -> Guardian:
+	if n is Guardian and not n.is_queued_for_deletion():
+		if (n as Guardian).tipo == Guardian.Tipo.LANCERO:
+			return n as Guardian
+	for h in n.get_children():
+		var g := _buscar_lancero(h)
+		if g != null:
+			return g
+	return null
 
 
 ## Coloca al jugador a `dist` metros del Guardian, mirandolo. El Guardian se
@@ -1311,19 +1222,6 @@ func _reponer() -> void:
 	_p.fsm.cambiar(&"Idle")
 
 
-## AttackData que esta ejecutando el estado de ataque actual, o null.
-func _ataque_actual() -> AttackData:
-	if _p.fsm.actual == null or _p.fsm.actual.name != &"Attack":
-		return null
-	return _p.fsm.actual.get("_datos")
-
-
-func _indice_ataque() -> int:
-	if _p.fsm.actual == null or _p.fsm.actual.name != &"Attack":
-		return 0
-	return int(_p.fsm.actual.get("_indice"))
-
-
 ## Busca un cadaver fisico en todo el subarbol de la Arena.
 func _velocidad_cadaver() -> float:
 	return _buscar_cadaver(_main.get_node("Arena"))
@@ -1339,6 +1237,36 @@ func _buscar_cadaver(n: Node) -> float:
 		if v > 0.0:
 			return v
 	return 0.0
+
+
+## Deja a TODOS los enemigos incapaces de empezar un ataque por su cuenta.
+##
+## No es hacerle trampas al test: es lo que el test YA hacia a mano. Los dos
+## chequeos que miden dano lo ENTREGAN ellos —`_p.recibir_golpe(Golpe.new(...))`—
+## y llevan este comentario al lado: "orquestar la IA para que ataque en el frame
+## exacto haria el test fragil sin probar mas". Un enemigo que ademas ataca por
+## su cuenta no prueba nada; solo estropea la medicion de otro.
+##
+## Y eso era EL FLAKE: la suite fallaba 1 de cada 4 veces, siempre con la misma
+## firma —`AirAttack>Hitstun`, `Dive>Hitstun`—. Le pegaban al jugador en mitad de
+## un ataque aereo y el ataque que se iba a medir no llegaba a ejecutarse.
+##
+## `_plantar_guardian()` y `_colocar()` ya ponian al Guardian en DORMIDO, pero
+## **`Dormido` es un estado que se DESPIERTA**: ve al jugador delante y sale a por
+## el. Y solo tocaban a uno de los tres. Aqui se les quita la VISTA, que es lo
+## unico que consulta `EnemyDormido` para despertar, y se aplica a todos los
+## enemigos del arbol —incluidos los del corral del Gym, que el jugador cruza
+## durante el guion y cuyo volador dispara a 22 m—.
+##
+## `ataque` se deja intacto: el chequeo del parry construye el Golpe a partir de el.
+func _pacificar() -> void:
+	for e in get_tree().get_nodes_in_group(&"enemigos"):
+		if not (e is Enemigo) or e.is_queued_for_deletion():
+			continue
+		var en := e as Enemigo
+		en.vista = 0.0
+		if en.fsm != null and en.fsm.nombre_actual() != &"Muerto":
+			en.fsm.cambiar(&"Dormido")
 
 
 ## Planta al Guardian en el origen, quieto y entero. Las dos medidas del picado
@@ -1361,6 +1289,58 @@ func _distancia_plana(origen: Vector3) -> float:
 	var d := _p.global_position - origen
 	d.y = 0.0
 	return d.length()
+
+
+## UN WALL KICK MIRANDO HACIA `dir`. Devuelve (vertical, rapidez plana).
+##
+## **Mueve la camara REAL y en el acto**, en vez de pedirle un yaw al rig: el rig
+## coloca la camara en su `_process`, asi que pedirle el giro y saltar en la misma
+## llamada leeria la camara del frame anterior — y lo que decide el angulo de
+## salida es justo esa lectura. El rig recupera el mando en el frame siguiente.
+##
+## Llama a `saltar_de_pared()` directamente y no por la tecla, a proposito: que se
+## PUEDA llegar al wall-jump pulsando ya lo comprueba `TestFase1`; lo que se mide
+## aqui es la funcion del angulo, y meterla por el buffer añadiria dos frames de
+## latencia entre apuntar y saltar sin probar nada nuevo.
+func _saltar_mirando(dir: Vector3) -> Vector2:
+	var cam := _p.camara()
+	if cam == null:
+		return Vector2.ZERO
+	# SE DEVUELVE TODO COMO ESTABA. Esta medida teletransporta al jugador y mueve
+	# la camara REAL, y los chequeos que vienen detras son direccionales: la
+	# primera version dejaba la camara movida y tumbaba tres comprobaciones que no
+	# tenian nada que ver — 96 pasaron a 93. Un chequeo que ensucia a los
+	# siguientes no esta midiendo, esta rompiendo.
+	var cam_tf := cam.global_transform
+	var pos := _p.global_position
+	var vel := _p.velocity
+
+	var d := dir.normalized()
+	_p.global_position = Vector3(0.95, 3.0, -34.0)
+	_p.velocity = Vector3.RIGHT * 6.0
+	cam.global_position = _p.global_position - d * 5.0 + Vector3.UP * 1.5
+	cam.look_at(_p.global_position + d * 5.0, Vector3.UP)
+	# Y EL BLOQUEO SE LEVANTA ENTRE LAS DOS MIRADAS. `saltar_de_pared()` llama a
+	# `bloquear_actual()` para que no te reenganches al mismo muro, y las dos
+	# pasan en el MISMO frame: sin esto la segunda encontraba el muro bloqueado,
+	# devolvia cero, y el chequeo culpaba al abanico de lo que hacia el bloqueo.
+	_p.pared.set("_bloqueo", 0.0)
+	_p.pared.set("_pared_bloqueada", null)
+	_p.pared.sondear(Vector3.RIGHT)
+
+	var r := Vector2.ZERO
+	if _p.pared.hay_pared:
+		_p.saltar_de_pared()
+		r = Vector2(
+			_p.superficie.vertical(_p.velocity),
+			_p.superficie.plano(_p.velocity).length())
+
+	cam.global_transform = cam_tf
+	_p.global_position = pos
+	_p.velocity = vel
+	_p.pared.set("_bloqueo", 0.0)
+	_p.pared.set("_pared_bloqueada", null)
+	return r
 
 
 ## Fija el yaw de la camara para que `move_forward` apunte a una direccion

@@ -46,23 +46,6 @@ func physics_update(delta: float) -> void:
 	if player.orientar_si_se_mueve():
 		pass
 
-	# Los ataques tambien existen en superficie, y son los mismos: un impulso con
-	# hitbox. No hay dos movesets, hay uno que respeta el medio.
-	if player.ataque_agua_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"WaterAttack", {
-			"datos": player.ataque_agua_pesado,
-			"impulso": tuning.agua_ataque_pesado_impulso,
-			"direccion": player.direccion_nado(),
-		})
-		return
-	if player.ataque_agua_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"WaterAttack", {
-			"datos": player.ataque_agua_ligero,
-			"impulso": tuning.agua_ataque_ligero_impulso,
-			"direccion": player.direccion_nado(),
-		})
-		return
-
 	# Bucear.
 	if buffer.consume(InputActions.CROUCH):
 		fsm.cambiar(&"Underwater", {"direccion": dir})
@@ -76,6 +59,13 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Jump", {"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
 
 
+## EN EL AGUA NO SE PEGA, Y ESO ES LA DECISION.
+##
+## El guardia se queda aunque ya no haya ataque acuatico que proteger, y
+## justamente por eso: reclamar la pulsacion es lo que impide que el grupo la
+## convierta en una patada. Nadar es traversal puro —entrar, cruzar, salir— y una
+## patada de 18 m/s con gravedad cero dentro del agua no seria un ataque, seria un
+## atajo que se salta la fisica del medio entero.
 func maneja_ataques() -> bool:
 	return true
 

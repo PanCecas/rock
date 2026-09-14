@@ -870,3 +870,424 @@ no cierres esa puerta. Nada de ganchos vacíos "por si acaso".
 7) Al terminar: informe de qué cambió, en qué archivo y por qué, valores finales,
 checklist de testing manual, y qué NO has podido comprobar.
 ```
+
+---
+
+## PROMPT PARCHE 3.02 — lo que quedó fuera de la 3.01
+
+```
+Godot 4.7, GDScript. Lee CLAUDE.md antes de nada: 17 reglas duras, y la #13 y la
+#14 son las que más veces se han incumplido sin querer.
+
+Este parche continúa el 3.01, que dejó fuera tres bloques a propósito. Van en este
+orden porque el primero desbloquea al tercero.
+
+--- 1) EXTRAER LA FSM DE Guardian.gd (P0 del roadmap) ---
+
+`src/enemies/Guardian.gd` son 372 líneas que mezclan tres cosas: la IA (un `match`
+sobre un enum dentro de `_physics_process`), la física (`is_on_floor()`, gravedad
+manual) y la presentación (material, color, ondas). Eso bloquea al director de
+grupo, a los enemigos nuevos, al coloso mediano y a los acuáticos.
+
+Extrae la FSM con la MISMA estructura que ya usa el jugador —`StateMachine` +
+estados como nodos con `enter/exit/physics_update`— porque duplicar un patrón que
+funciona cuesta menos que inventar otro y se lee igual. El cuerpo queda como
+orquestador, igual que `PlayerController`.
+
+Criterio de terminado, y es literal: escribir un enemigo que NADE sin tocar el
+script del Guardián terrestre.
+
+--- 2) INVENTARIO ESTILO BREATH OF THE WILD ---
+
+`src/ui/` está vacío: no hay HUD, ni navegación de menús, ni gestión de foco. Esto
+no es una funcionalidad, es la primera capa de UI del proyecto, así que constrúyela
+como capa antes que como inventario.
+
+- Rejilla paginada con pestañas por categoría (Armas, Consumibles, Materiales).
+- Los ítems son Resources (`ItemData`), como `AttackData`: nada de datos en el .gd.
+- Navegación por rejilla con mando Y teclado, no solo ratón. El foco tiene que ser
+  visible siempre.
+- Arrastrar y soltar, y reordenar dentro de la página.
+- El juego se pausa al abrirlo, y el `InputBuffer` se invalida al cerrarlo o la
+  primera pulsación se cuela en el gameplay.
+
+Aviso de diseño, para que lo decidas tú antes de que yo lo construya: el personaje
+lleva espada, lanza, lazo y arco. Cuatro objetos fijos, sin loot ni crafteo. Eso
+hoy es un `enum`, no un inventario. Si la idea es que en la Fase 6 haya recursos y
+materiales, el inventario tiene sentido; si no, es una pantalla que se abre para
+mirar cuatro iconos.
+
+--- 3) DOS ENEMIGOS NUEVOS (después del punto 1) ---
+
+VOLADOR ÁGIL. Ciclo estricto atacar / recargar.
+  · Atacar: ráfaga de 3 proyectiles con separación fija entre ellos.
+  · Recargar: calcula un vector ALEJÁNDOSE del jugador y ejecuta tres dashes en
+    zig-zag encadenados hasta una posición más lejana, mientras corre el
+    temporizador de recarga. Waypoints lerpeados o curva bezier: lo que importa es
+    que el zig-zag sea legible desde lejos, porque es el aviso de que está
+    recargando y de que es su momento de vulnerabilidad.
+  · No hereda gravedad ni suelo. Ese es el motivo del punto 1.
+
+EMBESTIDOR. Cono de visión + carga.
+  · Detección por producto escalar contra el frente, más un raycast que confirme
+    que no hay pared en medio. El dot solo no basta: te detecta a través del suelo.
+  · Al detectar, estado de ANTICIPACIÓN visible —se planta, se orienta— y ahí
+    BLOQUEA la dirección. Que la carga se pueda esquivar es la mecánica entera; si
+    persigue mientras carga, no hay esquiva posible.
+  · Impulso físico fuerte hacia delante hasta chocar con pared o con el jugador.
+  · Contra la pared: aturdido y abierto un buen rato. Es la recompensa por esquivar.
+
+--- REGLAS DE ESTE PROYECTO QUE TE VAN A MORDER ---
+
+- Ningún número mágico en `.gd`: todo valor de feel va a un `.tres` (regla #1).
+- Los grupos de la FSM corren ANTES que las hojas y les roban el input; y su
+  guardia hace `return` a media función, así que las preguntas de TERRENO van antes
+  que las de ACCIÓN (regla #13). Aquí han vivido seis bugs.
+- La postura la resuelve el controlador, nunca las transiciones (regla #14).
+- Hitstop congela el AnimationTree, JAMÁS `Engine.time_scale` (regla #5).
+- La hitbox es una consulta de forma, no un Area3D: un Area llega un frame tarde y
+  en ventanas de 4 frames eso es un 25% de error.
+
+--- ANTES DE DAR NADA POR BUENO ---
+
+Los tres tests, y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn      (12 estados)
+  godot --headless --path . tools/TestFase2.tscn      (131 comprobaciones)
+  godot --path . --resolution 960x540 tools/TestVisual.tscn   (7 tomas, necesita GPU)
+
+Comprueba con LATCHES —si algo ocurrió en algún momento del paso— y no solo en el
+frame final, o medirás timing en vez de mecánicas.
+
+Al terminar: informe de qué cambió y en qué archivo, valores finales, checklist de
+testing manual y qué NO has podido comprobar. No inventes resultados de pruebas que
+no hayas ejecutado.
+```
+
+---
+
+## PROMPT SISTEMA GENERATIVO — el enjambre de Kuramoto y las Criaturas de Tela
+
+```
+Construye un sistema generativo audiovisual dentro de ROCK. Lee CLAUDE.md antes de
+escribir nada: sus reglas duras aplican igual aquí que en el resto del proyecto.
+
+QUÉ ES
+Un puñado de agentes con PERSONALIDAD PROPIA acoplados como osciladores de Kuramoto.
+El ciclo del oscilador es lo único que existe: de él salen a la vez el sonido y todo
+lo que se ve. Las dos fórmulas están ya escritas en project.md §5 y se copian tal cual,
+porque son el modelo estándar y reinterpretarlas solo puede empeorarlas:
+
+    dθᵢ/dt = ωᵢ + (K/N) · Σⱼ sin(θⱼ − θᵢ)
+    r = | (1/N) · Σⱼ e^{iθⱼ} |         r = 0 disperso · r = 1 al unísono
+
+LAS RESTRICCIONES DEL ENCARGO — no son sugerencias
+1. NO HAY ROTACIÓN. Ninguna criatura gira nunca. Sin giro, un cuerpo solo puede
+   expresarse con DÓNDE está, CUÁNTO ocupa y DE QUÉ COLOR es. Pon un guardia en modo
+   debug que lo compruebe cada frame: un `look_at()` colado en el futuro se leería
+   como "el enjambre se ve raro" y nadie sabría por qué.
+2. EL SISTEMA ES INESTABLE. No converge y se planta: transita de caos a orden y
+   vuelve, para siempre. Resuélvelo con UNA sola regla —el parámetro de orden
+   realimenta el acoplamiento, con histéresis para que respire en vez de vibrar en
+   el umbral— y no con una máquina de estados ni con temporizadores.
+3. EL SONIDO ES EXTERNO. El sistema publica `pitch` y `amplitud` por agente y por
+   frame, y ahí termina su responsabilidad. No metas un AudioStreamPlayer.
+4. LA INTERACCIÓN ES DESORDENAR. Una perturbación resetea la fase de UN agente y lo
+   deja sordo un rato; el enjambre se recompone solo. El usuario además desplaza el
+   pitch del conjunto en semitonos. Eso es todo el mando que tiene.
+
+LA MANIFESTACIÓN — "Criaturas de Tela"
+Todo cuelga de un solo número por agente y por frame, `ciclo = (sinθ+1)/2`, y de un
+segundo, `desvío` (cuánto se aparta del grupo). Del ciclo salen color, opacidad,
+escala, la posición y el pitch; del desvío, la desaturación y el volumen. Que salga
+todo del mismo sitio es lo que hace que se lea como una cosa viva y no como cinco
+efectos sueltos. Reglas concretas:
+  · color: rampa calma→pico entre dos colores de la Palette, más una deriva de tono
+    SUTIL (una decena de grados, no una rueda: los azules y los rojos están
+    reservados por la regla dura #8)
+  · el desvío DESATURA hacia el gris de piedra. Dispersas son colores corridos, al
+    unísono son un solo color latiendo: así se VE la sincronización sin números
+  · opacidad recorriendo su rango con el ciclo —es lo que las hace de TELA—
+  · destello estrecho solo en la cresta (`pow` con exponente alto): lo que se lee es
+    el PULSO, no un objeto luminoso
+  · movimiento ondulatorio hecho SOLO de traslación
+
+LA COLA — es la pieza que pido explícitamente
+Cada criatura arrastra una línea, artística, que sigue su movimiento de forma
+procedural. Persecución en cadena con restricción de distancia, no verlet: el Cordon
+de la lanza usa verlet porque CUELGA entre dos puntos, y esto no cuelga de nada, va
+detrás. El retraso tiene que ser independiente del framerate (`1 - exp(-k·dt)`), o el
+look cambia según la máquina. Dibújala como tira de triángulos encarada a la cámara,
+afilándose hasta la punta.
+
+CÓMO SE ORGANIZA
+  src/generative/EnjambreTuning.gd   Resource con TODOS los números (regla dura #1)
+  src/generative/Enjambre.gd         el modelo. No dibuja ni suena
+  src/generative/CriaturaTela.gd     la manifestación
+  src/generative/Estela.gd           la cola
+  tools/Jardin.tscn                  el banco de pruebas, como el Gym lo es del movimiento
+  tools/TestEnjambre.tscn            el test funcional
+
+Que el modelo no dibuje ni suene no es ceremonia: el modelo es determinista y se
+puede afirmar cosas de él con un test; el render no. Mezclados, no habría forma de
+comprobar que el sistema hace lo que dice.
+
+EL TEST, en dos mitades porque son dos cosas que se miden distinto
+  · EL MODELO, EN SECO: pisa `_physics_process` a mano con dt fijo y corre minutos de
+    simulación en milisegundos. Mide el ciclo caos→orden→caos→orden, que K sube y
+    baja con la histéresis, que perturbar TIRA el orden y que luego resincroniza, y
+    que dos ejecuciones dan lo mismo. Incluye un CONTROL sin acoplamiento: con las
+    frecuencias repartidas a intervalos iguales las fases se realinean solas cada
+    2π/δω y r sube casi a 1 sin que haya sincronizado nada. Lo que separa una
+    coincidencia de un enganche es cuánto DURA, así que mide fracción de tiempo y
+    racha, no si alguna vez pasó.
+  · LA MANIFESTACIÓN, EN VIVO: el Jardín corriendo de verdad. Que NADIE rota en
+    NINGÚN frame (y que si le metes una rotación a mano se la quita), que la cola va
+    DETRÁS —con el signo del producto escalar contra el avance, nunca con un módulo:
+    regla dura #22—, que la opacidad recorre su rango y que las señales llegan.
+
+Y el screenshot test, que no se salta (regla dura #18). Ojo: el enjambre evoluciona
+con la física y una captura se dispara contando frames de RENDER. Congélalo y avanza
+un tiempo EXACTO a mano antes de fotografiarlo, igual que se hizo con el agua.
+
+Al terminar: los números que has MEDIDO —cuánto tarda en sincronizar, cuánto en
+deshacerse, qué pasa sin acoplamiento— y los tres resultados de test. No inventes
+resultados de pruebas que no hayas ejecutado.
+```
+
+**Qué salió al aplicarlo, con los números medidos:**
+
+| | |
+|---|---|
+| Caos → orden | **9.6 s** (K sube de 0.15 a 5.42) |
+| Orden → caos | **19.6 s** (K cae a 1.11) |
+| Segundo ciclo | **7.3 s** — respira, no decae |
+| Con acoplamiento | 56.5% del tiempo al unísono, racha de **16.2 s** |
+| Sin acoplamiento | 6.2% del tiempo, racha de **1.2 s** — la recurrencia no es sincronización |
+| Perturbar | r 0.954 → 0.783, y vuelve a 0.984 |
+| La sordera | desvío acumulado 0.353 contra 0.185 sin ella |
+
+Tres cosas se encontraron por medirlas y no por suponerlas:
+
+1. **La cola nacía plegada.** Colocar todos los nudos en el mismo punto parece lo
+   natural, y deja la distancia entre vecinos a cero: la dirección que usa la
+   restricción no significa nada y la cadena se dobla en zigzag en su primer frame.
+   Medido: 14 nudos y 1.17 m de cuerda ocupando **0.125 m**, y una vez plegada no se
+   estira nunca porque cada frame recalcula desde el pliegue. Nace estirada.
+2. **Una criatura que desliza por UN eje adelanta a su propia cola.** Va y vuelve por
+   su rastro, así que la mitad del tiempo la estela le queda delante: medido, 119
+   frames detrás contra 138 delante — una moneda al aire. Con un segundo eje al doble
+   de frecuencia el recorrido es un ocho, la criatura casi nunca vuelve por donde
+   vino, y de paso sale gratis el "movimiento ondulatorio" del encargo sin rotar nada.
+3. **Los mensajes de fallo del test mentían.** Se formateaban al MONTAR el guion,
+   cuando todos los latches valen cero, así que los dos fallos reales se reportaron
+   como "0 frames contra 0" y "largo 0.000 m". Ahora el motivo se resuelve al fallar.
+
+---
+
+---
+
+---
+
+## PROMPT PARCHE 3.12 — dos bugs de movimiento y el mundo vivo
+
+```
+Parche 3.12 de ROCK. Lee CLAUDE.md antes de escribir nada.
+
+BUGS DE MOVIMIENTO
+
+1. ADHERENCIA (Z / V, daga y lanza). El personaje falla al adherirse a superficies
+   con daga/lanza. Revisa la lógica de estado o las colisiones que impiden el
+   anclaje.
+2. SALIDA DEL SURF. Al salir de "surf" el movimiento se bloquea: no puedo
+   direccionar al personaje, como si las variables de velocidad, rotación o input
+   quedaran atascadas. ¿Cómo se limpian y reinician en la transición?
+
+No los des por diagnosticados por lo que digo yo. Los dos son reportes de lo que
+SIENTO jugando, y el sitio donde se siente un bug casi nunca es el sitio donde
+está. Reprodúcelos con un banco antes de tocar una línea, y si lo que encuentras
+no es lo que yo describí, dilo.
+
+SISTEMAS
+
+3. CRIATURAS VOLADORAS estilo *Journey*: que vuelen fluido y SINCRONICEN su
+   movimiento con el modelo de Kuramoto. MultiMesh o compute.
+4. LUCIÉRNAGAS estilo *Breath of the Wild*: esferitas brillantes que sincronizan
+   su parpadeo —o su movimiento— en el aire, con el mismo modelo.
+5. PASTO INTERACTIVO estilo *Ghost of Tsushima*, en planos sobre el suelo:
+   · el pasto se aplasta al pasar el jugador y deja un RASTRO QUE SE DESVANECE;
+     pásale la posición global del jugador al shader.
+   · viento que afecta a todo el pasto de forma unificada y rítmica (ondas o
+     ruido).
+   **Si ya existe diseñado, IMPLEMENTA ESO. No inventes.**
+
+Ese último punto vale para los tres: el enjambre de Kuramoto ya está escrito,
+medido y probado en `src/generative/`, y la hierba está diseñada al detalle en
+`docs/07_SHADERS.md §4`. Un segundo Kuramoto o una segunda idea de hierba serían
+dos cosas que se parecen y no son iguales, y que se desincronizan a la primera que
+alguien toque una.
+
+Al terminar: qué era cada bug DE VERDAD, con los números que lo demuestran, y los
+tres tests —funcional, de estados y visual—. No inventes resultados de pruebas que
+no hayas ejecutado.
+```
+
+**Qué salió al aplicarlo.**
+
+Los dos bugs eran uno de cada familia que este proyecto ya conoce, y **ninguno de
+los dos estaba donde el reporte decía**:
+
+| | |
+|---|---|
+| La Z adherido | `GroupAttached` no llamaba a `intentar_cuerda()`. La acción compartida existía en `Grounded` y en `Airborne` y **no** en el grupo donde viven los cuatro verbos de cuerda. Escalando: seis frames de Z, cero transiciones. Desde el suelo, el mismo gesto: `Idle>SpearSwing`. |
+| La salida del surf | **El surf sale limpio.** Ocho caminos de salida medidos en pista libre —soltar Shift, stamina a cero, perder el suelo, salto, long jump, slide y los dos ataques de surf—: los ocho terminan en `Move`, obedeciendo la dirección nueva con coseno +1.00, el alabeo deshecho a 0.0° y la cápsula de pie. 120 s de juego con input real: cero ventanas de bloqueo. Lo que bloquea es **la pared que hay delante**. |
+
+Y ahí estaba el bug de verdad: el agarre automático no distingue *insistir contra
+un muro* de *chocar con él a 15 m/s*. Medido en 60 s de juego, **4 de las 5
+adherencias automáticas salían directamente de `Surf`**, y la línea rápida
+terminaba pegada a la geometría con la velocidad a cero — que es exactamente "no
+puedo direccionar al personaje". Lo dice el propio número del tuning:
+`escalada_auto_tiempo` documenta que es para quien **camina** contra la pared.
+
+Del mundo vivo, tres cosas que salieron de medir y no de suponer:
+
+1. **`a_ritmo()` escalaba mal, y el test lo cazó por el sitio correcto.** Poner el
+   mismo modelo a otra velocidad es un cambio de variable `t' = t·f`, así que cada
+   magnitud escala por su potencia de `f`: `ω` y `K` son 1/s, pero `k_subida` y
+   `k_bajada` son **1/s²**. Escalándolo todo por `f` a secas —el error natural— el
+   sistema a mitad de reloj sincronizaba en 8.6 s en vez de en 19.2, o sea **antes
+   que el normal**. La comprobación no mira "si sincroniza": mira que a mitad de
+   reloj tarde exactamente el doble.
+2. **Al servidor de render no se le pregunta el estado del juego.**
+   `MultiMesh.get_instance_transform()` devuelve la identidad en headless, donde el
+   servidor es un maniquí. `perturbar_cerca()` medía contra doce criaturas todas en
+   el origen y elegía siempre la primera — y en pantalla se veía perfecto. Ahora
+   cada sistema guarda su copia. Es la regla dura #23.
+3. **El campo medio no es una aproximación.** `(1/N)Σⱼ sin(θⱼ−θᵢ) ≡ r·sin(ψ−θᵢ)`
+   es una identidad, así que el modelo pasa de O(N²) a O(N) sin cambiar de física:
+   `TestEnjambre` sigue dando 9.6 s al orden, 19.6 al caos y 7.3 al orden otra vez,
+   los mismos números que antes. Es lo que permite mover 180 luciérnagas con el
+   modelo ya medido; con la suma doble serían 32.400 senos por frame en GDScript.
+
+Y una decisión de diseño que conviene dejar escrita: **el viento no es un parámetro
+por parche, es un campo**. Vive en `project.godot > shader_globals` y el shader lo
+evalúa desde `TIME` y la posición de mundo, así que dos parches de hierba separados
+por medio mapa sacan el mismo valor **sin coordinarse**. La sincronización que
+pedía el encargo no se implementa: no hay nada que sincronizar.
+
+---
+
+## REGLA PERMANENTE — el screenshot test
+
+```
+Corre SIEMPRE el screenshot test antes de dar por terminado cualquier trabajo:
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+No es opcional. No se salta "porque este cambio no toca lo visual" —los bugs
+visuales de este proyecto (el cuerpo torcido al salir del agua, la cápsula partida
+por la mitad junto a una rampa, el cuerpo sin inclinar al escalar) pasaron TODOS
+los tests funcionales sin despeinarse—. Necesita GPU: no corre en --headless.
+
+Y no hagas trampa. Regenerar una baseline con `-- actualizar` para que el test pase
+es convertirlo en un sello de goma. Una referencia solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has mirado el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, eso no es una baseline vieja: es un bug.
+
+Los tres tests van juntos en cada entrega y ninguno sustituye a otro:
+  godot --headless --path . tools/TestFase1.tscn    -> llega la FSM al estado
+  godot --headless --path . tools/TestFase2.tscn    -> hace lo que dice que hace
+  godot --path . --resolution 960x540 tools/TestVisual.tscn  -> se VE bien haciéndolo
+```
+
+---
+
+## PROMPT — verificación de errores y screenshot test
+
+```
+Proyecto Godot 4.7, GDScript. Lee CLAUDE.md: 18 reglas duras. La #17 es la que más
+se incumple sin querer.
+
+TAREA: verificar el proyecto, corregir los errores que aparezcan, y NO dar nada por
+bueno sin correr el screenshot test.
+
+--- 1) DIAGNOSTICAR ANTES DE TOCAR ---
+
+No inventes soluciones. Interpreta primero, decide después.
+
+Captura TODOS los errores, sin filtrar por lo que te resulte cómodo:
+
+  godot --headless --path . --import 2>&1 | grep -iE "ERROR|WARNING|Parse|Compile"
+
+Separa el ruido de los errores reales:
+  · "RIDs leaked", "resources still in use", "Pages in use in PagedAllocator" al
+    salir son NORMALES en un editor headless. No son bugs.
+  · Un "Parse Error" o un "Compile Error" sí lo es, siempre.
+
+Y comprueba dónde aparece cada error, porque no todos importan igual:
+
+  A) En el JUEGO:     godot --path . --quit-after 600
+  B) En el EDITOR:    godot --path . -e --quit-after 900
+  C) En el import:    godot --headless --path . --import
+
+Un error que solo sale en (C) puede ser artefacto del arranque reducido. Uno que
+sale en (A) es un bug de verdad.
+
+--- 2) ¿ES NUESTRO O DEL ADDON? ---
+
+Si el error viene de algo en addons/, la prueba decisiva es reproducirlo en un
+PROYECTO VACÍO con solo ese addon. Crea uno en un temporal, copia el addon, un
+project.godot mínimo, y arranca el editor. Si reproduce, el bug es de upstream y
+no se parchea: se documenta y se decide si el addon compensa.
+
+NUNCA edites nada dentro de addons/. Se pierde al actualizar y te conviertes en
+mantenedor de un fork que no querías.
+
+--- 3) LA DECISIÓN SENSATA ANTE UN ADDON QUE FALLA ---
+
+Un plugin que no usa ni una línea del proyecto y que ensucia la consola no se
+parchea ni se aguanta: se DESACTIVA en [editor_plugins] hasta que se integre.
+Desactivar no es desinstalar —sigue en addons/— y se revierte con una línea.
+Al desactivarlo, quita también sus autoloads de project.godot: un autoload sin su
+plugin es exactamente lo que produce "unregister de un singleton que nadie
+registró".
+
+--- 4) EL SCREENSHOT TEST, SIEMPRE ---
+
+  godot --path . --resolution 960x540 tools/TestVisual.tscn
+
+Necesita GPU: no corre en --headless. Corre los cuatro, y ninguno sustituye a otro:
+
+  TestFase1  -> ¿llega la FSM al estado?
+  TestFase2  -> ¿hace lo que dice que hace?
+  smoke      -> ¿arranca y la paleta cumple?
+  TestVisual -> ¿se VE bien haciéndolo?     <-- este es el que se olvida
+
+Y NO HAGAS TRAMPA. Regenerar una baseline con `-- actualizar` para que pase
+convierte el test en un sello de goma. Solo se regenera cuando:
+  1. el cambio visual era EL QUE BUSCABAS, y
+  2. has abierto el mapa de diff en user://visual/ y lo que cambió es lo que tenía
+     que cambiar.
+Si el diff muestra algo que no esperabas, no es una baseline vieja: es un bug.
+
+--- 5) CUIDADO: EL EDITOR MODIFICA ESCENAS ---
+
+Abrir el editor con ciertos plugins activos MUTA las escenas abiertas. Cyclops
+Level Builder inyecta nodos CyclopsBlock en la escena y sube su formato de 3 a 4.
+Si luego desactivas el plugin, la escena queda con referencias colgando y deja de
+cargar el entorno —los tests funcionales siguen verdes y solo lo caza el visual—.
+
+Después de cualquier sesión de editor, comprueba SIEMPRE:
+
+  git status --short
+  git diff --stat content/levels/Main.tscn
+
+Si el editor tocó una escena y tú no lo pediste, revierte:  git checkout -- <ruta>
+
+--- 6) INFORME ---
+
+Al terminar: qué error era, dónde aparecía, si era nuestro o de upstream, qué
+decidiste y por qué. Y los cuatro resultados de test. No inventes resultados de
+pruebas que no hayas ejecutado.
+```

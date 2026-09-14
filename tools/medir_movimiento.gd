@@ -26,6 +26,20 @@ var _vel0: float = 0.0
 var _midiendo: bool = false
 var _dir0: Vector3 = Vector3.ZERO
 var _modo: String = "DESPUES (correccion 2.05)"
+## Altura maxima alcanzada dentro de la medida. Es lo unico que dice si un salto
+## se perdio contra una esquina: el estado no cambia —sigues en `Jump`— y la
+## velocidad tampoco lo cuenta, porque `move_and_slide` la pone a cero sin avisar.
+var _y_pico: float = -999.0
+## EL ALERO: un techo con una esquina, construido por el banco porque el Gym no
+## tiene ninguno. Sin geometria que rozar no se puede medir un roce.
+var _alero: StaticBody3D = null
+## Rapidez plana en el frame en que se toca suelo, y unos frames despues. Es lo
+## que mide el bunnyhop: lo que el ATERRIZAJE se queda de lo que traias.
+var _v_al_tocar: float = -1.0
+var _v_tras_tocar: float = -1.0
+var _fr_tocar: int = -1
+var _tocaba: bool = false
+const ALERO_CENTRO := Vector3(-10.0, 0.0, -34.0)
 
 
 func _ready() -> void:
@@ -43,7 +57,50 @@ func _ready() -> void:
 		_p.tuning.aceleracion_aire = 25.0
 		_p.tuning.control_aereo_techo = _p.tuning.velocidad_correr
 
+	_montar_alero()
 	_construir()
+
+
+## Un bloque con un borde limpio en x = -10 y la cara inferior a y = 2.0.
+##
+## **La altura importa y costo una pasada.** Con el alero a 3.0 el jugador se
+## paraba a 1.06 m **tambien sin solape**: el techo cortaba el salto entero,
+## control incluido, y las tres filas salian identicas por una razon que no era la
+## esquina. A 2.0 el salto limpio pasa de largo —sube sus 2.6— y solo lo para el
+## solape, que es lo unico que se quiere medir.
+func _montar_alero() -> void:
+	_alero = StaticBody3D.new()
+	_alero.name = "Alero"
+	_alero.collision_layer = Layers.WORLD
+	var caja := BoxMesh.new()
+	caja.size = Vector3(4.0, 1.0, 4.0)
+	var malla := MeshInstance3D.new()
+	malla.mesh = caja
+	_alero.add_child(malla)
+	var col := CollisionShape3D.new()
+	var forma := BoxShape3D.new()
+	forma.size = caja.size
+	col.shape = forma
+	_alero.add_child(col)
+	add_child(_alero)
+	_alero.global_position = ALERO_CENTRO + Vector3(2.0, 2.5, 0.0)
+
+
+## Un salto vertical con la capsula solapando el borde del alero `solape` metros.
+## Con 0 no toca nada y es la fila de control.
+func _saltar_bajo_el_alero(solape: float) -> void:
+	_soltar_todo()
+	# El borde del alero esta en x = -10 y la capsula mide 0.4 de radio: a
+	# -10.4 la roza justo, y cada centimetro que se suma es solape.
+	_colocar(ALERO_CENTRO + Vector3(-0.4 - 0.4 + solape, 0.05, 0.0))
+	_p.velocity = Vector3.ZERO
+	_p.motor.set_vertical(_p.tuning.velocidad_salto())
+	# SIN JUMP CUT. El banco no mantiene ninguna tecla, asi que `StateJump` recorta
+	# el salto en el primer frame por no tener el boton pulsado y lo que se medía
+	# era el salto CORTO: 1.06 m en las tres filas, tocara o no tocara el alero.
+	_p.fsm.cambiar(&"Jump",
+		{"numero": 1, "conservar_vertical": true, "sin_corte": true}, true)
+	_y_pico = _p.global_position.y
 
 
 func _construir() -> void:
@@ -107,7 +164,146 @@ func _construir() -> void:
 				return "salio a %.1f m/s; a 0.55 s lleva %.1f m/s en ese eje (%s)" % [
 					_vel0, proyeccion, estado]),
 
+		# --- 6) SALIR DEL SURF Y GIRAR ---------------------------------------
+		# El reporte era "despues del surf el personaje sigue en linea recta y no
+		# puedo direccionarlo". Lo que se cronometra aqui es exactamente eso: se
+		# suelta Shift, se pide otra direccion, y se mide CUANTO TARDA la
+		# velocidad en obedecer y cuantos metros recorre mientras tanto.
+		_paso_("entrar en surf", 2.5, func() -> void:
+			_soltar_todo()
+			_colocar(Vector3(0.0, 0.05, 40.0))
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward")
+			_pulsar(&"sprint")
+			_pulsar(&"dash")),
+		_medida("girar 90 al salir del surf", 6.0,
+			func() -> void:
+				_soltar(&"dash")
+				_soltar(&"sprint")
+				_soltar(&"move_forward")
+				_pulsar(&"move_right")
+				_arrancar(),
+			func() -> String:
+				return "%.2f s  ·  %.2f m de linea recta  (salio a %.1f m/s)" % [
+					_t - _t0, _dist(), _vel0],
+			func() -> bool: return _giro_hecho(80.0)),
+		_paso_("volver al surf", 2.5, func() -> void:
+			_soltar_todo()
+			_colocar(Vector3(0.0, 0.05, 40.0))
+			_mirar_a(-90.0)
+			_pulsar(&"move_forward")
+			_pulsar(&"sprint")
+			_pulsar(&"dash")),
+		_medida("invertir al salir del surf", 8.0,
+			func() -> void:
+				_soltar(&"dash")
+				_soltar(&"sprint")
+				_soltar(&"move_forward")
+				_pulsar(&"move_back")
+				_arrancar(),
+			func() -> String:
+				return "%.2f s  ·  %.2f m antes de invertir  (salio a %.1f m/s)" % [
+					_t - _t0, _dist(), _vel0],
+			func() -> bool:
+				return _p.superficie.plano(_p.velocity).dot(_dir0) < 0.0),
+
 		# --- 5) Salto desde PARADO: cuanta velocidad se gana en el aire ------
+		# --- LA ESQUINA -------------------------------------------------------
+		# Un salto que roza un techo por un dedo se pierde entero, y el sintoma es
+		# invisible: no cambia de estado —sigues en `Jump`— y la velocidad no lo
+		# cuenta, porque `move_and_slide` la pone a cero sin avisar. Lo unico que
+		# lo dice es la ALTURA que llegaste a alcanzar.
+		#
+		# Es el punto #16 del Tier B del documento de movimiento. Antes de
+		# implementarlo hay que saber si el problema existe: una capsula resbala
+		# por las esquinas mucho mejor que una caja, y puede que Godot ya lo este
+		# resolviendo solo.
+		_medida("salto limpio bajo el alero — control", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.0),
+			func() -> String:
+				return "sube %.2f m (el salto entero son %.2f)" % [
+					_y_pico - 0.05, _p.tuning.altura_salto_max]),
+
+		_medida("el mismo salto rozando la esquina 12 cm", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.12),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		_medida("y rozandola 25 cm", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.25),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		# Y HASTA DONDE AGUANTA. El radio de la capsula es 0.4: a 0.35 solo le
+		# quedan 5 cm libres y a 0.55 ya esta mas dentro que fuera. Sin estas dos
+		# filas, "la capsula se escurre" seria una afirmacion sin limite conocido.
+		_medida("rozandola 35 cm (radio = 40)", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.35),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		_medida("y metiendose 55 cm, mas dentro que fuera", 1.2,
+			func() -> void: _saltar_bajo_el_alero(0.55),
+			func() -> String:
+				return "sube %.2f m" % [_y_pico - 0.05]),
+
+		# --- EL BUNNYHOP (#13 del Tier B) -------------------------------------
+		# «Ventana de conservacion al aterrizar»: caer lanzado y volver a saltar no
+		# deberia costarte la linea. La pregunta no es "cuanto conserva el
+		# aterrizaje" sino **si aterrizar cuesta algo comparado con no hacerlo**, y
+		# por eso la fila de control es EL AIRE y no el suelo.
+		#
+		# Se mide la rapidez al final de una ventana fija, no en el contacto: un
+		# bunnyhop toca el suelo UN frame o ninguno, y un latch de contacto se lo
+		# pierde. La primera version imprimia -1.0 —"no llego a tocar"— y la
+		# conclusion habria sido que no aterriza, cuando lo que pasaba es que no se
+		# puede mirar ahi.
+		_medida("aterrizar a 30 y rebotar (bunnyhop)", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 0.45, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall")
+				# Sin salto aereo: con el, la pulsacion se la come el doble salto y
+				# el jugador no llega a pisar. Asi se queda en el buffer —el grupo
+				# ni la consulta— y sale al tocar, que es el gesto que se mide.
+				_p.saltos_aereos = 0
+				_pulsar(&"jump"),
+			func() -> String:
+				_soltar(&"jump")
+				return "%.1f m/s al final" % _p.motor.rapidez_plana()),
+
+		_medida("lo mismo SIN rebotar, corriendo", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 0.45, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall")
+				# SIGUE PIDIENDO LA DIRECCION. Sin el stick esto no seria «aterrizar
+				# corriendo», seria «aterrizar y soltarlo todo», y el freno de
+				# soltar (26 m/s²) es otro numero: la comparacion culparia al
+				# aterrizaje de lo que hace dejar de pedir.
+				_pulsar(&"move_forward"),
+			func() -> String:
+				_soltar(&"move_forward")
+				return "%.1f m/s al final" % _p.motor.rapidez_plana()),
+
+		# EL AIRE COMO CONTROL. Sin esta fila no se sabe cuanto de lo perdido lo
+		# quito el SUELO y cuanto el tope de velocidad, que actua igual volando.
+		_medida("y sin tocar el suelo — control", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 12.0, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall"),
+			func() -> String:
+				return "%.1f m/s al final%s" % [
+					_p.motor.rapidez_plana(),
+					"  [OJO: aterrizo]" if _p.is_on_floor() else ""]),
+
 		_medida("velocidad ganada saltando parado", 0.55,
 			func() -> void:
 				_soltar_todo()
@@ -131,6 +327,18 @@ func _physics_process(delta: float) -> void:
 		_informe()
 		return
 	_t += delta
+
+	_y_pico = maxf(_y_pico, _p.global_position.y)
+
+	var pisa := _p.is_on_floor()
+	if pisa and not _tocaba and _v_al_tocar < 0.0:
+		_v_al_tocar = _p.motor.rapidez_plana()
+		_fr_tocar = 0
+	_tocaba = pisa
+	if _fr_tocar >= 0:
+		_fr_tocar += 1
+		if _fr_tocar == 8:
+			_v_tras_tocar = _p.motor.rapidez_plana()
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t - delta) or not bool(actual.get("iniciado", false)):
@@ -190,6 +398,21 @@ func _arrancar() -> void:
 	var d := _p.motor.direccion_plana()
 	_dir0 = d if not d.is_zero_approx() else _p.direccion_frontal()
 	_midiendo = true
+
+
+## ¿La velocidad ya apunta a donde se esta pidiendo, con ese margen en grados?
+##
+## Se mide contra la DIRECCION PEDIDA y no contra la inicial: lo que se reporto no
+## es "tarda en frenar", es "no obedece". Son dos cosas distintas y solo la segunda
+## es un bug de control.
+func _giro_hecho(grados: float) -> bool:
+	var v := _p.superficie.plano(_p.velocity)
+	if v.length() < 0.5:
+		return false
+	var pedida := _p.superficie.direccion_movimiento(_p.buffer.move_vector(), _p.camara())
+	if pedida.is_zero_approx():
+		return false
+	return rad_to_deg(v.normalized().angle_to(pedida)) <= grados
 
 
 func _dist() -> float:

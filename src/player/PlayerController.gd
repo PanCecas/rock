@@ -11,30 +11,15 @@ extends CharacterBody3D
 @export var collider_path: NodePath = ^"Collider"
 
 @export_group("Ataques")
-## Primer golpe de la cadena ligera. Los demás cuelgan de `siguiente`.
-@export var ataque_ligero: AttackData
-@export var ataque_pesado: AttackData
-@export var ataque_aereo: AttackData
-@export var ataque_plunge: AttackData
-## Ataques acuaticos: bajo el agua un golpe es un desplazamiento con hitbox.
-@export var ataque_agua_ligero: AttackData
-@export var ataque_agua_pesado: AttackData
-## Patada deslizante: el salto de conejo. Su hitbox vive todo el trayecto.
-@export var ataque_slide_kick: AttackData
-## Clavado. Su hitbox vive todo el trayecto y lanza por los aires.
-@export var ataque_dive: AttackData
-## Clavado PESADO: mas dano y rebote sobre la cabeza del enemigo.
-@export var ataque_dive_pesado: AttackData
-## Patada baja desde agachado. Derriba en vez de tambalear.
-@export var ataque_agachado: AttackData
-## Ataque lanzado desde el dash: hereda el momentum y cierra distancia.
-@export var ataque_dash: AttackData
-## Shift + ataque ligero: estocada de esgrima que conserva la forma del surf.
-@export var ataque_surf_ligero: AttackData
-## Shift + ataque pesado: frenazo en seco y empujon fuerte.
-@export var ataque_surf_pesado: AttackData
-## Contraataque que solo se abre tras un parry perfecto.
-@export var ataque_contra: AttackData
+## EL UNICO. Doce entradas de combate se quedaron en una desde el parche 4.00, y
+## no por ahorrar: con doce el boton se machaca, y machacar un boton no es una
+## decision. Ver `StateKick`.
+##
+## Sigue siendo un `AttackData` y no tres numeros sueltos porque la regla dura #1
+## no cambia —el combate se afina en un `.tres`, no en codigo— y porque el resto
+## del pipeline de dano (`Hitbox`, `Hurtbox`, `Golpe`, la muerte con ragdoll) ya
+## habla ese idioma y no habia nada que arreglar ahi.
+@export var ataque_patada: AttackData
 
 @onready var buffer: InputBuffer = $InputBuffer
 @onready var stamina: StaminaComponent = $Stamina
@@ -49,6 +34,77 @@ extends CharacterBody3D
 @onready var salud: HealthComponent = $Salud
 @onready var poise: PoiseComponent = $Poise
 @onready var targeting: TargetingSystem = $Targeting
+## EL FEEDBACK VISUAL. Puede no existir: si falta, el juego se juega igual y se
+## ve peor, que es justo la relacion que tiene que tener con el resto.
+@export var feedback_path: NodePath = ^"Feedback"
+@onready var feedback: PlayerFeedback = get_node_or_null(feedback_path)
+## EL CORDON de la cuerda. Puramente visual, igual que el de la lanza y con el
+## mismo script: lo que ata al jugador al ancla es una restriccion analitica —un
+## numero— y esto es lo que hace que ese numero se vea.
+@export var cordon_path: NodePath = ^"Cordon"
+@onready var cordon: Cordon = get_node_or_null(cordon_path)
+
+## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
+## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
+var lanza: Spear = null
+## LA espada. Tambien una sola, y por la misma razon.
+##
+## **Y no compite con la lanza: hacen trabajos distintos.** La lanza SE QUEDA
+## donde la clavas —plataforma, ancla, punto fijo— y la espada SIEMPRE VUELVE.
+## Una se tira para dejarla puesta; la otra se tira para recogerla. Si las dos
+## hicieran lo mismo, la segunda sobraria.
+var espada: Sword = null
+## ¿QUEDA CUERDA? Una por tiempo de vuelo, y se recarga al tocar suelo o pared.
+##
+## Es la moneda del moveset entero. Sin ella la cuerda vuelve a ser lo que era —
+## algo siempre disponible, o sea un medio de transporte— y con ella cada arco es
+## una decision que se paga: engancharse mal cuesta el aterrizaje.
+##
+## La gasta `Grapple` al entrar, y la devuelven DOS cosas: tocar el mundo
+## (`recargar_moveset()`) y soltarse de un ancla (`soltar_de_ancla()`).
+var cuerda_disponible: bool = true
+## EL ANCLA DE LA QUE ACABAS DE SOLTARTE, y es media mecanica.
+##
+## Desde el 4.01 el ancla cuenta como contacto: soltar un arco te devuelve la
+## cuerda igual que tocar una pared, porque un ancla es algo que TOCAS y la ley
+## del moveset dice que los aereos vuelven al tocar. Sin eso, encadenar ancla ->
+## ancla era imposible en aire limpio —medido: al pulsar la Z sobre la siguiente,
+## «cuerda GASTADA» con el ancla a 13.6 m dentro del cono— y solo salia cuando un
+## pilar se cruzaba por el camino. De ahi el «a veces si y a veces no».
+##
+## Lo que impide que eso sea bombear es esta variable: la que acabas de soltar no
+## vale hasta que toques algo. Encadenar exige un ancla NUEVA, o sea que quien
+## decide cuanto se puede encadenar es el nivel, no el boton.
+var ultima_ancla: Ancla = null
+## ¿PUEDE TREPAR? **Es una HABILIDAD que se lleva puesta, no algo que se sabe.**
+##
+## Empieza en `false` a proposito. Escalar es el unico verbo que APAGA el moveset
+## en vez de encadenarlo: te agarra al muro sin pedirlo —la adherencia automatica
+## se arma en 0.35 s de insistir— y `StateClimb` escribe `velocity = Vector3.ZERO`
+## cada frame. Medido: llegar a un muro a 30 m/s empujando daba
+## `Fall > WallSlide > Climb` y **30.0 -> 0.0 m/s**.
+##
+## Con la habilidad detras de un objeto, la pared vuelve a ser lo que tiene que ser
+## mientras no lo tengas —un sitio del que rebotar, wall-slide y wall-jump— y
+## trepar pasa a ser una decision que se toma al equiparse, no un accidente que te
+## come la linea que llevabas.
+##
+## Lo pone quien te lo da: hoy un `@export` del nivel y del Gym; manana el
+## inventario, sin que nada de aqui cambie.
+@export var puede_escalar: bool = false
+
+## ¿CUANTAS PATADAS quedan? Mismo trato que la cuerda y la misma moneda: se gastan
+## al entrar y vuelven con el mismo contacto, asi que el jugador no lleva dos
+## cuentas — o has tocado algo, o no.
+##
+## Es un ENTERO y no un `bool` porque cuantas hay es el numero que mas cambia como
+## se siente el aire, y queria poder subirlo sin reescribir nada. Lo pone
+## `tuning.patada_cargas`.
+var patada_cargas: int = 1
+## ¿Habia contacto el frame pasado? Ver `_recargar_por_contacto()`: la recarga es
+## un flanco y hace falta el valor anterior para detectarlo.
+var _tocaba: bool = false
+
 @onready var visual: Node3D = get_node_or_null(visual_path)
 @onready var _collider: CollisionShape3D = get_node_or_null(collider_path)
 
@@ -97,13 +153,15 @@ var _recuperacion: float = 0.0
 var ventana_sidejump: float = 0.0
 ## Tiempo empujando contra una pared. Al pasar del umbral, se escala solo.
 var tiempo_contra_pared: float = 0.0
-## Espera de la patada deslizante. Vive aqui y no en el estado porque tiene que
-## sobrevivir a la patada: un cooldown que muere con el estado que lo pone no es
-## un cooldown, es un adorno.
-var cd_slide_kick: float = 0.0
-## Espera entre clavados. Mismo motivo y mismo patron que la patada deslizante:
-## un ataque de movilidad que se puede repetir sin pausa deja de ser una decision.
-var cd_dive: float = 0.0
+## Los dos cooldowns de combate —el de la patada deslizante y el de los clavados—
+## se fueron con sus verbos en el parche 4.00. Lo que impide repetir la patada sin
+## pausa ya no es un reloj: es que la CARGA hay que ir a buscarla tocando algo.
+## Un recurso que se gasta dice mas que una cuenta atras, porque se ve en el HUD y
+## se recupera con un gesto en vez de con paciencia.
+## HANG TIME: segundos con gravedad CERO. Lo arma el rebote del clavado pesado y lo
+## consulta `LocomotionMotor.aplicar_gravedad`, asi que vale para Fall, Jump y
+## Glide sin que ninguno tenga que saber que existe.
+var hangtime: float = 0.0
 var _giro_visual_restante: float = 0.0
 
 
@@ -132,6 +190,28 @@ func _ready() -> void:
 	EventBus.player_spawned.emit(self)
 
 
+## EL CORDON VA EN `_process`, no en la fisica.
+##
+## Es imagen, asi que va al ritmo del render: a 60 Hz de fisica y 144 de pantalla,
+## tenderlo con la fisica lo haria dar tirones que nada mas da. Es la misma
+## decision que ya documenta `Cordon` y que toma la lanza.
+##
+## Y el extremo del jugador se lee con `get_global_transform_interpolated()` y no
+## con `global_position`: la segunda sigue siendo la del ultimo tick de fisica
+## —escalonada— y con la interpolacion encendida (regla dura #21bis) la cuerda
+## saldria de un sitio distinto de donde se dibuja el personaje.
+func _process(_delta: float) -> void:
+	if cordon == null:
+		return
+	var colgado: bool = (fsm != null and fsm.actual != null
+		and fsm.actual.has_method("punto_cuerda"))
+	if not colgado:
+		cordon.tender(Vector3.ZERO, Vector3.ZERO, false)
+		return
+	var mano := get_global_transform_interpolated().origin + superficie.up * tuning.cordon_altura_mano
+	cordon.tender(mano, fsm.actual.call("punto_cuerda"), true)
+
+
 func _physics_process(delta: float) -> void:
 	if HitstopManager.global_activo():
 		return
@@ -147,6 +227,8 @@ func _physics_process(delta: float) -> void:
 	var frente := direccion_frontal()
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
+	_input_lanza()
+	_input_espada()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -159,7 +241,7 @@ func _physics_process(delta: float) -> void:
 	# 3) La FSM escribe en velocity.
 	fsm.physics_update(delta)
 
-	_limitar_velocidad()
+	_limitar_velocidad(delta)
 
 	# 4) Un único move_and_slide por frame, aquí y en ningún otro sitio.
 	var en_suelo_antes := is_on_floor()
@@ -167,6 +249,21 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	if not en_suelo_antes and is_on_floor():
 		EventBus.player_landed.emit(impacto_ultimo, impacto_ultimo > tuning.aterrizaje_duro)
+
+	# 5) DESPUES DE MOVER. Dos cosas, y las dos necesitan la posicion DEFINITIVA.
+	#
+	#    La restriccion de la cuerda corrige una POSICION, asi que la que tiene que
+	#    corregir es la que ya paso por las colisiones; reproyectar antes de mover
+	#    deja al jugador fuera de la esfera al cerrar el frame y el error se hereda.
+	#    Y la recarga del moveset pregunta por CONTACTOS, que es exactamente lo que
+	#    `move_and_slide` acaba de resolver: preguntarlo antes es leer los del frame
+	#    anterior.
+	#
+	#    Aqui no se mueve a nadie: se corrige lo ya movido. Sigue habiendo un solo
+	#    `move_and_slide` por frame.
+	if fsm != null and fsm.actual != null:
+		fsm.actual.post_move(delta)
+	_recargar_por_contacto()
 
 	_antiatasco(delta)
 	_resolver_postura()
@@ -192,6 +289,18 @@ func _configurar_cuerpo() -> void:
 	wall_min_slide_angle = deg_to_rad(12.0)
 	safe_margin = 0.02
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
+	# ACARREO DE PLATAFORMA: SOLO desde mundo estatico.
+	#
+	# Estas dos propiedades no se tocaban, y por defecto valen TODAS LAS CAPAS.
+	# Eso significaba que `move_and_slide` acarreaba al jugador desde cualquier
+	# cuerpo que se moviera... incluido el coloso escalable, que ademas ya te
+	# arrastra por su cuenta via `SurfaceContext.arrastrar()`. El movimiento se
+	# aplicaba DOS VECES, y por eso montarse encima era un caos.
+	#
+	# El marco movil de un coloso es trabajo de `SurfaceContext` —regla dura #3—,
+	# no del acarreo del motor. Un solo mecanismo, y es el nuestro.
+	platform_floor_layers = Layers.WORLD
+	platform_wall_layers = Layers.WORLD
 	up_direction = superficie.up
 
 
@@ -222,8 +331,7 @@ func _avanzar_relojes(delta: float) -> void:
 	tiempo_sin_borde = maxf(0.0, tiempo_sin_borde - delta)
 	_bloqueo_control = maxf(0.0, _bloqueo_control - delta)
 	ventana_sidejump = maxf(0.0, ventana_sidejump - delta)
-	cd_slide_kick = maxf(0.0, cd_slide_kick - delta)
-	cd_dive = maxf(0.0, cd_dive - delta)
+	hangtime = maxf(0.0, hangtime - delta)
 	_actualizar_sidejump(delta)
 	_actualizar_adherencia(delta)
 	_cooldown_salto = maxf(0.0, _cooldown_salto - delta)
@@ -238,16 +346,224 @@ func _avanzar_relojes(delta: float) -> void:
 
 # --- Servicios para los estados ----------------------------------------------
 
-## CLAMP DURO de la velocidad horizontal, en el último punto antes de mover.
+## ¿Está la lanza EMPUÑADA? Es lo único que decide qué moveset tienes.
+##
+## Y no hay botón de equipar: **tirarla es desequiparla**. Eso convierte cada
+## lanzamiento en una decisión de verdad —posición o alcance— en vez de en un
+## trámite, y no gasta una tecla más en un juego que ya iba justo de teclas.
+func lanza_empunada() -> bool:
+	return lanza != null and is_instance_valid(lanza) and lanza.en_mano()
+
+
+## PERTIGA: ¿hay una lanza clavada lo bastante cerca para apoyarse en ella?
+##
+## `docs/03 §4.1` la llama `spear_vault` y la describe como "una mecánica de
+## plataformas disfrazada de arma", que es exactamente lo que es: no hace daño,
+## no tiene hitbox, y su único trabajo es llevarte donde el salto no llega.
+##
+## Pide la lanza CLAVADA, no en la mano ni volando: te apoyas en algo firme.
+func hay_pertiga() -> bool:
+	if lanza == null or not is_instance_valid(lanza) or not lanza.clavada_en_algo():
+		return false
+	return global_position.distance_to(lanza.global_position) <= tuning.vault_radio
+
+
+## Aplica el impulso de pértiga. Lo llama el salto, que ya ha decidido saltar.
+func impulsar_pertiga() -> void:
+	var subida := tuning.vault_impulso
+	motor.set_vertical(motor.get_vertical() + subida)
+	var entrada := buffer.move_vector()
+	if entrada.length() > 0.2:
+		var hacia := superficie.direccion_movimiento(entrada, camara())
+		# Cruzar, no solo subir: una pértiga sin avance es un trampolín.
+		velocity += hacia.normalized() * tuning.vault_avance
+	EventBus.camara_shake.emit(0.4, 0.14)
+	CombatFX.impacto(get_parent(), lanza.global_position,
+		color_de(&"oro_palido"), 1.2)
+
+
+## Copia de un `AttackData` con el empuje escalado por la INERCIA que llevas.
+##
+## El pesado del viaje manda a volar "con la inercia que lleves", asi que su
+## fuerza no puede ser un numero fijo: llegar lanzado y llegar despacio tienen que
+## dar resultados distintos, o la mecanica no premia haber cogido velocidad.
+##
+## Se DUPLICA el recurso en vez de tocarlo: un `.tres` es compartido, y
+## escribirle el empuje dejaria el cambio pegado para el resto de la partida.
+func escalar_por_inercia(datos: AttackData, rapidez: float) -> AttackData:
+	var f: float = clampf(rapidez / tuning.carga_inercia_ref,
+		tuning.carga_inercia_min, tuning.carga_inercia_max)
+	var copia: AttackData = datos.duplicate()
+	copia.empuje = datos.empuje * f
+	copia.lanzamiento = datos.lanzamiento * f
+	return copia
+
+
+## TIRAR Y RECUPERAR LA LANZA.
+##
+## Vive aqui y no en los grupos de la FSM a proposito: lanzar NO cambia el estado
+## del jugador —se tira corriendo, saltando o cayendo, y sigues haciendo lo que
+## hacias—, asi que no es una transicion y no le corresponde a la maquina de
+## estados. Meterlo en los grupos obligaria a repetirlo en los cinco, que es
+## justo la clase de duplicado que la regla dura #13 acaba castigando.
+##
+## El input sale del `InputBuffer` como todo lo demas (regla dura #4).
+func _input_lanza() -> void:
+	if lanza == null or not is_instance_valid(lanza):
+		return
+	# UN SOLO BOTON PARA LA LANZA: si la llevas, la tiras; si no, vuelve.
+	#
+	# Eran dos teclas —T y Y— y ademas al otro lado del teclado: no se alcanzan
+	# sin soltar WASD. Tres teclas para un arma es de lo que se quejo el usuario, y
+	# tenia razon.
+	#
+	# Que un boton haga dos cosas segun el contexto es justo lo que este proyecto
+	# evita, PERO aqui no hay ambiguedad que aprender: o tienes la lanza en la mano
+	# o no la tienes, y eso se ve. No son dos verbos compitiendo por una tecla; son
+	# las dos mitades del mismo.
+	if buffer.consume(InputActions.THROW_SPEAR):
+		# LA PREGUNTA ES SI ESTA FUERA, no si la llevas empuñada.
+		#
+		# Aqui ponia `lanza.en_mano()`, que solo es cierto en `Wielded`. Con la
+		# lanza GUARDADA —que es como EMPIEZA la partida— caia en la rama del
+		# `else` y llamaba a `recuperar()`, que se niega porque `Holstered` no
+		# esta entre los estados recuperables. Resultado: **al arrancar el juego,
+		# el boton de la lanza no hacia nada** hasta pulsar Tab primero.
+		#
+		# Y `Spear.lanzar()` acepta guardada a proposito, con este comentario al
+		# lado: *"la desenfunda y la tira en un solo gesto. Obligar a sacarla
+		# primero convertiria el lanzamiento en dos pulsaciones, y de eso ya se
+		# quejo el usuario con razon"*. O sea que la intencion estaba escrita y el
+		# guardia la contradecia. Mismo fallo que el de la Z, misma familia:
+		# preguntar `en_mano()` cuando lo que importa es donde ESTA.
+		if lanza.esta_fuera():
+			# Tambien vale colgado: recuperarla suelta la cuerda y te la trae, en
+			# un gesto en vez de dos.
+			lanza.recuperar()
+		else:
+			lanza.lanzar(lanza.punto_de_mano(), _direccion_de_tiro())
+	# Sigue existiendo la recuperacion explicita para quien la quiera aparte.
+	if buffer.consume(InputActions.RECALL_SPEAR):
+		lanza.recuperar()
+	# SACAR O GUARDAR: el cambio de moveset. Empunada pega con la lanza; guardada,
+	# con lo de siempre.
+	if buffer.consume(InputActions.SWAP_WEAPON):
+		lanza.alternar_empunada()
+
+
+## CORTAR Y TIRAR LA ESPADA.
+##
+## Vive aqui y no en los grupos de la FSM por la misma razon que `_input_lanza()`
+## —cortar NO cambia el estado del jugador: sigues corriendo, cayendo o colgado
+## del arco mientras lo haces— y ademas por una que es propia de este boton:
+## **una accion compartida que vive en los grupos hay que declararla en los TRES
+## y con su guardia** (regla dura #13), y ese es el fallo que mas veces ha
+## aparecido en este proyecto. La cuerda se olvido de `Attached` y la Z estuvo
+## muerta un parche entero; la patada se olvido del mismo sitio y colgado del
+## arco el boton de ataque no hacia nada. Aqui hay UN sitio y no puede olvidarse.
+##
+## **El guardia sigue existiendo, y es uno solo:** `maneja_ataques()`. Se le
+## pregunta al estado activo, que es lo que permite que nadar siga sin dejarte
+## pegar sin tener que repetir la excepcion en ningun otro lado.
+func _input_espada() -> void:
+	if espada == null or not is_instance_valid(espada):
+		return
+
+	# UN SOLO BOTON PARA LA ESPADA FUERA: si la llevas la tiras, si no, vuelve.
+	# Mismo trato que la lanza, y no hay ambiguedad que aprender porque cual de
+	# las dos toca SE VE: o el arma esta en la mano o no esta.
+	#
+	# **Y AQUI TAMPOCO SE CONSUME A CIEGAS.** Hay un tercer sitio donde el arma no
+	# esta ni fuera ni lista —EN MITAD DE UN CORTE— y consumiendo antes de mirar,
+	# la pulsacion que caia en esos 16 frames desaparecia: `lanzar()` decia que no
+	# y nadie se enteraba. Lo cazo el banco con una traza de estados:
+	# `Wielded > Swing > Wielded` durante la fila del tiro, y ni un solo `InFlight`.
+	#
+	# Asi, pedir el tiro a mitad de un corte no se pierde: espera en el buffer y
+	# la espada sale volando en cuanto el corte termina.
+	if espada.esta_fuera():
+		if buffer.consume(InputActions.THROW_SWORD):
+			espada.recuperar()
+	elif espada.puede_lanzar():
+		if buffer.consume(InputActions.THROW_SWORD):
+			espada.lanzar(espada.punto_de_mano(), _direccion_de_tiro())
+
+	# EL CORTE. Detras del tiro a proposito: si el jugador pulsa los dos casi a la
+	# vez, tirarla es la decision mas cara de las dos y la que quiso de verdad.
+	if fsm.actual != null and fsm.actual.maneja_ataques():
+		return
+
+	# **SE MIRA SI PUEDE ANTES DE CONSUMIR**, igual que `intentar_cuerda()` con el
+	# ancla y por la misma razon escrita alli: *una pulsacion tragada sin efecto
+	# es indistinguible de un boton que no responde*.
+	#
+	# Lo cazo el banco, y con su fila de control: machacando el boton un segundo
+	# salian **2 cortes** donde el `.tres` permite 3.8. Consumiendo a ciegas, cada
+	# pulsacion que caia dentro de los 10 frames de recuperacion desaparecia, asi
+	# que encadenar dos cortes seguidos exigia soltar y volver a pulsar en la
+	# ventana exacta — lo contrario del buffer de entrada que este proyecto tiene
+	# desde el primer dia. Ahora la pulsacion espera en el buffer y sale sola en
+	# cuanto la espada vuelve a la mano.
+	if not espada.puede_cortar():
+		return
+	if buffer.consume(InputActions.ATTACK_LIGHT):
+		espada.cortar(_direccion_de_tiro())
+
+
+## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
+##
+## Es lo que espera cualquiera que haya tirado algo en un juego en tercera
+## persona: apuntas mirando. El cuerpo va por detras girando, y usar su frente
+## haria que la lanza saliera hacia donde estabas mirando hace medio segundo.
+func _direccion_de_tiro() -> Vector3:
+	var cam := camara()
+	if cam != null:
+		return -cam.global_basis.z
+	return direccion_frontal()
+
+
+## EL TOPE DE VELOCIDAD, en el último punto antes de mover. **Es un objetivo de
+## aceleración, no un corte.**
 ##
 ## El juego premia encadenar momentum, pero encadenar sin techo termina sacando al
-## jugador del mapa. El límite va aquí y no en cada estado: un solo sitio, imposible
-## de olvidar al añadir el siguiente verbo.
-func _limitar_velocidad() -> void:
+## jugador del mapa. El límite va aquí y no en cada estado: un solo sitio,
+## imposible de olvidar al añadir el siguiente verbo (regla dura #12).
+##
+## **Lo que cambió en el 4.00 es CÓMO limita.** Antes recortaba de golpe: salir de
+## un arco a 34 m/s te dejaba a 22.0 **en el primer frame**, y todo lo que habías
+## construido encadenando desaparecía sin que nada lo explicara en pantalla. Ahora
+## la rapidez por encima del techo DECAE hacia él con `velocidad_drag`: sigues
+## siendo rápido un rato y lo vas perdiendo, que es lo que se puede leer.
+##
+## Y por eso se fue `momentum_libre`. Existía para que la salida de la cuerda no se
+## la comiera el corte, y era un parche a este mismo problema: con el tope como
+## objetivo, la velocidad heredada sobrevive sola el tiempo que le da el drag. Dos
+## mecanismos para un trabajo es como se llega a que uno de los dos mienta.
+##
+## El único corte que queda es `velocidad_tope_duro`, y ese no es de game feel: es
+## la red que impide atravesar geometría entre dos frames de física.
+func _limitar_velocidad(delta: float) -> void:
 	var plano := superficie.plano(velocity)
 	var rapidez := plano.length()
-	if rapidez > tuning.velocidad_maxima:
-		velocity = plano * (tuning.velocidad_maxima / rapidez) + superficie.up * superficie.vertical(velocity)
+	if rapidez < 0.001:
+		return
+
+	# El techo lo puede DECLARAR el estado activo. Sigue habiendo un solo sitio
+	# donde se recorta —este— pero no todos los verbos tienen el mismo límite: un
+	# péndulo es un sistema cerrado y su pico lo fija la altura de caída.
+	var techo := tuning.velocidad_maxima
+	if fsm != null and fsm.actual != null:
+		var propio := fsm.actual.techo_velocidad()
+		if propio > 0.0:
+			techo = propio
+
+	var limite := rapidez
+	if rapidez > techo:
+		# Decaimiento exponencial hacia el techo, independiente del framerate.
+		limite = techo + (rapidez - techo) * exp(-tuning.velocidad_drag * delta)
+	limite = minf(limite, tuning.velocidad_tope_duro)
+	if limite < rapidez:
+		velocity = plano * (limite / rapidez) + superficie.up * superficie.vertical(velocity)
 
 
 ## PUERTA ÚNICA DEL SALTO. Todos los saltos pasan por aquí, sin excepción.
@@ -267,6 +583,107 @@ func consumir_salto() -> bool:
 
 
 ## Recarga lo que se recupera al tocar suelo o al hacer wall-jump.
+## Suspende la gravedad unos instantes. La usa el rebote del clavado pesado.
+func iniciar_hangtime(segundos: float) -> void:
+	hangtime = maxf(hangtime, segundos)
+
+
+## LA RECARGA DEL MOVESET NUEVO: una cuerda por tiempo de vuelo.
+##
+## **Y no va dentro de `recargar_aire()`, a proposito.** Esa la llaman nueve
+## sitios distintos —los estados de suelo, el agua, los cantos, el parry, el
+## wall-jump— y ademas devuelve el dash y el doble salto. Colgarle esto la
+## convertiria en dos reglas con un solo nombre, y cambiar una de las dos tocaria
+## la otra sin querer.
+##
+## Esta tiene UN solo sitio que la llama: `_physics_process`, justo despues de
+## `move_and_slide()`, cuando hay suelo o pared. Un solo sitio es lo que hace
+## imposible olvidarse de recargar al añadir el verbo siguiente — y la condicion
+## se lee igual que la regla: tocar algo te devuelve la cuerda.
+## ¿Se puede trepar AHORA? Un solo sitio, tres lectores: los dos grupos que
+## proponen `Climb` y la adherencia automatica. Sin centralizarlo seria la regla
+## dura #13 otra vez — una condicion compartida que existe en dos sitios de tres.
+func escalada_habilitada() -> bool:
+	return puede_escalar
+
+
+func recargar_moveset() -> void:
+	cuerda_disponible = true
+	# Y SE OLVIDA EL ANCLA. Tocar el mundo libera tambien la que acabas de soltar:
+	# el veto existe para que no se bombee una sola ancla en el aire, no para
+	# prohibirtela para siempre.
+	ultima_ancla = null
+	patada_cargas = tuning.patada_cargas
+	# Y EL SALTO AEREO, que es el tercer recurso del aire y estaba en otra cuenta.
+	#
+	# `recargar_aire()` lo reponia solo desde el suelo, el agua, un canto, un parry
+	# y el wall-jump; tocar una PARED o acertar una PATADA devolvian la cuerda y
+	# las patadas pero no el salto. O sea que en mitad de una cadena el boton de
+	# salto dejaba de responder mientras los otros dos seguian vivos, y eso se lee
+	# como que el salto esta roto y no como que se ha gastado.
+	#
+	# Los tres recursos aereos son UN presupuesto y se reponen con UN gesto: tocar
+	# algo. Es el punto 3 del documento de movimiento —"los recursos aereos son
+	# presupuesto, no cooldown"— y la unica forma de que el jugador no tenga que
+	# llevar dos cuentas distintas en la cabeza.
+	saltos_aereos = tuning.saltos_aereos
+
+
+## EL ANCLA A LA QUE ENGANCHARIA AHORA MISMO, o null.
+##
+## Se pregunta desde el frente de la CAMARA y no del cuerpo, igual que el tiro de
+## la lanza y por lo mismo: en tercera persona uno apunta mirando, y el cuerpo va
+## por detras girando. Usar su frente engancharia a lo que mirabas hace medio
+## segundo.
+## El ALCANCE se mide desde el jugador y el CONO desde la camara: la cuerda sale
+## de uno y la pantalla es del otro. Ver `Ancla.mejor()`.
+func buscar_ancla() -> Ancla:
+	var cam := camara()
+	var ojo: Vector3 = cam.global_position if cam != null else global_position
+	var direccion: Vector3 = -cam.global_basis.z if cam != null else direccion_frontal()
+	var fuera: Array[RID] = [get_rid()]
+	return Ancla.mejor(get_tree(), global_position, ojo, direccion, tuning.cuerda_rango,
+		cos(deg_to_rad(tuning.cuerda_cono_grados)), fuera, ultima_ancla)
+
+
+## SOLTARSE DE UN ANCLA TE DEVUELVE LA CUERDA. Lo llama `Grapple.exit()`, salgas
+## como salgas: soltando la Z, saltando, caducando el arco o pateando.
+##
+## **Un ancla es algo que tocas**, y la ley 4 del moveset dice que los recursos
+## aereos vuelven al tocar. Tratarla como contacto es lo que convierte la cuerda
+## en un verbo encadenable en vez de en un billete de un solo viaje — que es como
+## se sentia: medido, soltar un arco y pulsar la Z sobre la siguiente ancla daba
+## «cuerda GASTADA» con esa ancla a 13.6 m, en alcance y dentro del cono.
+##
+## Y el precio es que la misma no vale dos veces seguidas (`ultima_ancla`). Con
+## eso, encadenar pide un ancla NUEVA y quien pone el techo es el nivel.
+func soltar_de_ancla(a: Ancla) -> void:
+	if not tuning.cuerda_ancla_recarga:
+		return
+	ultima_ancla = a
+	cuerda_disponible = true
+
+
+## LA RECARGA SE DISPARA AL TOCAR, NO MIENTRAS TOCAS. Es un FLANCO.
+##
+## La diferencia decide si hay spam o no. Con un nivel —"recarga mientras haya
+## suelo"— la patada se devuelve el mismo frame en que se gasta: das una patada a
+## ras de suelo, sigues pisando, se recarga, y machacar el boton es un dash
+## continuo a 18 m/s. Que es exactamente lo que este rediseño venia a quitar.
+##
+## Con un flanco hay que SALIR y VOLVER, y eso convierte la recarga en un gesto:
+## saltar, rozar una pared, aterrizar. Y se lee igual que la regla escrita — "se
+## recarga AL TOCAR suelo o pared" es un evento, no un estado.
+##
+## Va despues de `move_and_slide()` porque pregunta por contactos, y esos los
+## acaba de resolver el. Preguntarlos antes seria leer los del frame anterior.
+func _recargar_por_contacto() -> void:
+	var tocando := is_on_floor() or is_on_wall()
+	if tocando and not _tocaba:
+		recargar_moveset()
+	_tocaba = tocando
+
+
 func recargar_aire() -> void:
 	dash_cargas = tuning.dash_cargas_aire
 	saltos_aereos = tuning.saltos_aereos
@@ -302,8 +719,16 @@ func control_aereo(delta: float) -> void:
 	# `velocidad_correr` como suelo, un salto desde parado alcanzaba la velocidad
 	# maxima de carrera sin tocar el suelo: el salto no pesaba nada porque la
 	# carrerilla no servia para nada.
-	var objetivo: float = maxf(tuning.control_aereo_techo, motor.rapidez_plana())
-	motor.acelerar(dir * objetivo, tuning.aceleracion_aire * escala, delta)
+	var rapidez := motor.rapidez_plana()
+	var objetivo: float = maxf(tuning.control_aereo_techo, rapidez)
+	# GANAR velocidad y REDIRIGIRLA son dos permisos distintos, y aqui se ve solo:
+	# por encima del techo el objetivo ES tu propia rapidez, asi que esta llamada
+	# no acelera nada — GIRA—. Cobrarle la tasa de aceleracion a un giro es lo que
+	# dejaba al jugador volando en linea recta al salir del surf por un desnivel:
+	# 12 m/s2 contra 13.5 m/s de inercia son 1.6 s para girar 90 grados.
+	var tasa: float = (tuning.giro_aire if rapidez > tuning.control_aereo_techo
+		else tuning.aceleracion_aire)
+	motor.acelerar(dir * objetivo, tasa * escala, delta)
 
 
 ## Baja la autoridad del control aéreo durante unos instantes.
@@ -325,7 +750,30 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 	if normal.is_zero_approx():
 		normal = -direccion_frontal()
 
+	# EL ABANICO. Ver `walljump_abanico`: el angulo con el que SALES es funcion del
+	# angulo al que MIRAS. Perpendicular -> altura; rasante -> distancia.
+	#
+	# `mezcla` va de -1 (rasante) a +1 (frontal) y las dos magnitudes se mueven en
+	# SENTIDOS CONTRARIOS: si las dos crecieran a la vez esto no seria una eleccion,
+	# seria un premio por mirar a un sitio.
+	var mezcla := (_incidencia_pared(normal) - 0.5) * 2.0
+	var vertical := tuning.walljump_vertical * (1.0 + mezcla * tuning.walljump_abanico)
+	var lateral := tuning.walljump_lateral * (1.0 - mezcla * tuning.walljump_abanico)
+
 	# Velocidad paralela al muro: la parte que hay que respetar.
+	#
+	# **Y AQUI NO SE REFLEJA LO QUE VA CONTRA EL MURO, aunque el documento de
+	# referencia lo pida.** Se probo —`Vector3.bounce()`, que es el reflejo de
+	# espejo correcto— y el banco dijo que no cambiaba ni un numero: cuando se
+	# pulsa saltar ya se ha pasado por al menos un frame de `StateWallSlide`, que
+	# reescribe la velocidad entera, asi que **no queda componente entrante que
+	# reflejar**. Codigo cuyo efecto no se puede enseñar es codigo que sobra.
+	#
+	# Y la friccion que el documento queria arreglar con eso —«el wall kick mata
+	# el momentum horizontal previo»— aqui ya esta resuelta en otro sitio y
+	# medida: `StateWallSlide` conserva la componente a lo largo del muro con
+	# rozamiento en vez de borrarla (regla dura #29), y rozar un muro a 30 m/s
+	# conserva el 92-98%.
 	var a_lo_largo := superficie.plano(velocity)
 	a_lo_largo -= normal * a_lo_largo.dot(normal)
 
@@ -337,11 +785,11 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 
 	pared.bloquear_actual()
 	var salida := (
-		normal * tuning.walljump_lateral * fuerza
-		+ intencion * tuning.walljump_lateral * tuning.walljump_intencion
+		normal * lateral * fuerza
+		+ intencion * lateral * tuning.walljump_intencion
 		+ a_lo_largo * tuning.walljump_conserva
 	)
-	velocity = superficie.con_vertical(salida, tuning.walljump_vertical * fuerza)
+	velocity = superficie.con_vertical(salida, vertical * fuerza)
 
 	bloquear_control_aereo(tuning.walljump_bloqueo)
 	orientar_a(salida)
@@ -350,6 +798,29 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 	# La cámara se pone detrás del rebote: sin esto acabas volando de espaldas a
 	# donde miras y encadenar el siguiente muro es a ciegas.
 	EventBus.camara_realinear.emit(salida, tuning.camara_realinea_walljump)
+
+
+## CUAN DE FRENTE MIRAS AL MURO: 1 = perpendicular, 0 = rasante.
+##
+## **Lo decide la CAMARA, y no el avance.** Son dos criterios distintos a
+## proposito y no choca con la regla dura #20: aquella decide QUE VERBO te da una
+## pared —trepar, resbalar, correr— y por eso se mide con el movimiento real;
+## esto decide el ANGULO DE SALIDA de uno de esos verbos, y eso es intencion.
+## El propio documento de referencia lo pide en su regla 5: *«en un juego donde el
+## angulo de mirada define el angulo de salida de la patada, robarle la camara al
+## jugador es robarle la mecanica»*.
+##
+## Sin camara devuelve 0.5, que es el centro del abanico: el salto de pared de
+## siempre. Un valor por defecto tiene que ser el comportamiento conocido, no un
+## extremo.
+func _incidencia_pared(normal: Vector3) -> float:
+	var cam := camara()
+	if cam == null:
+		return 0.5
+	var mirada := superficie.plano(-cam.global_basis.z)
+	if mirada.is_zero_approx():
+		return 0.5
+	return clampf(mirada.normalized().dot(-normal), 0.0, 1.0)
 
 
 ## Dirección hacia la que "mira" el jugador para los sensores: la de movimiento si
@@ -546,20 +1017,63 @@ func _actualizar_sidejump(_delta: float) -> void:
 ## Escalar deja de ser un boton que hay que saber y pasa a ser lo que ocurre si
 ## insistes contra un muro, que es como se descubre en Breath of the Wild.
 func _actualizar_adherencia(delta: float) -> void:
+	# SIN LA HABILIDAD NO HAY ADHERENCIA. Va lo primero: es la que engancha SOLA,
+	# asi que es la que de verdad te quita la linea sin haberlo pedido.
+	if not escalada_habilitada():
+		tiempo_contra_pared = 0.0
+		return
 	if not pared.hay_pared or stamina.vacia():
 		tiempo_contra_pared = 0.0
 		return
-	var entrada := buffer.move_vector()
-	if entrada.length() < 0.5:
+	# EL ESTADO PUEDE APAGARLA. El surf, el dash y el slide llegan a la pared, no
+	# insisten contra ella: ver `PlayerState.adherencia_automatica()`. Sin esto,
+	# terminar una linea rapida contra un muro te dejaba escalandolo sin haberlo
+	# pedido, y con la velocidad a cero.
+	if fsm.actual != null and not fsm.actual.adherencia_automatica():
 		tiempo_contra_pared = 0.0
 		return
-	var deseada := superficie.direccion_movimiento(entrada, camara())
-	var normal := superficie.plano(pared.normal).normalized()
-	# Empujar CONTRA la pared, no pasar rozando.
-	if deseada.dot(-normal) < 0.65:
+	if buffer.move_vector().length() < 0.5:
+		tiempo_contra_pared = 0.0
+		return
+	# EL MISMO numero que usan el wall-run y el wall-slide. Antes esto media la
+	# direccion de INPUT DESEADA con su propio umbral (dot >= 0.65, o sea 49.5
+	# grados) mientras el wall-run media la direccion de MOVIMIENTO REAL con otro
+	# (55 grados). Dos vectores distintos decidiendo lo mismo: con momentum
+	# divergen, las dos condiciones podian ser ciertas A LA VEZ, y encima quedaba
+	# un hueco muerto entre 49.5 y 55 donde no saltaba ninguna.
+	if angulo_contra_pared() >= tuning.pared_umbral_frontal:
 		tiempo_contra_pared = 0.0
 		return
 	tiempo_contra_pared += delta
+
+
+## ANGULO entre tu avance y la pared, en grados. 0 = de frente, 90 = rozando.
+##
+## **Un solo numero decide TODOS los verbos de pared**, y `pared_umbral_frontal`
+## lo parte en dos mitades sin hueco ni solape:
+##
+##   por debajo -> vas DE FRENTE  -> escalar (si insistes) o wall-slide
+##   por encima -> vas ROZANDO    -> wall-run
+##
+## Es el mismo tipo de arreglo que la regla dura #15 hizo con las superficies:
+## dos criterios distintos para la misma pared es como se llega a que sea
+## "demasiado de frente para correr" y "demasiado oblicua para escalar" a la vez.
+##
+## El avance sale del MOVIMIENTO cuando lo hay, y del input cuando estas casi
+## parado —pegado a un muro la velocidad plana es ruido— pero es UNA sola
+## decision, tomada aqui, y no dos criterios en dos archivos.
+func angulo_contra_pared() -> float:
+	if not pared.hay_pared:
+		return 180.0
+	var normal := superficie.plano(pared.normal).normalized()
+	if normal.is_zero_approx():
+		return 180.0
+	var avance := motor.direccion_plana()
+	if motor.rapidez_plana() < tuning.pared_avance_minimo:
+		avance = superficie.direccion_movimiento(buffer.move_vector(), camara())
+	if avance.is_zero_approx():
+		return 180.0
+	return rad_to_deg(avance.normalized().angle_to(-normal))
 
 
 func adherencia_lista() -> bool:
@@ -583,21 +1097,34 @@ func esta_agachado() -> bool:
 func _actualizar_altura(delta: float) -> void:
 	if _collider == null or not _collider.shape is CapsuleShape3D:
 		return
-	if is_equal_approx(_altura_actual, _altura_objetivo):
-		return
-	_altura_actual = lerpf(
-		_altura_actual, _altura_objetivo,
-		1.0 - exp(-delta / maxf(tuning.agachado_transicion, 0.001))
-	)
-	if absf(_altura_actual - _altura_objetivo) < 0.01:
-		_altura_actual = _altura_objetivo
+	# LA CAPSULA solo se recalcula cuando la postura cambia: es lo caro —toca una
+	# forma de colision— y no hay nada mas que la mueva.
+	if not is_equal_approx(_altura_actual, _altura_objetivo):
+		_altura_actual = lerpf(
+			_altura_actual, _altura_objetivo,
+			1.0 - exp(-delta / maxf(tuning.agachado_transicion, 0.001))
+		)
+		if absf(_altura_actual - _altura_objetivo) < 0.01:
+			_altura_actual = _altura_objetivo
+		var alto := _altura_base * _altura_actual
+		var forma := _collider.shape as CapsuleShape3D
+		forma.height = alto
+		_collider.position.y = alto * 0.5
 
-	var alto := _altura_base * _altura_actual
-	var forma := _collider.shape as CapsuleShape3D
-	forma.height = alto
-	_collider.position.y = alto * 0.5
+	# LA ESCALA DEL VISUAL SE ESCRIBE SIEMPRE, y ahi estaba el fallo.
+	#
+	# Esto vivia DETRAS de la salida temprana de arriba, y era correcto mientras la
+	# escala tuviera un solo contribuyente: si la postura no cambia, la escala
+	# tampoco. Con el aplastado son DOS, y el segundo se movia mientras el primero
+	# estaba quieto — o sea que el aplastado solo se veia si ademas ibas agachado.
+	# Lo cazo una FOTO: el panel decia `squash 0.23` y la capsula estaba recta.
+	#
+	# La escala se COMPONE aqui y en ningun otro sitio: la postura la pone la
+	# altura de la capsula y el aplastado lo PIDE `PlayerFeedback`, igual que un
+	# estado pide postura (regla dura #14).
 	if visual != null:
-		visual.scale.y = _altura_actual
+		var extra := feedback.escala() if feedback != null else Vector3.ONE
+		visual.scale = Vector3(extra.x, _altura_actual * extra.y, extra.z)
 
 
 func camara() -> Camera3D:
@@ -740,6 +1267,11 @@ func _reset_si_cae() -> void:
 	stamina.llenar()
 	buffer.clear()
 	fsm.cambiar(&"Fall")
+	# UN TELETRANSPORTE NO SE INTERPOLA. Con la interpolacion de fisica activada,
+	# saltar de golpe de un sitio a otro se dibuja como un BARRIDO entre los dos
+	# durante un frame: al reaparecer, el personaje cruzaba el mapa entero de una
+	# pasada. Esto le dice al motor "aqui no hay movimiento que suavizar".
+	reset_physics_interpolation()
 
 
 func _on_tuning_reloaded() -> void:
@@ -749,6 +1281,7 @@ func _on_tuning_reloaded() -> void:
 
 
 func _debug() -> void:
+	_dibujar_gizmos()
 	DebugOverlay.set_line("estado", fsm.debug_line())
 	DebugOverlay.set_line("vel", "%.1f m/s   vy %.1f" % [motor.rapidez_plana(), motor.get_vertical()])
 	DebugOverlay.set_line("stamina", "%s %.0f%%" % ["█".repeat(int(stamina.fraccion() * 12.0)).rpad(12, "░"), stamina.fraccion() * 100.0])
@@ -769,5 +1302,77 @@ func _debug() -> void:
 		salud.fraccion() * 100.0, poise.fraccion() * 100.0,
 		"  QUEBRADA" if poise.rota else ""])
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
+	if lanza != null and is_instance_valid(lanza):
+		DebugOverlay.set_line("lanza", lanza.debug_line())
+	if espada != null and is_instance_valid(espada):
+		DebugOverlay.set_line("espada", espada.debug_line())
+	# Y EL ANCLA VETADA SE DICE. Un veto invisible es indistinguible de un boton
+	# que no responde, que es el sintoma que este parche venia a quitar.
+	var veto := ""
+	if ultima_ancla != null and is_instance_valid(ultima_ancla):
+		veto = "   (ancla %s en veto)" % ultima_ancla.name
+	DebugOverlay.set_line("moveset", "CUERDA %s   PATADA %d/%d%s" % [
+		"lista" if cuerda_disponible else "gastada",
+		patada_cargas, tuning.patada_cargas, veto])
+	if feedback != null:
+		DebugOverlay.set_line("feedback", feedback.debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
+
+
+## GIZMOS DEL JUGADOR (F7).
+##
+## Se dibuja lo que el jugador USA para decidir y no se ve por ningun lado: la
+## normal del suelo, la de la pared, hacia donde apunta el movimiento, y las
+## cuerdas con su radio de restriccion. Todo eso ya sale en texto en el panel F3,
+## pero un vector en texto —"n=0.0,0.7,0.7"— no dice nada hasta que lo dibujas.
+func _dibujar_gizmos() -> void:
+	if not DebugDraw.activo or tuning == null:
+		return
+	var p := GameState.palette
+	if p == null:
+		return
+	var centro := global_position + Vector3.UP * 0.9
+
+	# SUELO: la normal y su clasificacion en color. Es EL numero de la regla dura
+	# #15 —<45 camina · 45-110 escala · >110 nada— hecho visible: si una rampa se
+	# comporta raro, aqui se ve de que color es antes de medir nada.
+	if suelo.hay_suelo:
+		var grados := rad_to_deg(suelo.normal.angle_to(Vector3.UP))
+		var c := p.pasto_sol
+		match tuning.clasificar(grados):
+			PlayerTuning.Superficie.ESCALABLE: c = p.oro_palido
+			PlayerTuning.Superficie.INVALIDA: c = p.carmesi
+		DebugDraw.rayo(global_position, suelo.normal, 1.6, c)
+
+	# PARED: la normal, y el angulo contra ella. La reparticion de los verbos de
+	# pared (regla dura #20) sale de UN numero, y este es.
+	if pared.hay_pared:
+		DebugDraw.rayo(centro, pared.normal, 1.4, p.lavanda_gris)
+
+	# A DONDE VA: velocidad real en verde, intencion del stick en crema. Cuando
+	# las dos divergen es cuando el control se siente raro, y verlas juntas es la
+	# forma mas rapida de saberlo.
+	if motor.rapidez_plana() > 0.4:
+		DebugDraw.rayo(centro, superficie.plano(velocity), motor.rapidez_plana() * 0.25, p.pasto_sol)
+
+	# LA CUERDA es una restriccion INVISIBLE: se siente que tira pero no se ve de
+	# donde ni hasta donde. Dibujar el ancla y el radio convierte "esto va raro" en
+	# una lectura.
+	#
+	# Y ademas se dibuja el ANCLA CANDIDATA aunque no estes colgado, que es la
+	# mitad util del gizmo: el cono de camara es el filtro que mas desconcierta
+	# —"¿por que no engancha si la tengo ahi?"— y verlo contestado es la diferencia
+	# entre afinar `cuerda_cono_grados` a ojo y afinarlo mirando.
+	if lanza != null and is_instance_valid(lanza) and lanza.clavada_en_algo():
+		DebugDraw.punto(lanza.global_position, 0.5, p.crema_medio)
+	var candidata := buscar_ancla()
+	if candidata != null:
+		DebugDraw.linea(centro, candidata.global_position, p.azul_claro)
+		DebugDraw.punto(candidata.global_position, 0.6, p.azul_claro)
+	if fsm != null and fsm.actual != null and fsm.actual.has_method("punto_cuerda"):
+		var ancla: Vector3 = fsm.actual.call("punto_cuerda")
+		DebugDraw.linea(centro, ancla, p.oro_palido)
+		var largo: Variant = fsm.actual.get("_largo")
+		if largo is float and float(largo) > 0.0:
+			DebugDraw.esfera(ancla, float(largo), p.oro_palido)

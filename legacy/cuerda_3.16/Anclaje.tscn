@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/weapons/Anclaje.gd" id="a"]
+[ext_resource type="Script" path="res://src/weapons/Cordon.gd" id="cor"]
+
+[node name="Anclaje" type="Node3D"]
+script = ExtResource("a")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+
+[node name="Cordon" type="Node3D" parent="."]
+script = ExtResource("cor")

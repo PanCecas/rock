@@ -13,7 +13,7 @@ func shared_update(delta: float) -> void:
 	# --- 1) DONDE ESTOY. Va antes que todo lo demas y no lo salta ningun guardia.
 	#
 	# Aqui vivia el bug del "floating fall": estas comprobaciones estaban DESPUES
-	# del `return` de `maneja_ataques()`, que declaran Surf, Slide, SlideKick y
+	# del `return` de `maneja_ataques()`, que declaraban Surf, Slide, SlideKick y
 	# Crouch. Salirse de una plataforma surfeando no cambiaba de estado nunca, y
 	# como Surf y Slide fuerzan `set_vertical(-2)` cada frame, el personaje se
 	# quedaba flotando y bajando a dos metros por segundo.
@@ -33,7 +33,7 @@ func shared_update(delta: float) -> void:
 	#
 	# Y aqui SI se mira el boton de agarre, no solo la adherencia automatica: desde
 	# el suelo era el unico sitio donde pulsar agarre no hacia absolutamente nada.
-	if player.pared.hay_pared and fsm.actual.name != &"Climb":
+	if player.escalada_habilitada() and player.pared.hay_pared and fsm.actual.name != &"Climb":
 		var quiere_agarrar := buffer.is_held(InputActions.GRAB) or player.adherencia_lista()
 		if quiere_agarrar and not player.stamina.vacia():
 			fsm.cambiar(&"Climb")
@@ -56,6 +56,11 @@ func shared_update(delta: float) -> void:
 	#
 	# El salto se pregunta desde el buffer, nunca desde Input directamente.
 	# Si la hoja tiene su propio salto (Crouch, Surf), el grupo no se lo roba.
+	# ZIP A LA LANZA, antes que el salto: desde el suelo sirve para SUBIR a una
+	# lanza clavada en alto, y si el salto se lo comiera nunca saldria.
+	if intentar_cuerda():
+		return
+
 	if not (fsm.actual != null and fsm.actual.maneja_salto()):
 		if player.consumir_salto():
 			# SIDE JUMP: si venias corriendo y acabas de pedir la direccion
@@ -67,28 +72,41 @@ func shared_update(delta: float) -> void:
 				var dir := sc.direccion_movimiento(buffer.move_vector(), player.camara())
 				fsm.cambiar(&"SideJump", {"direccion": dir})
 				return
+			# PERTIGA: si hay una lanza clavada al lado, el salto se apoya en
+			# ella y sube mucho mas. Va DESPUES del side jump —ese es un
+			# gesto que ya empezaste y no se le quita— y antes del salto
+			# normal, porque teniendo pertiga a mano el salto raso no es lo
+			# que estas pidiendo.
+			if player.hay_pertiga():
+				fsm.cambiar(&"Jump", {"numero": 1}, true)
+				player.impulsar_pertiga()
+				return
 			fsm.cambiar(&"Jump", {"numero": 1}, true)
 			return
 
-	if player.puede_dashear() and buffer.consume(InputActions.DASH):
-		fsm.cambiar(&"Dash")
-		return
+	# SHIFT EN EL SUELO ES EL SLIDE, no el dash.
+	#
+	# Los dos eran «el boton de ir rapido en linea recta» y el slide es el que lee
+	# el terreno: acelera cuesta abajo, frena cuesta arriba y se encadena con el
+	# salto. El dash se queda donde sigue significando algo —EN EL AIRE, como
+	# esquive— y el surf sigue estando donde estaba: manteniendo.
+	#
+	# Sin stamina ni cargas, igual que el slide de siempre: lo que lo limita es su
+	# propia friccion y su duracion, no un recurso.
+	if not (fsm.actual != null and fsm.actual.maneja_deslizamiento()):
+		if buffer.consume(InputActions.DASH):
+			fsm.cambiar(&"Slide")
+			return
 
-	# Combate. El parry va ANTES que el ataque: si el jugador pulsa las dos casi a
-	# la vez, casi siempre estaba reaccionando a algo que venia.
+	# Combate. Solo queda el parry, que SI es una transicion: te planta y te deja
+	# quieto durante su ventana.
+	#
+	# El corte de espada no esta aqui y no es un olvido: no cambia de estado, asi
+	# que lo resuelve el controlador. Y la patada tampoco: en el suelo el Espacio
+	# salta, y patear es lo que hace el Espacio EN EL AIRE.
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
 		return
 
-	# Si la hoja gestiona sus propios ataques (Surf), el grupo no se los roba.
-	if fsm.actual != null and fsm.actual.maneja_ataques():
-		return
-
-	if player.ataque_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_ligero, "indice": 1})
-		return
-	if player.ataque_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"Attack", {"datos": player.ataque_pesado, "indice": 1})
-		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()

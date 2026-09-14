@@ -35,7 +35,16 @@ func _construir_guion() -> void:
 		_paso_("andar", 0.5, func() -> void: _pulsar(&"move_forward"), &"Move"),
 		_paso_("saltar", 0.25, func() -> void: _pulsar(&"jump"), &"Jump"),
 		_paso_("caer", 0.7, func() -> void: _soltar(&"jump"), &"Fall"),
-		_paso_("dash aéreo", 0.12, func() -> void: _pulsar(&"dash"), &"Dash"),
+		# EL DASH AEREO, Y AHORA SI EN EL AIRE. Este paso venia detras de 0.95 s de
+		# salto y caida, o sea que el jugador YA HABIA ATERRIZADO: lo que probaba
+		# era el dash de suelo con el nombre del aereo. Paso desapercibido mientras
+		# Shift daba lo mismo en los dos sitios; desde el 4.04 el de suelo es un
+		# slide y el nombre dejo de ser una etiqueta para pasar a ser una mentira.
+		_paso_("dash aéreo", 0.12, func() -> void:
+			_soltar_todo()
+			_teleport(Vector3(0.0, 20.0, 4.0))
+			_p.fsm.cambiar(&"Fall")
+			_pulsar(&"dash"), &"Dash"),
 		_paso_("planear", 0.9, func() -> void:
 			_soltar_todo()
 			# Alto y cayendo: el planeo tiene un retardo de despliegue a propósito,
@@ -92,16 +101,21 @@ func _construir_guion() -> void:
 
 		# --- Pase de feel: dash NieR, planeo por mantener, wall-jump Mario ------
 
-		# Una pulsacion NUEVA salta; no puede abrir la capa a la vez.
-		_chequeo_("pulsar = doble salto", 0.3,
+		# UNA PULSACION NUEVA EN EL AIRE PATEA, y no puede abrir la capa a la vez.
+		# Desde el 4.04 la patada ES el salto aereo; lo que este chequeo protege
+		# sigue siendo lo mismo: que la pulsacion se gaste en el verbo y no en el
+		# planeo, que es el conflicto que hizo separar las dos teclas.
+		_chequeo_("pulsar en el aire = patada", 0.3,
 			func() -> void:
 				_soltar_todo()
 				_teleport(Vector3(0.0, 30.0, 4.0))
 				_p.fsm.cambiar(&"Fall")
 				_p.tiempo_en_aire = 1.0
 				_pulsar_espacio(),
-			func() -> bool: return _p.saltos_aereos == 0 and _p.fsm.nombre_actual() != &"Glide",
-			"la pulsacion debe gastarse en el salto sin abrir la capa"),
+			func() -> bool: return (
+				_p.patada_cargas < _p.tuning.patada_cargas
+				and _p.fsm.nombre_actual() != &"Glide"),
+			"la pulsacion debe gastarse en la patada sin abrir la capa"),
 		# Y seguir manteniendo esa MISMA tecla planea a partir del apice.
 		_chequeo_("mantener = planear", 1.4,
 			func() -> void: pass,
@@ -135,21 +149,43 @@ func _construir_guion() -> void:
 			"mantener el dash debe encadenar a sprint continuo"),
 
 		# Wall-jump: sube de verdad y conserva momentum.
+		# DE FRENTE AL MURO, y las dos cosas a proposito.
+		#
+		# La llegada era (-4, -2, -5): con esa Z es un ROCE, no un choque, y la
+		# regla dura #20 manda wall-run —correctamente—. El chequeo pedia
+		# `WallSlide` y llevaba fallando desde antes de este parche sin que nadie
+		# lo viera, porque la linea `RESULTADO` cuenta ESTADOS y no chequeos.
+		#
+		# Y la CAMARA tambien mira al muro: desde el 4.03 la vertical del rebote es
+		# funcion de hacia donde miras (`walljump_abanico`), asi que sin fijar el
+		# encuadre este chequeo y el siguiente medirian a donde apuntaba el rig.
 		_chequeo_("wall-jump Mario", 0.35,
 			func() -> void:
 				_soltar_todo()
 				_teleport(Vector3(-0.8, 6.0, -34.0))
 				_p.fsm.cambiar(&"Fall")
-				_p.velocity = Vector3(-4.0, -2.0, -5.0)
+				_p.velocity = Vector3(-9.0, -2.0, 0.0)
+				_mirar_al_muro()
 				_pulsar(&"move_forward"),
 			func() -> bool: return _p.fsm.nombre_actual() == &"WallSlide",
 			"chocar contra la pared debe enganchar sin tener que empujar hacia ella"),
 		# Ventana corta a proposito: a 0.25 s la gravedad ya se ha comido 5 m/s y
 		# la medicion no diria nada del impulso inicial.
 		_chequeo_("rebote con altura", 0.1,
-			func() -> void: _pulsar_espacio(),
+			func() -> void:
+				_mirar_al_muro()
+				_pulsar_espacio(),
 			func() -> bool: return (
-				_p.motor.get_vertical() > _p.tuning.walljump_vertical * 0.7
+				# EL PISO DEL ABANICO menos lo que come la ventana. El umbral era un
+				# `0.7` a mano y resulto ser EXACTAMENTE el minimo del abanico
+				# (`1 - 0.30`), asi que el `>` fallaba por cero. Y se lee 0.1 s
+				# despues del impulso, donde la gravedad de subida ya se ha comido
+				# 2.2 m/s: sin descontarlo, el chequeo pide mas de lo que puede
+				# haber. Mirando de frente sobra margen; se deja derivado para que
+				# siga significando «sube de verdad» si alguien afina el abanico.
+				_p.motor.get_vertical() >= (
+					_p.tuning.walljump_vertical * (1.0 - _p.tuning.walljump_abanico)
+					- absf(_p.tuning.gravedad_subida) * 0.1)
 				and _p.motor.rapidez_plana() > 4.0),
 			"el rebote debe subir de verdad y conservar velocidad horizontal"),
 	]
@@ -195,12 +231,23 @@ func _informe() -> void:
 		if visitado:
 			ok += 1
 		print("  %s %s" % ["OK   " if visitado else "FALLA", e])
-	print("RESULTADO: %d/%d estados alcanzados." % [ok, esperados.size()])
+	# EL TITULAR CUENTA LAS DOS COSAS, Y EL CODIGO DE SALIDA TAMBIEN.
+	#
+	# **Esta suite daba verde mientras fallaba.** El resultado decia «12/12 estados
+	# alcanzados» —que se lee como aprobado— y `quit()` miraba SOLO los estados,
+	# asi que un chequeo roto salia con codigo 0 y no paraba nada. Era la unica de
+	# las diez que lo hacia; las demas salen por `_fallos.is_empty()`.
+	#
+	# Costó dos regresiones el mismo dia: `rebote con altura` y `wall-jump Mario`
+	# llevaban commits fallando y se publicaron leyendo esa linea.
+	var chequeos := _guion.filter(func(e: Dictionary) -> bool: return e.has("chequeo"))
+	print("RESULTADO: %d/%d estados alcanzados, %d/%d comprobaciones." % [
+		ok, esperados.size(), chequeos.size() - _fallos.size(), chequeos.size()])
 	if not _fallos.is_empty():
 		print("--- FALLOS ---")
 		for f in _fallos:
 			print("  " + f)
-	get_tree().quit(0 if ok == esperados.size() else 1)
+	get_tree().quit(0 if (ok == esperados.size() and _fallos.is_empty()) else 1)
 
 
 # --- Utilidades ---------------------------------------------------------------
@@ -214,6 +261,17 @@ func _paso_(nombre: String, dur: float, hacer: Callable, espera: StringName) -> 
 func _chequeo_(nombre: String, dur: float, hacer: Callable, chequeo: Callable, porque: String) -> Dictionary:
 	return {"nombre": nombre, "dur": dur, "hacer": hacer, "espera": &"",
 		"chequeo": chequeo, "porque": porque}
+
+
+## Apunta la camara al muro del pasillo de wall-run (cara interior en x = -1.3,
+## normal hacia +X): mirar en -X es mirarlo de frente. Se escribe el yaw del rig
+## directamente, igual que hace `TestFase2`.
+func _mirar_al_muro() -> void:
+	var rig := _main.get_node_or_null("CameraRig")
+	if rig == null:
+		return
+	rig.set("_yaw", deg_to_rad(90.0))
+	rig.set("_realinea", 0.0)
 
 
 func _teleport(pos: Vector3) -> void:

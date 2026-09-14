@@ -36,8 +36,11 @@ extends Resource
 ## Los tres peldaños de la locomocion sin Shift. NO se eligen por la fuerza del
 ## stick: se encadenan por TIEMPO manteniendo la direccion, que es lo que da la
 ## sensacion de que el personaje coge carrerilla.
-@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 3.0
-@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 5.4
+## Caminar estaba en 3.0 y se sentia arrastrado: es la velocidad con la que
+## empiezas SIEMPRE, antes de que la carrerilla haga nada, asi que es la primera
+## impresion del movimiento y no puede ser la mas floja.
+@export_range(0.5, 12.0, 0.1) var velocidad_caminar: float = 4.2
+@export_range(0.5, 16.0, 0.1) var velocidad_trotar: float = 6.4
 @export_range(1.0, 20.0, 0.1) var velocidad_correr: float = 9.4
 ## Solo con Shift. Ver el grupo Surf.
 @export_range(1.0, 30.0, 0.1) var velocidad_sprint: float = 11.0
@@ -63,6 +66,19 @@ extends Resource
 ## lanzado, conservas lo que traias. Antes este suelo era `velocidad_correr` y por
 ## eso un salto vertical llegaba a maxima velocidad de carrera sin pisar el suelo.
 @export_range(0.0, 20.0, 0.1) var control_aereo_techo: float = 3.2
+## AUTORIDAD PARA GIRAR EN EL AIRE, en m/s2, y separada de `aceleracion_aire` a
+## proposito: son dos preguntas distintas.
+##
+##   aceleracion_aire -> cuanta velocidad puedes GANAR en el aire. Baja a
+##     proposito: si no, un salto desde parado llega a velocidad de carrera y la
+##     carrerilla no sirve de nada.
+##   giro_aire        -> cuanto puedes REDIRIGIR lo que ya llevas. No crea
+##     velocidad: solo la gira.
+##
+## Estaban unidas y por eso salir del surf por un desnivel dejaba al jugador
+## volando en linea recta: 12 m/s2 contra 13.5 m/s de inercia son 1.6 s para
+## girar 90 grados. Medido en el Gym.
+@export_range(1.0, 200.0, 1.0) var giro_aire: float = 38.0
 @export_range(1.0, 200.0, 1.0) var frenado_suelo: float = 45.0
 @export_range(0.0, 200.0, 1.0) var frenado_aire: float = 4.0
 ## Frenado cuando vas MÁS RÁPIDO que tu velocidad objetivo y sigues empujando.
@@ -81,7 +97,24 @@ extends Resource
 ## CLAMP DURO de la velocidad horizontal. El momentum se conserva y se encadena,
 ## pero nunca se acumula sin techo: sin esto, encadenar dash y surf termina
 ## sacando al jugador del mapa.
+## EL TOPE ES UN OBJETIVO, NO UN CORTE. Ver `velocidad_drag`.
 @export_range(5.0, 60.0, 0.5) var velocidad_maxima: float = 22.0
+## Con que rapidez se vuelve al tope cuando vas por encima, en 1/s.
+##
+## **Esto es lo que convierte el clamp en un SOFT CAP**, y es la diferencia entre
+## que el momentum ganado se sienta ganado o no. Medido con el clamp duro: salir
+## de un arco a 34 m/s te dejaba a 22.0 **en el primer frame**. Un frame. Todo lo
+## que habias construido encadenando desaparecia sin que nada lo explicara en
+## pantalla.
+##
+## Con drag, 34 decae hacia 22 con constante de tiempo 1/`velocidad_drag`: sigues
+## siendo rapido un rato y lo vas perdiendo, que es lo que se puede leer y lo que
+## premia haber encadenado bien.
+@export_range(0.1, 20.0, 0.1) var velocidad_drag: float = 1.6
+## TOPE DURO absoluto, en m/s. Este si corta, y no es de game feel: es la red que
+## impide atravesar geometria entre dos frames de fisica. A 60 Hz, 55 m/s son 0.92
+## m por tick — por encima de eso un muro de un metro deja de ser un muro.
+@export_range(20.0, 200.0, 1.0) var velocidad_tope_duro: float = 55.0
 
 # --- Dash: esquive UNIDIRECCIONAL -------------------------------------------
 # El dash es un esquive, no un desplazamiento. Corto, seco y en una sola
@@ -139,6 +172,11 @@ extends Resource
 @export_range(0.0, 100.0, 0.5) var surf_stamina: float = 10.0
 ## Alabeo del cuerpo al girar surfeando. Vende la inercia desde lejos.
 @export_range(0.0, 45.0, 1.0) var surf_alabeo: float = 16.0
+## Alabeo del wall-run, en grados. **Estaba escrito a mano dentro de
+## `StateWallRun`** —un `22.0` suelto— y es exactamente lo que prohibe la regla
+## dura #1: un numero que se toca para que se sienta bien viviendo en un `.gd`.
+## Sus dos hermanos, el del surf y el del planeo, si estaban aqui.
+@export_range(0.0, 60.0, 1.0) var wallrun_alabeo: float = 22.0
 ## Ventana durante la que saltar NO cancela el surf: al aterrizar se recupera.
 ## Saltar en mitad de una linea rapida no deberia costarte la linea.
 @export_range(0.0, 6.0, 0.1) var surf_persistencia: float = 2.5
@@ -194,19 +232,6 @@ extends Resource
 @export_range(0.0, 6.0, 0.1) var crouch_quieto: float = 1.5
 
 @export_subgroup("Slide kick (salto de conejo)")
-## Impulso hacia delante de la patada deslizante. Es el salto de conejo de Mario.
-@export_range(0.0, 40.0, 0.5) var slide_kick_impulso: float = 26.0
-@export_range(0.0, 20.0, 0.1) var slide_kick_vertical: float = 6.2
-## Rozamiento de la patada YA EN EL SUELO. Era la friccion del agachado (14) y por
-## eso la patada moria en dos metros: el impulso estaba bien, lo que fallaba es
-## que se lo comia el frenado al aterrizar. Baja: la patada es un DESPLAZAMIENTO
-## que ademas hace dano, y tiene que llegar lejos.
-@export_range(0.5, 60.0, 0.5) var slide_kick_friccion: float = 3.2
-## COOLDOWN. La patada llega mas lejos que nunca, y por eso encadenarla sin pausa
-## superaba al surf: la movilidad mas rapida del juego tiene que seguir siendo el
-## surf, o el shift deja de tener sentido. El pico de la patada es mayor; su
-## velocidad SOSTENIDA, no. Esto es lo que separa las dos cosas.
-@export_range(0.0, 3.0, 0.05) var slide_kick_cooldown: float = 0.9
 
 # --- Deslizamiento ----------------------------------------------------------
 @export_group("Deslizamiento")
@@ -232,6 +257,20 @@ extends Resource
 @export_range(0.1, 10.0, 0.1) var wallrun_velocidad_min: float = 4.0
 ## Caida durante el wall-slide. Baja = da tiempo a reaccionar y encadenar.
 @export_range(0.0, 20.0, 0.1) var wallslide_caida: float = 3.2
+## Con cuanta fuerza se pega el cuerpo al muro mientras resbala, en m/s.
+##
+## Es un valor pequeño y va SOLO en la componente contra la pared. Antes se
+## escribia con `motor.impulso()`, que reemplaza el vector horizontal entero: o
+## sea que rozar un muro a 30 m/s te dejaba a 1.2 yendo hacia el, y toda la
+## velocidad que llevabas A LO LARGO de la pared desaparecia. La intencion del
+## numero era "no despegarse solo" y lo que hacia era borrarte.
+@export_range(0.0, 8.0, 0.1) var wallslide_pegado: float = 1.2
+## Rozamiento del muro sobre la velocidad que va A LO LARGO de el, por segundo.
+##
+## Esto si es una perdida legitima —estas restregandote contra piedra— pero es un
+## rozamiento y no un borrado: conservas la linea y la vas perdiendo. Es el "bonk
+## preservation" del genero.
+@export_range(0.0, 20.0, 0.1) var wallslide_friccion: float = 2.2
 ## Velocidad minima CONTRA la pared para engancharse sin tener que empujar hacia
 ## ella. En Mario basta con chocar; exigir input hace que se sienta esquivo.
 @export_range(0.0, 10.0, 0.1) var wallslide_entrada_min: float = 1.0
@@ -243,6 +282,30 @@ extends Resource
 @export_range(0.0, 25.0, 0.1) var walljump_lateral: float = 9.0
 ## Cuanto momentum A LO LARGO de la pared sobrevive. Con 0 el salto se siente
 ## rigido: da igual como llegues, siempre rebotas igual.
+## **EL ABANICO DEL WALL KICK: cuanto cambia la salida segun hacia donde MIRAS.**
+##
+## Es la mecanica que el documento de referencia llama «la joya», y la razon es
+## que convierte un boton en una funcion continua: *el angulo con el que sales de
+## una pared es el reflejo del angulo al que estabas mirando al tocarla*.
+## Perpendicular da ALTURA y poca distancia; rasante da DISTANCIA y poca altura.
+## Dos jugadores con las mismas teclas tienen techos de movilidad distintos, y eso
+## no se compra con ningun otro numero de este archivo.
+##
+## **Es un ABANICO alrededor de los valores de siempre, no dos numeros nuevos**, y
+## eso es a proposito: en 0.0 vuelven los angulos fijos de antes —10.5 y 9.0— asi
+## que se puede apagar y comparar sin tocar nada mas. En el centro del abanico
+## (incidencia 0.5) devuelve tambien los de siempre; solo abre los extremos.
+##
+## El documento pedia ademas REFLEJAR el momentum entrante. No se hizo, y no por
+## olvido: se probo y el banco dijo que no cambiaba ni un numero —al pulsar saltar
+## ya se ha pasado por un frame de `StateWallSlide`, que reescribe la velocidad, y
+## no queda nada entrante que reflejar—. Esa friccion aqui ya estaba resuelta en
+## `StateWallSlide` y medida: rozar a 30 m/s conserva el 92-98%.
+##
+## Medido antes de existir, con las tres miradas contra el mismo muro:
+## `vy 10.5 / plano 9.0` **las tres**. El angulo no era una mecanica, era un dato
+## que el juego ignoraba.
+@export_range(0.0, 0.8, 0.05) var walljump_abanico: float = 0.30
 @export_range(0.0, 1.5, 0.05) var walljump_conserva: float = 0.55
 ## Cuanto pesa la direccion que pide el jugador con la camara. Permite orientar
 ## el rebote sin poder volver contra la pared.
@@ -259,7 +322,13 @@ extends Resource
 ## ahi el wall-run es la lectura natural. Antes lo decidia de que lado quedaba la
 ## pared, que es una propiedad del sensor y no de como llegas, y por eso los dos
 ## verbos se pisaban.
+## LA frontera de los verbos de pared, en grados entre tu avance y la normal.
+## Por debajo vas de frente —escalas o resbalas—; por encima vas rozando y corres.
+## Un solo numero, sin hueco ni solape entre las dos mitades.
 @export_range(10.0, 89.0, 1.0) var pared_umbral_frontal: float = 55.0
+## Por debajo de esta velocidad plana, el angulo se mide con el INPUT y no con el
+## movimiento: pegado a un muro y casi parado, la velocidad plana es ruido.
+@export_range(0.1, 8.0, 0.1) var pared_avance_minimo: float = 1.5
 
 ## PERDON: sigues pudiendo saltar de la pared este tiempo despues de perder el
 ## contacto. Es lo que hace que encadenar dos muros no exija precision de frame.
@@ -271,46 +340,13 @@ extends Resource
 
 # --- Dive (clavado) ----------------------------------------------------------
 @export_group("Dive")
-## Velocidad horizontal minima para el DIVE. A CERO: atacar en el aire SIEMPRE
-## es un clavado. Exigir carrera hacia que el ataque aereo mas visible del juego
-## no apareciera casi nunca, que es justo lo contrario de lo que se buscaba.
-@export_range(0.0, 20.0, 0.1) var dive_velocidad_min: float = 0.0
-## Empuje hacia delante al entrar en dive. Es lo que dibuja la parabola.
-## Velocidad horizontal del clavado. CONSTANTE durante todo el vuelo: es la
-## fisica de Mario 64 —un cuerpo con velocidad horizontal fija en caida libre—,
-## y es lo que hace que la trayectoria se pueda leer y planificar.
-## ATAQUE AEREO: empuje inicial en la direccion del golpe. Sin el, el ataque en el
-## aire era una animacion mientras el personaje caia casi en el mismo sitio; con
-## el, es una herramienta de movilidad —ganar distancia atacando, como el salto
-## largo de Mario— ademas de un golpe.
-@export_range(0.0, 40.0, 0.5) var aereo_impulso: float = 12.0
-## Cuanto del `avance` del AttackData se aplica en el aire. Era un 0.7 escrito a
-## mano dentro del estado (numero magico, regla dura #1).
-@export_range(0.0, 3.0, 0.05) var aereo_avance_mult: float = 1.0
-@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 21.0
-## LA COMPONENTE QUE FALTABA. El clavado arrancaba con velocidad vertical 0 y
-## dejaba que la gravedad hiciera el resto, asi que la trayectoria empezaba plana
-## y solo se curvaba tarde: se leia como "desplazarse en el aire", no como
-## clavarse. Salir YA hacia abajo es lo que dibuja la diagonal desde el frame uno.
-@export_range(-30.0, 0.0, 0.5) var dive_vertical_inicial: float = -7.0
-## ESPERA ENTRE CLAVADOS. Sin ella, machacar salto + ataque encadenaba QUINCE
-## clavados por segundo: saltar, clavarse, aterrizar y volver a saltar cabe en
-## cuatro frames, y el resultado era un tembleque que ademas viajaba mas rapido de
-## lo que deberia. El clavado es un compromiso, y un compromiso que se puede
-## repetir sin pausa no compromete a nada.
-@export_range(0.0, 3.0, 0.05) var dive_cooldown: float = 0.5
+## LIGERO: poco alcance y mucha caida. Es un CLAVADO, no una diagonal larga.
+## Estaba en 21/-7 y con eso salia casi igual que el pesado: los dos eran la misma
+## parabola tendida y el jugador no tenia forma de distinguirlos jugando. Ahora el
+## ligero cae a plomo hacia delante y el pesado es el que viaja.
+@export_range(0.0, 40.0, 0.5) var dive_impulso: float = 13.0
 
 @export_subgroup("Clavado pesado")
-## El pesado va mas lejos y mas plomo. Es el que se encadena de cabeza en cabeza.
-@export_range(0.0, 40.0, 0.5) var dive_pesado_impulso: float = 25.0
-@export_range(-30.0, 0.0, 0.5) var dive_pesado_vertical: float = -11.0
-## REBOTE. Al clavarse sobre un enemigo se pisa su cabeza y se sale despedido
-## hacia arriba, de vuelta al aire y con el clavado disponible otra vez. Es lo que
-## convierte el ataque en una cadena en vez de en un punto final.
-@export_range(0.0, 30.0, 0.5) var dive_rebote: float = 12.5
-## Gravedad durante el dive. Mas fuerte que la normal: cae con intencion.
-@export_range(-120.0, -10.0, 1.0) var dive_gravedad: float = -52.0
-@export_range(0.0, 1440.0, 10.0) var dive_giro_grados_seg: float = 160.0
 
 # --- Agua ---------------------------------------------------------------------
 @export_group("Agua")
@@ -333,8 +369,6 @@ extends Resource
 ## quieto y a un ritmo que convertia cualquier travesia en una cuenta atras. El
 ## agua es una via, no un castigo.
 @export_range(0.0, 60.0, 0.5) var agua_stamina: float = 1.2
-## Gasto puntual por ataque acuatico.
-@export_range(0.0, 60.0, 0.5) var agua_stamina_ataque: float = 5.0
 
 @export_subgroup("Deriva y orientacion")
 ## DERIVA: oscilacion suave al soltar los controles buceando. Sin esto el cuerpo
@@ -357,10 +391,6 @@ extends Resource
 @export_range(0.05, 2.0, 0.01) var enderezar_duracion: float = 0.35
 
 @export_subgroup("Combate acuatico")
-## Los ataques bajo el agua SON desplazamientos: no hay suelo del que empujar, asi
-## que un golpe es un impulso con hitbox. Ver project.md.
-@export_range(0.0, 40.0, 0.5) var agua_ataque_ligero_impulso: float = 12.0
-@export_range(0.0, 40.0, 0.5) var agua_ataque_pesado_impulso: float = 9.0
 
 # --- Aterrizaje -------------------------------------------------------------
 @export_group("Aterrizaje")
@@ -439,46 +469,72 @@ extends Resource
 # grupo tiene que valer mas que dar un saltito, o el traversal y el combate siguen
 # siendo dos juegos distintos que comparten personaje.
 @export_group("Picado")
-## Suspension antes de caer. No es adorno: es la telegrafia que da peso al impacto
-## y el instante en que se elige donde caer.
-@export_range(0.0, 1.0, 0.01) var plunge_suspension: float = 0.16
-## Velocidad de caida del picado. Constante y muy por encima de la gravedad: cae
-## como una piedra, no como un cuerpo.
-@export_range(-120.0, -5.0, 1.0) var plunge_velocidad_caida: float = -34.0
 
 @export_subgroup("Escalado por altura de caida")
-## Por debajo de esta caida el picado vale lo que dice su AttackData y nada mas.
-@export_range(0.0, 30.0, 0.5) var plunge_altura_min: float = 2.5
-## Caida a partir de la cual ya no crece. Sin techo, una torre de 60 m convertiria
-## el picado en un boton de borrar la pantalla.
-@export_range(1.0, 100.0, 0.5) var plunge_altura_max: float = 20.0
-## Multiplicadores en la caida maxima. A 1.0 el escalado queda desactivado.
-@export_range(1.0, 6.0, 0.05) var plunge_dano_mult: float = 2.6
-@export_range(1.0, 6.0, 0.05) var plunge_radio_mult: float = 2.1
-@export_range(1.0, 6.0, 0.05) var plunge_stagger_mult: float = 2.2
-@export_range(1.0, 6.0, 0.05) var plunge_empuje_mult: float = 2.4
-## A partir de esta caida el aturdimiento pasa a DERRIBO. Es el salto cualitativo
-## que hace que merezca la pena subir del todo en vez de un poco.
-@export_range(0.0, 100.0, 0.5) var plunge_derribo_desde: float = 12.0
 
 # --- Combate ----------------------------------------------------------------
 @export_group("Combate")
+## Fraccion de la velocidad horizontal que sobrevive al plantarse a parriear.
+##
+## Era CERO —`velocity = Vector3.ZERO`— y eso incumple la regla del genero:
+## convierte, escala o proyecta, nunca borres. Un parry es un compromiso y frenar
+## es parte de el, pero llegar a 15 m/s y quedarte clavado en un frame se siente
+## como chocar contra el aire. Medido antes: 15.0 -> 0.0.
+@export_range(0.0, 1.0, 0.05) var parry_retencion: float = 0.25
 @export_range(0.02, 0.6, 0.01) var parry_ventana: float = 0.16
 @export_range(0.01, 0.3, 0.01) var parry_ventana_perfecta: float = 0.06
 @export_range(0.0, 2.0, 0.01) var parry_recuperacion_fallo: float = 0.4
-@export_range(0.0, 0.5, 0.005) var hitstop_ligero: float = 0.05
-@export_range(0.0, 0.5, 0.005) var hitstop_pesado: float = 0.09
 @export_range(0.0, 0.5, 0.005) var hitstop_parry: float = 0.16
-@export_range(0.0, 1.0, 0.005) var hitstop_punto_debil: float = 0.25
-@export_range(0.0, 0.6, 0.01) var esquiva_iframes: float = 0.30
+## ESCALADO POR INERCIA. Un golpe que llega lanzado empuja mas que uno parado.
+##
+## Vivia con los numeros de la cuerda porque el primero que lo uso fue el golpe en
+## viaje, que ya no existe. Pero no era suyo: `escalar_por_inercia()` la usa
+## tambien `EnemyEstampado`, y un numero de combate compartido va en Combate.
+##
+## A `carga_inercia_ref` m/s el empuje sale tal y como esta en su `.tres`.
+@export_range(1.0, 60.0, 0.5) var carga_inercia_ref: float = 18.0
+## Suelo y techo del escalado. El techo es lo que lo mantiene MODERADO: llegar
+## lanzado pega mas, pero no convierte cualquier golpe en un cañon.
+@export_range(0.0, 1.0, 0.05) var carga_inercia_min: float = 0.45
+@export_range(1.0, 4.0, 0.05) var carga_inercia_max: float = 1.55
 
 # --- Stamina ----------------------------------------------------------------
+# EL FEEDBACK. «El 40% del feel no esta en la fisica», dice el documento de
+# movimiento, y aqui era cierto de la peor manera: el moveset medido al frame y
+# **ni una sola particula en todo `src/`**. La pantalla decia lo mismo a 30 m/s
+# que a 8.
+#
+# Va en su propio grupo a proposito: **nada de aqui decide nada del juego**. Si
+# se pone todo a cero, el jugador se mueve exactamente igual.
+@export_group("Feedback")
+## Cuanto se aplasta al aterrizar, en fraccion de altura. 0.35 es un buen chafado
+## sin que parezca que se rompe.
+@export_range(0.0, 0.7, 0.01) var feedback_squash_max: float = 0.35
+## Cuanto tarda en recuperarse, en segundos. El documento pide 0.12 y tiene razon
+## en el orden de magnitud: por debajo de 0.08 no se ve y por encima de 0.2 parece
+## que el personaje se ha quedado pegado al suelo.
+@export_range(0.02, 0.6, 0.01) var feedback_squash_duracion: float = 0.12
+## A partir de que velocidad de impacto se empieza a notar el aplastado, en m/s.
+## Por debajo, aterrizar de un escalon daria el mismo golpe que caerse de una
+## torre y el canal dejaria de significar nada.
+@export_range(0.0, 30.0, 0.5) var feedback_squash_desde: float = 6.0
+## Cuanto se estira al subir, en fraccion. Mas discreto que el aplastado porque es
+## CONTINUO: lo que en un evento es carácter, sostenido es una deformidad.
+@export_range(0.0, 0.5, 0.01) var feedback_estirado: float = 0.14
+## Cada cuanto deja un fantasma la estela, en segundos.
+@export_range(0.01, 0.4, 0.01) var feedback_estela_paso: float = 0.035
+## Cuanto dura cada fantasma, en segundos.
+@export_range(0.05, 1.5, 0.05) var feedback_estela_vida: float = 0.22
+## Sacudida al aterrizar duro. **Pequeña a proposito**: el documento subraya que
+## el screenshake solo va en eventos discretos y con 0.25, y que sacudir de forma
+## continua no comunica velocidad — comunica que la camara esta rota.
+@export_range(0.0, 1.5, 0.05) var feedback_shake_impacto: float = 0.25
+
 @export_group("Stamina")
 ## Barra única: escalar, planear, correr, dashear y aguantar sacudidas.
 ## Los ataques NO gastan stamina: esto no es un souls.
 @export_range(10.0, 500.0, 1.0) var stamina_max: float = 100.0
 @export_range(0.0, 100.0, 0.5) var stamina_escalar: float = 6.0
-@export_range(0.0, 100.0, 0.5) var stamina_aguantar_sacudida: float = 24.0
 @export_range(0.0, 100.0, 0.5) var stamina_planear: float = 4.0
 @export_range(0.0, 100.0, 0.5) var stamina_sprint: float = 8.0
 @export_range(0.0, 100.0, 0.5) var stamina_dash: float = 12.0
@@ -490,11 +546,59 @@ extends Resource
 @export_group("Cámara")
 @export_range(1.0, 20.0, 0.1) var camara_distancia: float = 6.5
 @export_range(0.0, 4.0, 0.05) var camara_altura_objetivo: float = 1.35
+## Palmo que la lente guarda por encima del agua nadando en superficie. Ver
+## `CameraRig._sacar_del_agua()`.
+@export_range(0.0, 3.0, 0.05) var camara_margen_agua: float = 0.55
 @export_range(0.01, 1.0, 0.01) var camara_sensibilidad: float = 0.28
 @export_range(-89.0, 0.0, 1.0) var camara_pitch_min: float = -65.0
 @export_range(0.0, 89.0, 1.0) var camara_pitch_max: float = 55.0
 @export_range(0.01, 1.0, 0.01) var camara_suavizado: float = 0.12
 @export_range(20.0, 110.0, 1.0) var camara_fov: float = 62.0
+
+@export_subgroup("FOV dinámico — la sensación de velocidad")
+## Grados de FOV que se abren por cada m/s POR ENCIMA de la velocidad de correr.
+## Es lo que hace que un disparo de resortera a 33 m/s se sienta como un disparo
+## y no como caminar rápido.
+@export_range(0.0, 3.0, 0.01) var camara_fov_por_ms: float = 0.42
+## Tope de esos grados extra. Sin tope, el disparo mete un ojo de pez y se pierde
+## la lectura del espacio justo cuando más falta hace.
+@export_range(0.0, 40.0, 0.5) var camara_fov_extra_max: float = 15.0
+## Lo rápido que ABRE (1/s). Alto: el golpe de velocidad tiene que llegar con el
+## impulso, no medio segundo después.
+@export_range(0.5, 30.0, 0.1) var camara_fov_abre: float = 9.0
+## Lo rápido que CIERRA (1/s). **Más lento que abrir a propósito.** Un FOV que
+## abre y cierra igual de rápido se lee como un parpadeo; abriendo de golpe y
+## cerrando despacio, el disparo deja resaca y se siente potente.
+@export_range(0.5, 30.0, 0.1) var camara_fov_cierra: float = 2.2
+
+@export_subgroup("Look ahead — mirar a donde vas")
+## Metros que la cámara se adelanta en la dirección del movimiento, a tope de
+## velocidad. Moderado a propósito: adelantarse demasiado deja al personaje
+## pegado al borde de la pantalla y se pierde de vista lo que tiene detrás.
+@export_range(0.0, 12.0, 0.1) var camara_adelanto: float = 2.4
+## Velocidad a la que el adelanto llega a su máximo, en m/s.
+@export_range(1.0, 60.0, 0.5) var camara_adelanto_ref: float = 26.0
+## Suavizado del adelanto (1/s). Bajo: el adelanto tiene que ARRASTRARSE detrás
+## del movimiento, no pegarse a él, o gira con cada corrección del stick.
+@export_range(0.2, 20.0, 0.1) var camara_adelanto_respuesta: float = 3.0
+## Cuánto del adelanto es VERTICAL. Separado porque subir y bajar disparado —que
+## es lo que hace la resortera— pide ver arriba, y eso no se consigue con el
+## adelanto horizontal.
+@export_range(0.0, 2.0, 0.05) var camara_adelanto_vertical: float = 0.55
+
+@export_subgroup("Sacudida")
+## Metros de desplazamiento de encuadre por unidad de intensidad.
+##
+## La sacudida va en `h_offset`/`v_offset` de la `Camera3D`, no en la rotación del
+## brazo: rotar el brazo hace ORBITAR la cámara alrededor del jugador, que es
+## mucho más mareante y además la mete en la geometría. Desplazar el encuadre
+## sacude la imagen sin mover la cámara de sitio.
+@export_range(0.0, 1.0, 0.005) var camara_shake_offset: float = 0.11
+## Frecuencia del ruido de la sacudida. Alto = vibración; bajo = bandazo.
+@export_range(0.5, 60.0, 0.5) var camara_shake_frecuencia: float = 22.0
+## Grados de rotación que se mantienen además del desplazamiento. Un poco de giro
+## vende el impacto; mucho marea.
+@export_range(0.0, 3.0, 0.05) var camara_shake_giro: float = 0.35
 
 
 ## Velocidad inicial de salto: siempre la de altura maxima. v = sqrt(2 * g * h)
@@ -554,3 +658,204 @@ func velocidad_salto_corto() -> float:
 ## Velocidad del dash derivada de distancia y duración.
 func velocidad_dash() -> float:
 	return dash_distancia / maxf(dash_duracion, 0.001)
+
+
+# --- Lanza: apoyarse en ella --------------------------------------------------
+@export_group("Lanza")
+## PERTIGA. Saltar junto a una lanza clavada te impulsa con ella: es
+## plataformeo disfrazado de arma (`docs/03 §4.1`).
+## Radio dentro del cual la lanza sirve de apoyo.
+@export_range(0.5, 8.0, 0.1) var vault_radio: float = 3.2
+## Impulso vertical del apoyo, SUMADO al salto. Un salto normal sube 2.6 m; esto
+## lo lleva a una altura que no se alcanza de ninguna otra forma sin escalar.
+@export_range(0.0, 25.0, 0.5) var vault_impulso: float = 8.5
+## Empujon horizontal en la direccion que pidas, para cruzar y no solo subir.
+@export_range(0.0, 20.0, 0.5) var vault_avance: float = 5.0
+
+
+# --- EL MOVESET: acciones cortas que terminan solas ----------------------------
+#
+# Referencia de feel: PSEUDOREGALIA. Un movimiento no es una simulacion que se
+# sostiene, es un GESTO: empieza en el frame que lo pides, dura menos de segundo
+# y pico, y se acaba solo. La velocidad la pone el jugador encadenando, no el
+# motor integrando.
+#
+# Aqui no hay numeros de la fisica general —la gravedad, el clamp y la
+# locomocion siguen arriba, donde estaban y como estaban—. Esto es solo lo que
+# el moveset nuevo necesita.
+@export_group("Moveset")
+
+## LA CUERDA. Un arco, y se acabo.
+##
+## A que distancia se puede enganchar un ancla, en metros.
+##
+## **Es el numero que dibuja los niveles**, y por eso no se elige a gusto: se
+## elige mirando la separacion real entre anclas vecinas. Con 12 m, de las cinco
+## del Gym —separadas 13.7, 18.3, 9.7, 18.3 y 16.7 m— **solo UNA pareja se podia
+## encadenar**, y por eso la cuerda se sentia corta con razon: no habia cadena que
+## dar. Con 19 llegan las cinco.
+##
+## `MedirCadena` lo cuenta leyendo el mundo, no una tabla escrita a mano: el dia
+## que se muevan las anclas, sigue diciendo la verdad.
+@export_range(2.0, 60.0, 0.5) var cuerda_rango: float = 19.0
+## Semiangulo del cono de camara dentro del que se busca ancla, en grados.
+##
+## Existe para que enganchar sea una DECISION y no un sorteo: en una sala con
+## varias anclas, sin cono te engancharias a la que acabas de soltar —que esta
+## justo detras y cerquisima— en vez de a la que estas mirando.
+@export_range(10.0, 90.0, 1.0) var cuerda_cono_grados: float = 55.0
+## Radio minimo del arco, en metros. Engancharse pegado al ancla daria un giro de
+## radio cero: mucha velocidad angular, ningun desplazamiento, y una camara
+## imposible de seguir.
+@export_range(0.5, 8.0, 0.1) var cuerda_largo_min: float = 2.0
+## LA Z SE MANTIENE: sueltas el boton y te sueltas de la cuerda.
+##
+## Es el gesto natural y el que hace que soltar en el punto correcto sea una
+## decision de precision en vez de una segunda pulsacion que hay que acertar.
+## Ademas convierte el arco en un rango continuo de intenciones, igual que el
+## jump cut hace con el salto: un toque da un gancho corto, mantener da el arco
+## entero.
+##
+## ARCO MINIMO, en segundos. Aunque sueltes en el mismo frame, el arco dura esto.
+## Sin el, un toque rapido enganchaba y se soltaba sin llegar a mover nada y se
+## leia como que la cuerda habia fallado.
+@export_range(0.0, 1.0, 0.01) var cuerda_arco_min: float = 0.22
+## TOPE DEL ARCO, en segundos. Pasado esto se suelta sola, mantengas o no.
+##
+## **Ya no es la mecanica, es el techo de seguridad.** Cuando el arco no se podia
+## mantener, este numero ERA la mecanica: sin el, la cuerda dejaba de ser un
+## movimiento y pasaba a ser un MODO —te cuelgas, bombeas, ganas altura pasada
+## tras pasada y el nivel deja de importar—. Con la Z mantenida quien decide es el
+## jugador, asi que el tope sube y se queda solo para que colgarse no sea eterno.
+##
+## Lo que impide bombear ya no es el reloj: es `cuerda_perdida`.
+@export_range(0.2, 12.0, 0.1) var cuerda_arco_max: float = 3.0
+## Fraccion de velocidad que pierde el arco por segundo.
+##
+## **Es lo que sustituye al reloj como freno del bombeo.** Un pendulo sin
+## rozamiento es perpetuo, y con el stick metiendo tangencial cada frame no es
+## perpetuo: es creciente. Medido en el 3.08 sin perdida, el arco daba vueltas a
+## altura constante acelerando solo de 10 a 19 m/s.
+@export_range(0.0, 1.0, 0.01) var cuerda_perdida: float = 0.10
+## Aceleracion TANGENCIAL que imprime el stick, en m/s².
+##
+## Va por el arco, nunca contra la cuerda: empujar hacia el ancla no haria nada
+## —la restriccion lo deshace— asi que solo cuenta lo que abre, cierra o inclina
+## el giro. **Esto no es bombeo**: lo que hacia del bombeo una mecanica aparte era
+## poder repetir pasadas, y con `cuerda_arco_max` no hay segunda pasada que dar.
+@export_range(0.0, 120.0, 1.0) var cuerda_tangencial: float = 20.0
+## Gravedad del arco, en m/s², y SIMETRICA a proposito.
+##
+## Regla dura #16: la del juego es asimetrica —-38 cayendo, -22 subiendo—, que es
+## medio game feel gratis en un salto y rompe cualquier cosa que conserve energia.
+## Medido en el 3.08 con la version anterior de esto: el arco terminaba 6 m por
+## ENCIMA de donde empezo.
+@export_range(5.0, 90.0, 0.5) var cuerda_gravedad: float = 30.0
+## ¿EL ANCLA CUENTA COMO CONTACTO? Con esto puesto, soltarse de un arco devuelve
+## la cuerda —igual que tocar suelo o pared— y se pueden encadenar anclas sin
+## pisar nada. Es la diferencia entre un verbo encadenable y un billete de un
+## solo viaje, y por eso esta aqui y no cableado: apagarlo devuelve el juego a
+## como se sentia antes, que es la unica forma de juzgar el cambio.
+##
+## Lo que impide que sea bombear no es este interruptor: es que la MISMA ancla no
+## vale dos veces seguidas (`PlayerController.ultima_ancla`). Encadenar exige un
+## ancla nueva, o sea que el techo lo pone el nivel.
+@export var cuerda_ancla_recarga: bool = true
+## Multiplicador a la velocidad al soltar. Pequeño y siempre: soltar en el punto
+## correcto ya es la recompensa —ahi es donde el arco va mas rapido— y esto solo
+## lo subraya. Un multiplicador grande premiaria colgarse, no soltar bien.
+@export_range(1.0, 2.0, 0.01) var cuerda_salida_mult: float = 1.15
+## Techo de velocidad DURANTE el arco, en m/s.
+##
+## El clamp global (`velocidad_maxima`, 22) no le sirve de techo a un pendulo: le
+## sirve de IMPUESTO. Un arco alcanza su pico justo abajo, que es donde es
+## horizontal, asi que recortar ahi le quita energia en el unico punto donde el
+## clamp muerde y el arco pierde altura por una razon que no es fisica.
+@export_range(10.0, 60.0, 0.5) var cuerda_velocidad_max: float = 34.0
+## Cuanto puede corregir la restriccion la POSICION del jugador en un frame, en
+## metros. Escribir `global_position` salta por encima de las colisiones, asi que
+## un tiron grande podria meter al jugador dentro de la geometria. Con tope, la
+## mayor parte del trabajo la hace la velocidad, que si colisiona.
+@export_range(0.05, 4.0, 0.05) var cuerda_correccion_max: float = 0.6
+## Altura desde la que sale el cordon, sobre el origen del jugador, en metros.
+## Es presentacion pura: la restriccion se calcula contra el origen, esto solo
+## decide de donde parece que cuelga. A la altura del pecho, no de los pies.
+@export_range(0.0, 3.0, 0.05) var cordon_altura_mano: float = 1.15
+
+## LA PATADA. El unico movimiento ofensivo, y ademas es traversal.
+##
+## Cuanto dura, en segundos. Corta a proposito: es un GESTO, y un gesto que se
+## puede sostener deja de serlo. Con `patada_velocidad` decide ademas cuanto hueco
+## cruza — 0.25 s a 18 m/s son 4.5 m, que es el ancho de vano que se puede dibujar
+## en un nivel sabiendo que se salva con una patada y no con dos.
+@export_range(0.05, 1.2, 0.01) var patada_duracion: float = 0.25
+## Velocidad de la patada, en m/s. **ES UN SUELO, NO UN VALOR.**
+##
+## La distincion es la mecanica entera. Escrita como valor —que es como estaba— la
+## patada BORRA la velocidad que traias: medido, entrar lanzado a 29.8 m/s y patear
+## te dejaba a 18.0, o sea **11.8 m/s menos por usar tu propio moveset**. Eso rompe
+## de frente la ley 5 del rediseño ("encadenar limpio acumula velocidad") y, peor,
+## el principio rector: la velocidad la ponia el motor, no el jugador.
+##
+## Como suelo, la patada GARANTIZA 18 y no quita nada: llegas a 30, sales a 30, y
+## el gesto cubre mas terreno porque venias mas rapido. Eso es lo que hace que
+## encadenar valga algo.
+@export_range(2.0, 40.0, 0.5) var patada_velocidad: float = 18.0
+## CARGAS por tiempo de vuelo. Una es el minimo que hace que la patada cueste algo.
+##
+## Es el numero que mas cambia como se siente el aire, y por eso esta aqui suelto y
+## no cableado: con una, el aire es un compromiso; con tres —que es por donde anda
+## *Pseudoregalia* con las Sun Greaves al completo— el aire se convierte en un
+## sitio donde se vive, y encadenar deja de exigir que cada patada acierte.
+##
+## **Esta en TRES desde que se midio.** Con una, tres de cada cuatro intentos de
+## encadenar terminaban en el suelo por un calculo de medio metro, y eso no se lee
+## como dificultad: se lee como que el juego no te deja. Ver `MedirPatada`, que
+## cuenta cuantas caben en un tiempo de vuelo y cuanto terreno cubren.
+@export_range(1, 5, 1) var patada_cargas: int = 3
+## IMPULSO VERTICAL AL PATEAR EN EL AIRE, en m/s. **La patada ES el salto aereo
+## desde el 4.04**, asi que tiene que LEVANTAR: un salto aereo que no sube no es
+## un salto, es un empujon de lado.
+##
+## Mas bajo que un salto entero (10.7) a proposito. La patada compra ALTURA y
+## DISTANCIA a la vez; si diera la misma altura que un salto ademas de cruzar
+## cuatro metros, no habria ninguna razon para usar el salto de suelo.
+@export_range(0.0, 20.0, 0.5) var patada_impulso_vertical: float = 5.0
+## Fraccion de gravedad DURANTE el gesto. **Cero era el problema reportado**: con
+## la gravedad apagada del todo, patear se veia como volar —un planeo horizontal
+## de un cuarto de segundo— y eso no es una patada.
+##
+## Con una fraccion la trayectoria es un ARCO: sube, se dobla y cae. Se lee entera
+## antes de pulsar, que es lo que pide la fisica de Mario 64, y sigue cruzando
+## hueco porque la caida durante el gesto es una fraccion de la normal.
+@export_range(0.0, 1.0, 0.05) var patada_gravedad_mult: float = 0.35
+## Vertical al terminar SIN acertar, en m/s. La patada suspende la gravedad
+## mientras dura y esto es lo que devuelve al soltarte.
+##
+## Pequeño a proposito: un salto sube a 10.7 m/s, asi que esto no es un salto, es
+## un respiro. Pero tampoco es cero —que es como estaba— porque salir de una patada
+## con la vertical a cero es caer a plomo desde parado, y entonces el gesto no
+## sirve para cruzar nada que no sea plano.
+##
+## **Se aplica como maximo con la vertical de entrada**, no como sustitucion:
+## patear subiendo no te frena, patear cayendo te salva la caida. Una sola vez por
+## tiempo de vuelo.
+@export_range(0.0, 12.0, 0.1) var patada_salida_vertical: float = 2.0
+## Vertical al ACERTAR, en m/s. El rebote.
+##
+## Es lo que convierte a un enemigo en plataforma, y sin el la frase del diseño
+## —"golpear es seguir moviendote"— no se cumple: medido antes de existir, conectar
+## te dejaba a vy 0.0 y cayendo. Alto a proposito, casi un salto: el premio por
+## acertar tiene que devolverte al sitio desde donde se decide la siguiente cosa.
+@export_range(0.0, 25.0, 0.5) var patada_rebote: float = 10.0
+## Segundos de gravedad CERO tras acertar. Sin esto el rebote es un empujon y ya;
+## con esto hay una pausa en la que se elige el siguiente objetivo.
+@export_range(0.0, 1.0, 0.01) var patada_hangtime: float = 0.14
+## Con cuanta autoridad se redirige, en grados por segundo.
+##
+## Alta a proposito: la ley del moveset dice que el jugador manda la direccion
+## durante TODO el movimiento, y una patada que no se puede corregir es una
+## animacion con la que se colisiona. Se gira la DIRECCION, no la velocidad: aqui
+## un `slerp` es el primitivo correcto porque lo que rota es un unitario, no un
+## vector que tendria que pasar por cero (regla dura #24).
+@export_range(60.0, 1440.0, 10.0) var patada_giro_grados_seg: float = 540.0

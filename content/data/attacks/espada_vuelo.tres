@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "espada_vuelo"
+; La hoja girando pega MENOS que el corte de mano y llega mas lejos. Es el
+; intercambio: tirarla cubre distancia y deja a varios tocados, pero mientras
+; esta fuera no tienes espada — y ese es el precio de verdad, no el numero.
+dano = 40.0
+dano_poise = 45.0
+alcance = 0.8
+radio = 0.6
+altura = 0.0
+; ARCO COMPLETO, misma razon que `lanza_vuelo`: `Hitbox` aplasta la Y al medir el
+; arco, asi que contra un arma que vuela hacia arriba el filtro daria resultados
+; falsos. Con 180 el filtro es un no-op y manda el radio de la consulta, que si
+; es 3D. Y ademas describe lo que pasa: una hoja que gira corta a todo lo que roza.
+arco_grados = 180.0
+max_objetivos = 3
+; La ventana la abre y la cierra el ESTADO, no estos numeros: el vuelo dura lo
+; que dura el vuelo. 600 frames es un techo que no se alcanza nunca.
+frames_windup = 0
+frames_activo = 600
+frames_recuperacion = 0
+empuje = Vector3(0, 0.5, 5)
+stagger = 0.4
+fuerza_muerte = 10.0
+torque_muerte = 10.0
+hitstop = 0.05
+shake = 0.28
+color_vfx = &"oro_palido"
+movilidad = 0.0
+autoencarar = false
+frame_cadena = 999

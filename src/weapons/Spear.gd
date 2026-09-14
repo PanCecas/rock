@@ -1,0 +1,416 @@
+class_name Spear
+extends Node3D
+## LA LANZA. Cuerpo y orquestador; la lógica vive en su máquina de estados.
+##
+## Mismo patrón que `Enemigo` + `EnemyStateMachine`, y por la misma razón: seis
+## comportamientos con reglas distintas metidos en un `match` dentro de
+## `_physics_process` es exactamente el archivo de 372 líneas que hubo que
+## extraer en la 3.03. Aquí se empieza ya extraído.
+##
+##   Holstered -> Wielded -> InFlight -> Embedded | Flotando -> Returning
+##
+## `docs/03_ARQUITECTURA_MECANICAS.md §4` tiene el diseño completo.
+##
+## **Una sola lanza.** No es una limitación técnica: la escasez es lo que hace
+## que decidir dónde la clavas sea una decisión y no un trámite.
+
+signal clavada(punto: Vector3, normal: Vector3)
+signal recuperada
+signal estado_cambiado(nombre: StringName)
+
+@export var tuning: SpearTuning
+@export var ataque: AttackData
+@export var palette: Palette
+## Quién la lanzó. Decide el equipo de la hitbox: sin esto se hiere a sí mismo.
+@export var dueno_path: NodePath
+
+## Superficies en las que se clava.
+##
+## Incluye el mundo sólido y NO solo la capa `SPEAR_STICK`. Obligar a etiquetar
+## cada muro a mano es una tarea que se olvida, y el fallo resultante —"la lanza
+## no se clava aquí y no sé por qué"— es invisible. `SPEAR_STICK` queda para lo
+## que es clavable SIN ser mundo sólido.
+@export_flags_3d_physics var capas_clavado: int = Layers.WORLD | Layers.COLOSSUS_SURFACE | Layers.SPEAR_STICK
+
+@onready var fsm: SpearStateMachine = $FSM
+@onready var hitbox: Hitbox = $Hitbox
+## LA CARA QUE SE DEJA PATEAR. Apagada salvo mientras flota (`Suspendida`).
+##
+## Es del bando ENEMIGO (`equipo = 1`) y no por narrativa: `Hitbox.golpear()`
+## descarta las hurtbox de su mismo equipo, asi que con 1 la alcanza la patada
+## del jugador y la ignoran los enemigos. Un numero, las dos reglas.
+@onready var hurtbox: Hurtbox = get_node_or_null(^"Hurtbox")
+## EL ANCLA QUE VIAJA. Mientras la lanza esta fuera —volando, clavada o en el
+## suelo— es un punto de cuerda mas: la Z se engancha a ella como a cualquier
+## otra. Es el proyectil que el jugador se fabrica donde el nivel no puso ninguno.
+##
+## Se dejo constancia de la objecion en su momento —el 4.00 quito justo esto por
+## convertir un verbo de movimiento en una cadena de tres acciones, y porque la
+## COLOCACION de las anclas es el diseño de nivel— y se pidio igualmente. Queda
+## escrito aqui para que la proxima vez que alguien lo lea sepa que fue una
+## decision y no un descuido.
+@onready var ancla: Ancla = get_node_or_null(^"Ancla")
+@onready var visual: Node3D = $Visual
+@onready var plataforma: StaticBody3D = $Plataforma
+@onready var cordon: Cordon = $Cordon
+
+var dueno: Node3D = null
+## VELOCIDAD DE VUELO, en mundo. La escribe `InFlight` y la reescribe una patada.
+##
+## Vive aqui y no dentro del estado porque **la patada tiene que poder cambiarla
+## desde fuera**: `recibir_golpe()` llega por la `Hurtbox`, no por la FSM.
+var vuelo: Vector3 = Vector3.ZERO
+## Dirección de vuelo. La escribe `InFlight`.
+var direccion: Vector3 = Vector3.FORWARD
+## Punto y normal del clavado. Los escribe `Embedded`.
+var punto_clavado: Vector3 = Vector3.ZERO
+var normal_clavado: Vector3 = Vector3.UP
+## EN QUE se clavo. Lo necesita la Fase 4 —una lanza clavada en un coloso es un
+## asidero que se mueve con el— y de paso hace depurable el vuelo.
+var cuerpo_clavado: Node3D = null
+
+var _mat: StandardMaterial3D
+
+
+func _ready() -> void:
+	if tuning == null:
+		tuning = SpearTuning.new()
+	if palette == null:
+		palette = GameState.palette
+	dueno = get_node_or_null(dueno_path) as Node3D
+	_preparar_visual()
+	if cordon != null:
+		cordon.palette = palette
+	soltar_plataforma()
+	if hitbox != null:
+		hitbox.dueno = self
+		hitbox.equipo = 0
+	armar_hurtbox(false)
+	if ancla != null:
+		ancla.habilitar(false)
+	fsm.configurar(self)
+
+
+## Enciende o apaga la cara pateable. Lo pide `Suspendida` al entrar y al salir:
+## fuera de ahi la lanza no es un blanco, y una hurtbox olvidada encendida
+## convertiria una lanza guardada en la mano en algo a lo que patear.
+func armar_hurtbox(armada: bool) -> void:
+	if hurtbox == null:
+		return
+	# **SE APAGA POR CAPA, NO POR `monitorable`.** Es la diferencia entre apagarla
+	# y creer que la apagas: `monitorable` solo decide si OTRAS areas la detectan
+	# monitorizando, y la `Hitbox` de este proyecto no monitoriza — pregunta una
+	# forma al espacio (`intersect_shape`), y eso encuentra cualquier area por su
+	# CAPA sin mirar `monitorable` en absoluto.
+	#
+	# Lo cazo el banco: con la lanza guardada en la mano, «conectar con un
+	# enemigo» pasaba a decir `victima: sigue en pie` — la patada estaba
+	# golpeando la lanza del propio jugador, a distancia cero, y como
+	# `max_objetivos` es 1 el enemigo no llegaba a existir para el golpe.
+	hurtbox.collision_layer = Layers.HURTBOX if armada else 0
+	hurtbox.monitorable = armada
+	hurtbox.dueno = self
+
+
+## LA PATADA LA TIRA, NO LA ROMPE.
+##
+## Devuelve IMPACTO porque el golpe SI ha ocurrido —el jugador tiene que rebotar—
+## pero aqui no hay vida que descontar: una lanza no se mata. Lo unico que pasa
+## es que sale despedida y deja de flotar, y eso es lo que cobra el pogo: **una
+## lanzada, un pogo**.
+## PATEAR TU PROPIA ARMA LANZADA. La tiras, la alcanzas en el aire y la
+## REDIRIGES — es el verbo que el documento de movimiento pide por «casi cero
+## codigo», y lo es porque la lanza ya sabia volar.
+##
+## No es un empujon: se le reescribe la velocidad ENTERA hacia donde pateas. Un
+## empujon sumaria a lo que ya llevaba y el segundo rumbo seria una mezcla que
+## nadie pidio; asi, la lanza sale nueva y el rumbo lo decides tu.
+##
+## Devuelve IMPACTO porque el golpe SI ha ocurrido —el jugador tiene que rebotar—
+## pero aqui no hay vida que descontar: una lanza no se mata.
+func recibir_golpe(golpe: Golpe) -> int:
+	if fsm == null:
+		return Golpe.Resultado.INMUNE
+	var donde := fsm.nombre_actual()
+	if donde != &"InFlight" and donde != &"Flotando":
+		return Golpe.Resultado.INMUNE
+	var hacia := golpe.direccion
+	if hacia.is_zero_approx():
+		hacia = direccion
+	direccion = hacia.normalized()
+	vuelo = direccion * tuning.patada_empuje
+	CombatFX.impacto(get_parent(), global_position, color_de(&"oro_palido"), 1.8)
+	EventBus.camara_shake.emit(0.3, 0.12)
+	# Se reentra en el vuelo aunque ya estuviera volando: lo que empieza aqui es
+	# un tiro NUEVO, con su propio reloj y su propio alcance.
+	fsm.cambiar(&"InFlight", {"direccion": direccion}, true)
+	return Golpe.Resultado.IMPACTO
+
+
+func _physics_process(delta: float) -> void:
+	if HitstopManager.global_activo():
+		return
+	fsm.physics_update(delta)
+	_actualizar_ancla()
+
+
+## El ancla vive mientras el arma este FUERA. Se mira aqui, en un sitio, en vez
+## de encenderla y apagarla en los seis estados: tres se acordarian y tres no, que
+## es el fallo de la regla dura #13 con otro nombre.
+func _actualizar_ancla() -> void:
+	if ancla == null:
+		return
+	var fuera := esta_fuera()
+	if ancla.activa != fuera:
+		ancla.habilitar(fuera)
+
+
+## El cordon se tiende en `_process`, a ritmo de RENDER, y no con la fisica.
+##
+## Sus dos extremos cuelgan de cosas que la interpolacion de fisica dibuja suaves
+## —la mano del jugador y el asta—. Tendiendolo a 60 Hz, la cuerda daba saltos
+## contra un personaje que iba fluido: el defecto se veia justo donde mas duele,
+## enganchado y a toda velocidad.
+func _process(_delta: float) -> void:
+	_tender_cordon()
+
+
+## El cordon se tiende desde la MANO, no desde el asta: la lanza clavada esta a
+## treinta metros y lo que cuelga del jugador es la cuerda, no el arma.
+##
+## Solo existe cuando la lanza esta fuera de la mano. Guardada o empunada no
+## cuelga de nada, y dibujar una cuerda de cero metros da una mancha en pantalla.
+func _tender_cordon() -> void:
+	if cordon == null:
+		return
+	var fuera := not en_mano() and fsm.nombre_actual() != &"Holstered"
+	cordon.tender(_mano_dibujada(), get_global_transform_interpolated().origin,
+		fuera and dueno != null)
+
+
+## La mano TAL Y COMO SE DIBUJA este frame, no en el ultimo tick de fisica.
+##
+## Misma razon que en `CameraRig._punto_objetivo()`: con la interpolacion activada
+## `global_position` es un valor escalonado a 60 Hz y lo que se ve del personaje
+## va a ritmo de render. La version de fisica —`punto_de_mano()`— se queda como
+## esta porque la usan `Wielded` y `Returning`, que corren en fisica y tienen que
+## hablar en la misma moneda que el resto del movimiento.
+func _mano_dibujada() -> Vector3:
+	if dueno == null or not is_instance_valid(dueno):
+		return global_position
+	var t := dueno.get_global_transform_interpolated()
+	return t.origin + Vector3.UP * 0.95 + t.basis.x * 0.45
+
+
+# --- Servicios para los estados -----------------------------------------------
+
+## ¿Está disponible para lanzarla?
+func en_mano() -> bool:
+	return fsm.nombre_actual() == &"Wielded"
+
+
+## ¿Está la lanza AHÍ FUERA, en un sitio del mundo al que se pueda ir?
+##
+## **Es la pregunta que hay que hacer antes de tirar de la cuerda**, y no
+## `not en_mano()`. `en_mano()` solo es cierto en `Wielded`, así que con la lanza
+## GUARDADA —que es como empieza la partida— su negación daba `true` y la cuerda
+## se enganchaba a una lanza invisible.
+##
+## Y `Holstered` no actualiza su posición: la lanza guardada se queda con la
+## transformada de la última vez, que al arrancar es el punto de spawn. Con eso,
+## pulsar Z en lo alto del coloso te lanzaba de vuelta al centro del mapa. El
+## usuario lo reportó como *"un bug raro al subirse a la cima del gigante, y con
+## la Z sin tener equipada la lanza"*: son el mismo fallo visto desde arriba, que
+## es donde el viaje se nota.
+func esta_fuera() -> bool:
+	var n := fsm.nombre_actual()
+	return n == &"InFlight" or n == &"Embedded" or n == &"Flotando"
+
+
+func clavada_en_algo() -> bool:
+	return fsm.nombre_actual() == &"Embedded"
+
+
+## ¿Ha dejado de moverse? Clavada o flotando: las dos son "se quedo ahi".
+##
+## Existe porque quien pregunta casi siempre quiere saber si el objeto esta
+## QUIETO, no como llego a estarlo, y hasta el 4.07 esas dos cosas eran la misma
+## —solo se paraba clavandose—. Al aparecer `Flotando`, cada sitio que preguntaba
+## `clavada_en_algo()` se quedo contestando a medias.
+##
+## Lo cazo el screenshot test, y de la peor forma: la toma del cordon solo lo
+## asienta cuando la lanza esta quieta, asi que con la bola flotando no asentaba
+## nunca y la referencia empezo a bailar entre pasadas —0.79% y 0.83% con el tope
+## en 0.40—. Un test intermitente no es un test.
+func esta_quieta() -> bool:
+	var n := fsm.nombre_actual()
+	return n == &"Embedded" or n == &"Flotando"
+
+
+## Lanza la lanza. Lo llama el jugador; el estado hace el resto.
+func lanzar(desde: Vector3, hacia: Vector3) -> bool:
+	# Vale tambien GUARDADA: la desenfunda y la tira en un solo gesto. Obligar a
+	# sacarla primero convertiria el lanzamiento en dos pulsaciones, y de eso ya
+	# se quejo el usuario con razon.
+	var n := fsm.nombre_actual()
+	if n != &"Wielded" and n != &"Holstered":
+		return false
+	global_position = desde
+	# Un teletransporte no se interpola: sin esto la lanza se dibuja barriendo
+	# desde donde estuviera guardada hasta la mano en un solo frame.
+	reset_physics_interpolation()
+	fsm.cambiar(&"InFlight", {"direccion": hacia})
+	return true
+
+
+## Guarda o saca la lanza. ES el cambio de moveset: empunada manda su set de
+## ataques, guardada mandan los de siempre.
+##
+## Gasta una tecla, si —`swap_weapon`, que ya existia y estaba sin usar— pero es
+## de otra categoria que el resto: tirar y engancharse son cosas que haces
+## CONSTANTEMENTE; decidir con que arma peleas es una decision que tomas y
+## mantienes. Y el caso comun —tirarla— no la necesita: el boton de la lanza la
+## desenfunda solo.
+func alternar_empunada() -> bool:
+	var n := fsm.nombre_actual()
+	if n == &"Wielded":
+		fsm.cambiar(&"Holstered")
+		return true
+	if n == &"Holstered":
+		fsm.cambiar(&"Wielded")
+		return true
+	return false
+
+
+## Pide que vuelva. Vale desde clavada y desde el suelo.
+func recuperar() -> bool:
+	var actual := fsm.nombre_actual()
+	if actual != &"Embedded" and actual != &"Flotando" and actual != &"InFlight":
+		return false
+	fsm.cambiar(&"Returning")
+	return true
+
+
+## Enciende la plataforma sobre la que el jugador puede quedarse DE PIE.
+##
+## Es la mitad del valor de la mecánica, no un extra: tirarla a lo alto, subir y
+## pararse encima es el bucle de progresión vertical del juego (`docs/03 §4.3`).
+## Va en `WORLD` porque el jugador ya pisa esa capa; y en `CLIMBABLE` porque el
+## `WallSensor` busca ahí lo que se puede agarrar a mano.
+func poner_plataforma() -> void:
+	if plataforma == null:
+		return
+	plataforma.process_mode = Node.PROCESS_MODE_INHERIT
+	plataforma.collision_layer = Layers.WORLD | Layers.CLIMBABLE
+	var forma := plataforma.get_node_or_null("Forma") as CollisionShape3D
+	if forma != null:
+		forma.disabled = false
+
+
+## Deja la plataforma en un punto del mundo, independiente de donde este el asta.
+func colocar_plataforma(punto: Vector3) -> void:
+	if plataforma != null:
+		plataforma.global_position = punto
+
+
+func soltar_plataforma() -> void:
+	if plataforma == null:
+		return
+	plataforma.collision_layer = 0
+	var forma := plataforma.get_node_or_null("Forma") as CollisionShape3D
+	if forma != null:
+		forma.disabled = true
+
+
+## Dónde queda la lanza cuando la llevas encima. Lo usan `Wielded` y `Returning`
+## —una para seguirte y otra para saber a dónde volver— y por eso vive aquí: dos
+## copias de este desfase se desincronizan en cuanto exista el rig y la mano deje
+## de ser un número.
+func punto_de_mano() -> Vector3:
+	if dueno == null:
+		return global_position
+	return dueno.global_position + Vector3.UP * 0.95 + dueno.global_basis.x * 0.45
+
+
+## Orienta el asta a lo largo de una dirección. La lanza apunta a donde va.
+func apuntar_a(dir: Vector3) -> void:
+	if dir.is_zero_approx() or visual == null:
+		return
+	var arriba := Vector3.UP
+	if absf(dir.normalized().dot(arriba)) > 0.99:
+		arriba = Vector3.FORWARD
+	visual.global_basis = Basis.looking_at(dir.normalized(), arriba)
+
+
+func color_de(nombre: StringName) -> Color:
+	if palette == null:
+		return Color.WHITE
+	var v: Variant = palette.get(nombre)
+	return v if v is Color else Color.WHITE
+
+
+## LA BOLA. Antes eran dos cajas —asta y punta— y desde el 4.07 es una esfera.
+##
+## **Se pinta como un `Ancla`, y eso es informacion, no decoracion.** El jugador
+## las llamaba «la bola amarilla» antes de que esto existiera, asi que darle el
+## mismo `oro_palido` con emision dice lo unico que hace falta saber de ella: que
+## la Z se engancha ahi. Un proyectil que ademas es un punto de cuerda tiene que
+## PARECERSE a un punto de cuerda.
+##
+## Lo que la distingue de un ancla del nivel no es el color ni el tamaño: **es el
+## cordon que le sale a tu mano**. Las del nivel estan ahi; esta la has puesto tu.
+func _preparar_visual() -> void:
+	var malla := get_node_or_null("Visual/Asta") as MeshInstance3D
+	if malla == null:
+		return
+	var esfera := SphereMesh.new()
+	esfera.radius = tuning.radio
+	esfera.height = tuning.radio * 2.0
+	esfera.radial_segments = 14
+	esfera.rings = 7
+	malla.mesh = esfera
+	malla.position = Vector3.ZERO
+	_mat = StandardMaterial3D.new()
+	_mat.albedo_color = color_de(&"oro_palido")
+	_mat.emission_enabled = true
+	_mat.emission = color_de(&"oro_palido")
+	_mat.emission_energy_multiplier = 0.5
+	_mat.roughness = 0.4
+	_mat.metallic = 0.35
+	malla.material_override = _mat
+
+	# LA PUNTA SE APAGA. El nodo se queda en la escena porque quitarlo obligaria a
+	# tocar el `.tscn` de todo el que la haya instanciado, y una bola no tiene
+	# punta: dejarle una malla seria una pincho saliendo de una esfera.
+	var punta := get_node_or_null("Visual/Punta") as MeshInstance3D
+	if punta != null:
+		punta.mesh = null
+		punta.visible = false
+
+	# La plataforma se dimensiona desde el tuning, no desde la escena: es un
+	# número de diseño y tiene que poder tocarse sin abrir el editor.
+	var forma := get_node_or_null("Plataforma/Forma") as CollisionShape3D
+	if forma != null and forma.shape is BoxShape3D:
+		(forma.shape as BoxShape3D).size = Vector3(
+			tuning.plataforma_lado, tuning.plataforma_grosor, tuning.plataforma_lado)
+
+
+func debug_line() -> String:
+	return "%s%s" % [fsm.nombre_actual(), "  [clavada]" if clavada_en_algo() else ""]
+
+
+## ¿Está clavada en CARNE agarrable?
+##
+## La lanza atraviesa a casi todo, pero se queda en los bichos pequeños: son los
+## que se pueden zarandear, y ese es el papel que iba a tener la segunda daga.
+func en_carne() -> bool:
+	if not clavada_en_algo() or cuerpo_clavado == null:
+		return false
+	if not is_instance_valid(cuerpo_clavado) or not (cuerpo_clavado is Enemigo):
+		return false
+	var e := cuerpo_clavado as Enemigo
+	return e.agarrable and e.esta_vivo()
+
+
+func presa() -> Enemigo:
+	return cuerpo_clavado as Enemigo if en_carne() else null

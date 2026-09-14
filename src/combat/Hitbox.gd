@@ -29,6 +29,15 @@ func nuevo_swing() -> void:
 
 
 ## Ejecuta la consulta. Devuelve cuántos objetivos NUEVOS ha tocado.
+## EL ULTIMO GOLPE QUE SALIO DE AQUI, o null.
+##
+## La señal `impacto` ya lo publica, pero un estado que llama a `golpear()` y
+## reacciona en la misma linea no puede conectarse a una señal para enterarse de
+## lo que acaba de provocar el. Y el contador de impactos no vale: **para
+## comunicar un golpe hace falta DONDE fue y a QUIEN**, no cuantos hubo.
+var ultimo: Golpe = null
+
+
 func golpear(datos: AttackData, adelante: Vector3) -> int:
 	if dueno == null or datos == null:
 		return 0
@@ -49,10 +58,29 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 	params.collide_with_areas = true
 	params.collide_with_bodies = false
 
+	# GIZMO: la esfera de consulta y el arco, tal y como se preguntan.
+	#
+	# Es el gizmo que más falta hacía. Un golpe que "no conecta" tiene tres causas
+	# posibles —la esfera no llega, el arco lo descarta, o la victima ya estaba en
+	# `_tocados`— y en texto las tres se leen igual: cero impactos. Dibujadas se
+	# distinguen de un vistazo.
+	_dibujar_consulta(datos, dir, centro)
+
 	var golpes := 0
 	for r in espacio.intersect_shape(params, datos.max_objetivos * 2):
 		var hb := r.collider as Hurtbox
 		if hb == null or hb.equipo == equipo:
+			continue
+		# NADIE SE GOLPEA A SI MISMO, y el equipo no basta para garantizarlo.
+		#
+		# Mientras todo cuerpo tuviera su hitbox y su hurtbox en el MISMO equipo,
+		# el filtro de arriba bastaba. La lanza rompio esa suposicion: desde el
+		# 4.05 lleva hitbox del equipo 0 —hace daño de parte del jugador— y hurtbox
+		# del 1 —para que la patada del jugador pueda alcanzarla—, asi que se
+		# encontraba a si misma y se pateaba sola CADA FRAME. Se vio porque la
+		# velocidad de vuelo no bajaba nunca: `enter()` se llamaba sesenta veces
+		# por segundo y la reponia a 34.
+		if hb.dueno != null and hb.dueno == dueno:
 			continue
 		if _tocados.has(hb.get_instance_id()):
 			continue
@@ -69,6 +97,7 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 		var punto := hb.global_position
 		var golpe := Golpe.new(dueno, datos, punto, (punto - dueno.global_position).normalized())
 		hb.recibir(golpe)
+		ultimo = golpe
 		impacto.emit(golpe)
 		golpes += 1
 		if golpes >= datos.max_objetivos:
@@ -77,3 +106,21 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 	if golpes == 0:
 		fallo.emit()
 	return golpes
+
+
+## Dibuja la consulta de este frame: la esfera que se pregunta y el arco que
+## filtra. Solo cuesta algo con los gizmos encendidos (F7).
+##
+## Los colores dicen de quién es el golpe, no si acertó: el acierto ya se ve
+## porque el enemigo reacciona. Lo que no se ve nunca es DÓNDE se preguntó.
+func _dibujar_consulta(datos: AttackData, dir: Vector3, centro: Vector3) -> void:
+	if not DebugDraw.activo:
+		return
+	var color := (GameState.palette.cobalto if equipo == 0
+		else GameState.palette.carmesi) if GameState.palette != null else Color.WHITE
+	DebugDraw.esfera(centro, datos.radio, color)
+	# El arco se dibuja desde el DUEÑO y no desde el centro de la esfera: el
+	# filtro angular se mide contra el cuerpo, y verlo en el sitio equivocado
+	# haria pensar que descarta lo que no descarta.
+	DebugDraw.cono(dueno.global_position + Vector3.UP * datos.altura, dir,
+		minf(datos.arco_grados, 88.0), datos.alcance, color)

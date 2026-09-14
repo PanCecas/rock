@@ -241,6 +241,46 @@ verlet puramente cosmético.
 `AnchorPoint` es un componente que se cuelga en el nivel; los colosos llevan varios en el pelaje
 y las salientes de piedra.
 
+### 5.2 La resortera — el cuarto modo (3.08)
+
+Con **dos** puntos anclados a la vez, la cuerda deja de ser un péndulo y pasa a ser
+un **elástico**: el jugador queda suspendido entre los dos, tira hacia atrás
+acumulando tensión, y al soltar sale catapultado. Es el modo de desplazamiento
+largo del juego, y la referencia declarada es el equipo de maniobras de *Attack on
+Titan*.
+
+**No es el balanceo con otros números, y la diferencia es de física.** Un péndulo
+CONSERVA energía: su restricción no hace trabajo, solo gira la velocidad. Una
+resortera la ALMACENA y la devuelve de golpe. Por eso son dos estados
+(`StateSpearSwing` y `StateSlingshot`) y no un parámetro.
+
+Las tres decisiones que lo hacen funcionar:
+
+1. **Las cuerdas se estiran.** En el balanceo la cuerda es inextensible; aquí cada
+   una es un muelle con `resortera_rigidez`, porque si no hubiera nada que estirar
+   no habría nada que tensar. Hay un tope duro (`resortera_estirado_max`) para que
+   tirar hacia atrás sin parar no dé un disparo infinito.
+2. **El disparo sale por la SUMA de las dos bandas, no por la bisectriz.** Cada
+   banda empuja hacia su anclaje con fuerza proporcional a su estiramiento. Con
+   las dos igual de tensas eso ya da la bisectriz; con una más tensa que la otra
+   el tiro se ladea hacia ella, que es la mitad del control.
+3. **Gravedad propia y simétrica**, por la regla dura #16. La del juego es
+   asimétrica y cualquier cosa que almacene y devuelva energía se rompe con ella.
+
+El segundo punto lo pone `Anclaje` (`src/weapons/Anclaje.gd`): un garfio que
+vuela, se clava y vuelve. **No es una segunda lanza** —no hace daño, no es
+plataforma y no se empuña— precisamente para no gastar la escasez que hace que
+decidir dónde clavas *la* lanza sea una decisión (§4).
+
+Y no gasta un botón nuevo para el verbo: con dos puntos puestos, la misma tecla de
+cuerda da resortera en vez de balanceo. Lo que decide es cuántas cuerdas hay
+puestas, y eso se ve sin tener que aprenderlo.
+
+**Trampa medida:** el disparo va a ~33 m/s y el clamp global está en 22, aplicado
+en un solo sitio (regla dura #12) y solo al plano. Sin permiso explícito, el tiro
+se recortaba entero en el mismo frame, en silencio, y además solo en horizontal.
+De ahí `PlayerController.momentum_libre`.
+
 ---
 
 ## 6. Colosos

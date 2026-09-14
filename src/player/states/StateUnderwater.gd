@@ -87,7 +87,6 @@ func physics_update(delta: float) -> void:
 		fsm.cambiar(&"Swim")
 		return
 
-	_atacar()
 
 
 ## Suspensión: el cuerpo se frena casi del todo y queda oscilando. La onda mueve
@@ -102,22 +101,7 @@ func _derivar(delta: float) -> void:
 	player.stamina.regenerar(tuning.stamina_regen_colgado, delta)
 
 
-func _atacar() -> void:
-	if player.ataque_agua_pesado != null and buffer.consume(InputActions.ATTACK_HEAVY):
-		fsm.cambiar(&"WaterAttack", {
-			"datos": player.ataque_agua_pesado,
-			"impulso": tuning.agua_ataque_pesado_impulso,
-			"direccion": player.direccion_nado(),
-		})
-		return
-	if player.ataque_agua_ligero != null and buffer.consume(InputActions.ATTACK_LIGHT):
-		fsm.cambiar(&"WaterAttack", {
-			"datos": player.ataque_agua_ligero,
-			"impulso": tuning.agua_ataque_ligero_impulso,
-			"direccion": player.direccion_nado(),
-		})
-
-
+## Igual que en superficie: bajo el agua se nada, no se pega. Ver `StateSwim`.
 func maneja_ataques() -> bool:
 	return true
 
