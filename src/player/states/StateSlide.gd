@@ -6,7 +6,15 @@ var _dir: Vector3 = Vector3.ZERO
 var _forzado: bool = false
 
 
+## Polvo al entrar: el slide es el verbo que mas raspa el suelo de todo el
+## moveset, y sin nada que levantar se lee como deslizarse sobre hielo.
+func _polvo() -> void:
+	if player.feedback != null:
+		player.feedback.polvo(0.7)
+
+
 func enter(msg: Dictionary = {}) -> void:
+	_polvo()
 	_forzado = bool(msg.get("forzado", false))
 	_dir = motor.direccion_plana()
 	if _dir.is_zero_approx():

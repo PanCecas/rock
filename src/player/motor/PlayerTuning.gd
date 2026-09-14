@@ -172,6 +172,11 @@ extends Resource
 @export_range(0.0, 100.0, 0.5) var surf_stamina: float = 10.0
 ## Alabeo del cuerpo al girar surfeando. Vende la inercia desde lejos.
 @export_range(0.0, 45.0, 1.0) var surf_alabeo: float = 16.0
+## Alabeo del wall-run, en grados. **Estaba escrito a mano dentro de
+## `StateWallRun`** —un `22.0` suelto— y es exactamente lo que prohibe la regla
+## dura #1: un numero que se toca para que se sienta bien viviendo en un `.gd`.
+## Sus dos hermanos, el del surf y el del planeo, si estaban aqui.
+@export_range(0.0, 60.0, 1.0) var wallrun_alabeo: float = 22.0
 ## Ventana durante la que saltar NO cancela el surf: al aterrizar se recupera.
 ## Saltar en mitad de una linea rapida no deberia costarte la linea.
 @export_range(0.0, 6.0, 0.1) var surf_persistencia: float = 2.5
@@ -494,6 +499,37 @@ extends Resource
 @export_range(1.0, 4.0, 0.05) var carga_inercia_max: float = 1.55
 
 # --- Stamina ----------------------------------------------------------------
+# EL FEEDBACK. «El 40% del feel no esta en la fisica», dice el documento de
+# movimiento, y aqui era cierto de la peor manera: el moveset medido al frame y
+# **ni una sola particula en todo `src/`**. La pantalla decia lo mismo a 30 m/s
+# que a 8.
+#
+# Va en su propio grupo a proposito: **nada de aqui decide nada del juego**. Si
+# se pone todo a cero, el jugador se mueve exactamente igual.
+@export_group("Feedback")
+## Cuanto se aplasta al aterrizar, en fraccion de altura. 0.35 es un buen chafado
+## sin que parezca que se rompe.
+@export_range(0.0, 0.7, 0.01) var feedback_squash_max: float = 0.35
+## Cuanto tarda en recuperarse, en segundos. El documento pide 0.12 y tiene razon
+## en el orden de magnitud: por debajo de 0.08 no se ve y por encima de 0.2 parece
+## que el personaje se ha quedado pegado al suelo.
+@export_range(0.02, 0.6, 0.01) var feedback_squash_duracion: float = 0.12
+## A partir de que velocidad de impacto se empieza a notar el aplastado, en m/s.
+## Por debajo, aterrizar de un escalon daria el mismo golpe que caerse de una
+## torre y el canal dejaria de significar nada.
+@export_range(0.0, 30.0, 0.5) var feedback_squash_desde: float = 6.0
+## Cuanto se estira al subir, en fraccion. Mas discreto que el aplastado porque es
+## CONTINUO: lo que en un evento es carácter, sostenido es una deformidad.
+@export_range(0.0, 0.5, 0.01) var feedback_estirado: float = 0.14
+## Cada cuanto deja un fantasma la estela, en segundos.
+@export_range(0.01, 0.4, 0.01) var feedback_estela_paso: float = 0.035
+## Cuanto dura cada fantasma, en segundos.
+@export_range(0.05, 1.5, 0.05) var feedback_estela_vida: float = 0.22
+## Sacudida al aterrizar duro. **Pequeña a proposito**: el documento subraya que
+## el screenshake solo va en eventos discretos y con 0.25, y que sacudir de forma
+## continua no comunica velocidad — comunica que la camara esta rota.
+@export_range(0.0, 1.5, 0.05) var feedback_shake_impacto: float = 0.25
+
 @export_group("Stamina")
 ## Barra única: escalar, planear, correr, dashear y aguantar sacudidas.
 ## Los ataques NO gastan stamina: esto no es un souls.

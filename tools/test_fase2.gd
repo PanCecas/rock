@@ -745,7 +745,13 @@ func _construir_guion() -> void:
 			func() -> void: pass,
 			func() -> bool: return (
 				not _p.enderezando()
-				and _p.visual.global_basis.y.dot(Vector3.UP) > 0.999
+				# NORMALIZADO. `global_basis.y` lleva la ESCALA dentro, asi que su
+				# producto escalar con UP no mide inclinacion: mide inclinacion por
+				# altura. Pasaba solo porque el visual estaba siempre a escala 1 en
+				# este punto; desde que el aplastado de `PlayerFeedback` la mueve,
+				# aterrizar hacia fallar un chequeo de VERTICALIDAD. Una direccion se
+				# compara normalizada — es la misma familia que la regla dura #22.
+				and _p.visual.global_basis.y.normalized().dot(Vector3.UP) > 0.999
 				and absf(angle_difference(_p.visual.rotation.y, _aux)) < deg_to_rad(20.0)),
 			"al salir del agua debe quedar upright conservando el yaw"),
 

@@ -39,7 +39,7 @@ func physics_update(delta: float) -> void:
 	motor.set_vertical(vy)
 
 	# Inclinar el cuerpo hacia la pared: el alabeo es lo que lo hace legible.
-	player.set_alabeo(float(_lado) * 22.0)
+	player.set_alabeo(float(_lado) * tuning.wallrun_alabeo)
 
 	if player.consumir_salto():
 		# Saltar de un wall-run sale más fuerte y más hacia delante que de un

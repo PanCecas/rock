@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=3]
+[gd_scene load_steps=52 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="ctrl"]
 [ext_resource type="Resource" path="res://content/data/default_tuning.tres" id="tuning"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://src/player/sensors/CeilingSensor.gd" id="s_ceil"]
 [ext_resource type="Script" path="res://src/player/sensors/WaterSensor.gd" id="s_water"]
 [ext_resource type="Script" path="res://src/combat/Hitbox.gd" id="c_hit"]
+[ext_resource type="Script" path="res://src/player/PlayerFeedback.gd" id="fb"]
 [ext_resource type="Script" path="res://src/combat/Hurtbox.gd" id="c_hurt"]
 [ext_resource type="Script" path="res://src/combat/HealthComponent.gd" id="c_hp"]
 [ext_resource type="Script" path="res://src/combat/PoiseComponent.gd" id="c_poise"]
@@ -89,6 +90,10 @@ mesh = SubResource("Mesh_body")
 [node name="Frente" type="MeshInstance3D" parent="Visual"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0.3)
 mesh = SubResource("Mesh_frente")
+
+[node name="Feedback" type="Node3D" parent="."]
+script = ExtResource("fb")
+jugador_path = NodePath("..")
 
 [node name="InputBuffer" type="Node" parent="."]
 script = ExtResource("buffer")

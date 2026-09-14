@@ -34,6 +34,10 @@ extends CharacterBody3D
 @onready var salud: HealthComponent = $Salud
 @onready var poise: PoiseComponent = $Poise
 @onready var targeting: TargetingSystem = $Targeting
+## EL FEEDBACK VISUAL. Puede no existir: si falta, el juego se juega igual y se
+## ve peor, que es justo la relacion que tiene que tener con el resto.
+@export var feedback_path: NodePath = ^"Feedback"
+@onready var feedback: PlayerFeedback = get_node_or_null(feedback_path)
 ## EL CORDON de la cuerda. Puramente visual, igual que el de la lanza y con el
 ## mismo script: lo que ata al jugador al ancla es una restriccion analitica —un
 ## numero— y esto es lo que hace que ese numero se vea.
@@ -1026,21 +1030,34 @@ func esta_agachado() -> bool:
 func _actualizar_altura(delta: float) -> void:
 	if _collider == null or not _collider.shape is CapsuleShape3D:
 		return
-	if is_equal_approx(_altura_actual, _altura_objetivo):
-		return
-	_altura_actual = lerpf(
-		_altura_actual, _altura_objetivo,
-		1.0 - exp(-delta / maxf(tuning.agachado_transicion, 0.001))
-	)
-	if absf(_altura_actual - _altura_objetivo) < 0.01:
-		_altura_actual = _altura_objetivo
+	# LA CAPSULA solo se recalcula cuando la postura cambia: es lo caro —toca una
+	# forma de colision— y no hay nada mas que la mueva.
+	if not is_equal_approx(_altura_actual, _altura_objetivo):
+		_altura_actual = lerpf(
+			_altura_actual, _altura_objetivo,
+			1.0 - exp(-delta / maxf(tuning.agachado_transicion, 0.001))
+		)
+		if absf(_altura_actual - _altura_objetivo) < 0.01:
+			_altura_actual = _altura_objetivo
+		var alto := _altura_base * _altura_actual
+		var forma := _collider.shape as CapsuleShape3D
+		forma.height = alto
+		_collider.position.y = alto * 0.5
 
-	var alto := _altura_base * _altura_actual
-	var forma := _collider.shape as CapsuleShape3D
-	forma.height = alto
-	_collider.position.y = alto * 0.5
+	# LA ESCALA DEL VISUAL SE ESCRIBE SIEMPRE, y ahi estaba el fallo.
+	#
+	# Esto vivia DETRAS de la salida temprana de arriba, y era correcto mientras la
+	# escala tuviera un solo contribuyente: si la postura no cambia, la escala
+	# tampoco. Con el aplastado son DOS, y el segundo se movia mientras el primero
+	# estaba quieto — o sea que el aplastado solo se veia si ademas ibas agachado.
+	# Lo cazo una FOTO: el panel decia `squash 0.23` y la capsula estaba recta.
+	#
+	# La escala se COMPONE aqui y en ningun otro sitio: la postura la pone la
+	# altura de la capsula y el aplastado lo PIDE `PlayerFeedback`, igual que un
+	# estado pide postura (regla dura #14).
 	if visual != null:
-		visual.scale.y = _altura_actual
+		var extra := feedback.escala() if feedback != null else Vector3.ONE
+		visual.scale = Vector3(extra.x, _altura_actual * extra.y, extra.z)
 
 
 func camara() -> Camera3D:
@@ -1228,6 +1245,8 @@ func _debug() -> void:
 	DebugOverlay.set_line("moveset", "CUERDA %s   PATADA %d/%d%s" % [
 		"lista" if cuerda_disponible else "gastada",
 		patada_cargas, tuning.patada_cargas, veto])
+	if feedback != null:
+		DebugOverlay.set_line("feedback", feedback.debug_line())
 	DebugOverlay.set_line("buffer", buffer.debug_line())
 	DebugOverlay.set_line("pos", "%.1f, %.1f, %.1f" % [global_position.x, global_position.y, global_position.z])
 

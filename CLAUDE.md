@@ -406,6 +406,33 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | **Menu de controles** | **Escape** (F1 tambien) | Start |
 | Debug | F3 panel · **F7 gizmos 3D** · F5 tuning · F6 paleta · F4 respawn arena | |
 
+**EL 40% DEL FEEL NO ESTA EN LA FISICA** (`PlayerFeedback`). Lo dice el documento
+de movimiento y aqui era cierto de la peor manera: el moveset medido al frame y
+**ni una sola particula en todo `src/`**. La pantalla decia lo mismo a 30 m/s que
+a 8, y por eso un golpe perfectamente cronometrado no se sentia.
+
+- **Aplastado y estirado.** Aterrizar chafa la capsula en proporcion al impacto y
+  se recupera en 0.12 s; subir rapido la estira. Conserva el volumen —lo que se
+  quita de alto se pone de ancho— porque un aplastado que ademas encoge parece
+  que el personaje se aleja.
+- **Estela en el dash y la patada**, y solo ahi: capsulas fantasma que se
+  desvanecen. Con capsulas grises una silueta repetida se lee como velocidad y
+  ademas enseña la TRAYECTORIA, que es lo que un gesto te pide leer.
+- **Polvo** al aterrizar y al entrar en slide.
+- **El screenshake va SOLO en eventos discretos** y pequeño (0.25). Es la unica
+  cosa que el documento subraya de esta seccion: sacudir de forma continua no
+  comunica velocidad, comunica que la camara esta rota.
+- **NO hay lineas de velocidad, y no por olvido.** Se intentaron dos veces con
+  particulas —cremas contra un cielo crema, que es el bug de la bandada del 3.13
+  otra vez, y despues oscuras y grandes— y la foto de las dos dice lo mismo: a
+  distancia de tercera persona son cuatro motas flotando. **Una raya de velocidad
+  no es un objeto del mundo, es un efecto de PANTALLA**, y su sitio es el
+  post-proceso de la Fase 5. Mientras tanto la velocidad tiene su canal y
+  funciona: el FOV dinamico.
+- **`PlayerFeedback` no decide nada del juego.** Lee estado y dibuja; si se borra
+  entero, el jugador se mueve igual. Y **no escribe la escala del visual, la
+  PIDE**: el controlador la compone, igual que un estado pide postura (regla #14).
+
 **El planeo esta separado del salto a proposito.** Compartir tecla obligaba a
 negociar cada pulsacion entre doble salto y capa, y resultaba incomodo. Ahora
 `glide` se mantiene y ya esta.
@@ -472,6 +499,7 @@ le esta robando la mecanica.
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Ademas de lo suyo, que conectar **PARA el juego** (regla dura #31: la magnitud, no el estado) y el bucle del pogo — que la lanza tirada se queda flotando, que se le puede patear, y que eso NO recarga el moveset. 26 comprobaciones. Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
 | `tools/Moveset.tscn` | **EL CIRCUITO DEL MOVESET, y el unico sitio donde el criterio de exito se puede COMPROBAR jugando.** Cuatro hitos en fila y obligatorios —cuerda, patada, pared, cuerda— y **nada de suelo entre ellos**: la condicion «sin tocar el suelo» deja de ser una regla que vigilar y pasa a ser la forma del sitio. Lleva el marcador puesto: el panel dice que eslabones llevas y si has pisado algo. **F4 reinicia** y caerse tambien. `-- auto` lo corre solo con sus filas de control —¿se cruza el hueco pateando? ¿y sin patear?— y `-- foto` guarda el plano general en `user://moveset/`. `godot --path . --resolution 1280x720 tools/Moveset.tscn` |
 | `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo, y se encadena la cuerda?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Ademas **encadena ancla -> ancla** por el camino real —la tecla, el cono y el buffer, con la camara conducida a mano porque el cono es parte de la mecanica— y dice cuantos TOQUES hicieron falta: `2 enganches tras 0 toques` es la cadena limpia. Y mide el salto desde el arco **imprimiendo el estado en el que se pulsa** (regla dura #31). Con filas de control. `godot --headless --path . tools/MedirCadena.tscn` |
+| `tools/CapturaFeedback.tscn` | **Las fotos del FEEDBACK**, que es lo unico que no se puede medir con un numero: el aplastado al aterrizar, la estela de la patada y el polvo del slide, cada uno con su contraste al lado. Necesita GPU. **Aqui se cayo el viento**: tenia sus dos fotos y las dos salieron vacias. `godot --path . --resolution 1280x720 tools/CapturaFeedback.tscn` |
 | `tools/CapturaEscalada.tscn` | **Cuatro fotos del candado de escalada**: el mismo gesto contra el mismo muro con la habilidad y sin ella, y un roce a 26 m/s. Necesita GPU. `godot --path . --resolution 1280x720 tools/CapturaEscalada.tscn` |
 | `tools/MedirPatada.tscn` | **Cronometra la patada**, que es donde se vio que no se sentia bien: que le hace a la velocidad que ya llevabas, que le hace a la vertical, si se puede salir de ella, que pasa al conectar y cuanto terreno cubre. Las cinco lineas que dijeron los cuatro defectos de la primera version. `godot --headless --path . tools/MedirPatada.tscn` |
 | `tools/CapturaPatada.tscn` | **Ocho fotos de la patada** con el panel de debug puesto, para leer el numero y la imagen juntos. Necesita GPU. Un numero no dice si el personaje sale por donde parecia que iba a salir; cazo que la patada no existia estando colgado del arco. `godot --path . --resolution 1280x720 tools/CapturaPatada.tscn` |
