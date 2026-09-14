@@ -33,6 +33,12 @@ var _y_pico: float = -999.0
 ## EL ALERO: un techo con una esquina, construido por el banco porque el Gym no
 ## tiene ninguno. Sin geometria que rozar no se puede medir un roce.
 var _alero: StaticBody3D = null
+## Rapidez plana en el frame en que se toca suelo, y unos frames despues. Es lo
+## que mide el bunnyhop: lo que el ATERRIZAJE se queda de lo que traias.
+var _v_al_tocar: float = -1.0
+var _v_tras_tocar: float = -1.0
+var _fr_tocar: int = -1
+var _tocaba: bool = false
 const ALERO_CENTRO := Vector3(-10.0, 0.0, -34.0)
 
 
@@ -241,6 +247,63 @@ func _construir() -> void:
 			func() -> String:
 				return "sube %.2f m" % [_y_pico - 0.05]),
 
+		# --- EL BUNNYHOP (#13 del Tier B) -------------------------------------
+		# «Ventana de conservacion al aterrizar»: caer lanzado y volver a saltar no
+		# deberia costarte la linea. La pregunta no es "cuanto conserva el
+		# aterrizaje" sino **si aterrizar cuesta algo comparado con no hacerlo**, y
+		# por eso la fila de control es EL AIRE y no el suelo.
+		#
+		# Se mide la rapidez al final de una ventana fija, no en el contacto: un
+		# bunnyhop toca el suelo UN frame o ninguno, y un latch de contacto se lo
+		# pierde. La primera version imprimia -1.0 —"no llego a tocar"— y la
+		# conclusion habria sido que no aterriza, cuando lo que pasaba es que no se
+		# puede mirar ahi.
+		_medida("aterrizar a 30 y rebotar (bunnyhop)", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 0.45, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall")
+				# Sin salto aereo: con el, la pulsacion se la come el doble salto y
+				# el jugador no llega a pisar. Asi se queda en el buffer —el grupo
+				# ni la consulta— y sale al tocar, que es el gesto que se mide.
+				_p.saltos_aereos = 0
+				_pulsar(&"jump"),
+			func() -> String:
+				_soltar(&"jump")
+				return "%.1f m/s al final" % _p.motor.rapidez_plana()),
+
+		_medida("lo mismo SIN rebotar, corriendo", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 0.45, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall")
+				# SIGUE PIDIENDO LA DIRECCION. Sin el stick esto no seria «aterrizar
+				# corriendo», seria «aterrizar y soltarlo todo», y el freno de
+				# soltar (26 m/s²) es otro numero: la comparacion culparia al
+				# aterrizaje de lo que hace dejar de pedir.
+				_pulsar(&"move_forward"),
+			func() -> String:
+				_soltar(&"move_forward")
+				return "%.1f m/s al final" % _p.motor.rapidez_plana()),
+
+		# EL AIRE COMO CONTROL. Sin esta fila no se sabe cuanto de lo perdido lo
+		# quito el SUELO y cuanto el tope de velocidad, que actua igual volando.
+		_medida("y sin tocar el suelo — control", 0.7,
+			func() -> void:
+				_soltar_todo()
+				_colocar(Vector3(-10.0, 12.0, -20.0))
+				_mirar_a(-90.0)
+				_p.velocity = Vector3.RIGHT * 30.0
+				_p.fsm.cambiar(&"Fall"),
+			func() -> String:
+				return "%.1f m/s al final%s" % [
+					_p.motor.rapidez_plana(),
+					"  [OJO: aterrizo]" if _p.is_on_floor() else ""]),
+
 		_medida("velocidad ganada saltando parado", 0.55,
 			func() -> void:
 				_soltar_todo()
@@ -266,6 +329,16 @@ func _physics_process(delta: float) -> void:
 	_t += delta
 
 	_y_pico = maxf(_y_pico, _p.global_position.y)
+
+	var pisa := _p.is_on_floor()
+	if pisa and not _tocaba and _v_al_tocar < 0.0:
+		_v_al_tocar = _p.motor.rapidez_plana()
+		_fr_tocar = 0
+	_tocaba = pisa
+	if _fr_tocar >= 0:
+		_fr_tocar += 1
+		if _fr_tocar == 8:
+			_v_tras_tocar = _p.motor.rapidez_plana()
 
 	var actual: Dictionary = _guion[_paso]
 	if is_zero_approx(_t - delta) or not bool(actual.get("iniciado", false)):
