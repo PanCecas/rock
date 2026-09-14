@@ -22,6 +22,7 @@ plataformas en movimiento.
 | `docs/05_TABLERO.md` | **Qué está listo, en proceso, bugueado y pendiente.** Se actualiza en el MISMO commit que el cambio. |
 | `docs/07_SHADERS.md` | **Como se construye el look**: shader de bandas con sombra tintada, niebla, post-proceso, hierba. Con la API verificada y fuentes. |
 | `docs/06_INTEGRACION_3D.md` | **Llevar todo esto a modelos, animaciones y escenarios de Blender.** Export, AnimationTree, IK, navmesh. **Se usa DESPUES de cerrar los tweaks.** |
+| `docs/09_RUMBO.md` | **EL CORTE Y EL OBJETIVO.** Que se queda, que se quita y hacia donde se va, con los numeros que lo justifican. Se escribio porque el proyecto llevaba 73 commits y 0 minutos de juego. **La regla que sale de ahi: no entra un verbo nuevo hasta que exista el coloso #1.** |
 | `docs/08_MANUAL.md` | **RECETARIO: como se USA cada sistema.** Donde esta, que hay que escribir para meterlo en una escena, que numeros tocar y por donde entran tus modelos de Blender. Es el doc que se abre para trabajar; los demas dicen por que. |
 
 ## Reglas duras del código
