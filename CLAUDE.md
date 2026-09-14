@@ -434,6 +434,27 @@ Colgado de un canto: **empujar arriba sube**, **saltar salta desde el canto**.
 Junto a una pared, **saltar rebota** en vez de gastar el salto aereo, y sigue
 disponible durante `pared_coyote` segundos tras perder el contacto.
 
+**EL WALL KICK ES UN ABANICO, Y ES LA MECANICA CON MAS TECHO DEL MOVESET.** El
+angulo con el que SALES de una pared es funcion del angulo al que MIRAS al
+tocarla: **de frente da ALTURA, rasante da DISTANCIA**, y todo lo de en medio
+existe. Un boton, infinitos resultados.
+
+```
+mirando de frente al muro    vy 13.6   plano  6.3 m/s
+mirando a 45 grados          vy 11.8   plano  7.9
+mirando RASANTE              vy  8.1   plano 11.1
+```
+
+Antes de existir, las tres daban `vy 10.5 / plano 9.0`: el angulo era un dato que
+el juego ignoraba. Lo abre `walljump_abanico` (0.30), y en 0.0 vuelve el salto de
+pared fijo de siempre — se puede apagar y comparar.
+
+**Lo decide la CAMARA y no el avance**, y eso no choca con la regla dura #20:
+aquella decide QUE VERBO te da una pared —trepar, resbalar, correr— y por eso se
+mide con el movimiento real; esto decide el ANGULO DE SALIDA de uno de esos
+verbos, que es intencion. Corolario: **no se le roba la camara al jugador**, o se
+le esta robando la mecanica.
+
 ## Herramientas
 | Script | Para qué |
 |---|---|
@@ -445,7 +466,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestVisual.tscn` | **Screenshot tests.** Compara 14 tomas contra `tools/baseline/`. Necesita GPU: `godot --path . --resolution 960x540 tools/TestVisual.tscn`. Con `-- actualizar` regenera las referencias. |
 | `tools/Circuito.gd` | La carrera de obstaculos del Hito 1, con cronometro. |
 | `tools/Arena.gd` | Patio de combate del Hito 2. F4 respawnea a los Guardianes. **Su poblacion es load-bearing para `TestFase2`: no metas enemigos aqui.** |
-| `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido, el CANDADO DE ESCALADA y que rozar un muro conserva la linea. 94 comprobaciones. |
+| `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido, el CANDADO DE ESCALADA, que rozar un muro conserva la linea y que **el wall kick es un ABANICO y no un vector fijo** —comprobado por la magnitud y no por el estado, regla dura #31—. 97 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado, **y que el vuelo termina FLOTANDO y caduca solo**. 19 comprobaciones. |
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Ademas de lo suyo, que conectar **PARA el juego** (regla dura #31: la magnitud, no el estado) y el bucle del pogo — que la lanza tirada se queda flotando, que se le puede patear, y que eso NO recarga el moveset. 26 comprobaciones. Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |

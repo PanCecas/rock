@@ -277,6 +277,30 @@ extends Resource
 @export_range(0.0, 25.0, 0.1) var walljump_lateral: float = 9.0
 ## Cuanto momentum A LO LARGO de la pared sobrevive. Con 0 el salto se siente
 ## rigido: da igual como llegues, siempre rebotas igual.
+## **EL ABANICO DEL WALL KICK: cuanto cambia la salida segun hacia donde MIRAS.**
+##
+## Es la mecanica que el documento de referencia llama «la joya», y la razon es
+## que convierte un boton en una funcion continua: *el angulo con el que sales de
+## una pared es el reflejo del angulo al que estabas mirando al tocarla*.
+## Perpendicular da ALTURA y poca distancia; rasante da DISTANCIA y poca altura.
+## Dos jugadores con las mismas teclas tienen techos de movilidad distintos, y eso
+## no se compra con ningun otro numero de este archivo.
+##
+## **Es un ABANICO alrededor de los valores de siempre, no dos numeros nuevos**, y
+## eso es a proposito: en 0.0 vuelven los angulos fijos de antes —10.5 y 9.0— asi
+## que se puede apagar y comparar sin tocar nada mas. En el centro del abanico
+## (incidencia 0.5) devuelve tambien los de siempre; solo abre los extremos.
+##
+## El documento pedia ademas REFLEJAR el momentum entrante. No se hizo, y no por
+## olvido: se probo y el banco dijo que no cambiaba ni un numero —al pulsar saltar
+## ya se ha pasado por un frame de `StateWallSlide`, que reescribe la velocidad, y
+## no queda nada entrante que reflejar—. Esa friccion aqui ya estaba resuelta en
+## `StateWallSlide` y medida: rozar a 30 m/s conserva el 92-98%.
+##
+## Medido antes de existir, con las tres miradas contra el mismo muro:
+## `vy 10.5 / plano 9.0` **las tres**. El angulo no era una mecanica, era un dato
+## que el juego ignoraba.
+@export_range(0.0, 0.8, 0.05) var walljump_abanico: float = 0.30
 @export_range(0.0, 1.5, 0.05) var walljump_conserva: float = 0.55
 ## Cuanto pesa la direccion que pide el jugador con la camara. Permite orientar
 ## el rebote sin poder volver contra la pared.

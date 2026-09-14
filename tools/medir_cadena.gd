@@ -73,6 +73,14 @@ var _estado_al_saltar: StringName = &"?"
 var _cam: Camera3D = null
 var _mirar_obj: Vector3 = Vector3.ZERO
 var _mirar_activo: bool = false
+## Mirar en una DIRECCION en vez de a un punto. Hace falta para el wall kick: lo
+## que decide su angulo de salida es hacia donde MIRAS al tocar la pared, asi que
+## la medida tiene que poder pedir «de frente al muro», «a 45» y «rasante» sin
+## que la posicion del jugador cambie el encuadre.
+var _mirar_dir: Vector3 = Vector3.ZERO
+## Rapidez horizontal unos frames despues de saltar. Con la vertical sola no se
+## ve el abanico: el wall kick cambia LAS DOS a la vez y en sentidos contrarios.
+var _v_tras_salto: float = -1.0
 ## Guion por FRAMES dentro de una medida. `_medida` solo tiene un "hacer", y una
 ## cadena son tres gestos en tres momentos distintos: engancharse, soltar y
 ## volver a engancharse.
@@ -222,6 +230,27 @@ func _construir() -> void:
 					if i < _curva.size():
 						t.append("%dfr %.1f" % [i, _curva[i]])
 				return " · ".join(t)),
+
+		# --- EL WALL KICK ANGULAR ---------------------------------------------
+		# «El angulo con el que sales de una pared es el reflejo del angulo al que
+		# estabas mirando cuando hiciste contacto»: perpendicular da ALTURA,
+		# rasante da DISTANCIA. Tres filas con el mismo muro, la misma llegada y la
+		# misma tecla; lo unico que cambia es hacia donde apunta la camara.
+		#
+		# Si las tres dan el mismo par de numeros, el angulo no existe como
+		# mecanica por mucho que el salto de pared funcione.
+		_medida("wall kick mirando DE FRENTE al muro", 1.0,
+			func() -> void: _montar_wallkick(Vector3(0.0, 0.0, -1.0)),
+			func() -> String: return _linea_wallkick()),
+
+		_medida("wall kick mirando a 45 grados", 1.0,
+			func() -> void: _montar_wallkick(Vector3(1.0, 0.0, -1.0)),
+			func() -> String: return _linea_wallkick()),
+
+		_medida("wall kick mirando RASANTE", 1.0,
+			func() -> void: _montar_wallkick(Vector3(1.0, 0.0, -0.12)),
+			func() -> String: return _linea_wallkick()),
+
 
 		# --- LA CUERDA: ALCANCE Y SALIDA -------------------------------------
 		# ¿Se pueden encadenar las anclas que hay PUESTAS? El alcance no es un numero
@@ -396,6 +425,8 @@ func _lanzar(pos: Vector3, vel: Vector3, empujando: bool) -> void:
 	_cuerda_al_2o = "?"
 	_candidata_2o = "?"
 	_estado_2o = &"?"
+	_mirar_dir = Vector3.ZERO
+	_v_tras_salto = -1.0
 	_estado_al_saltar = &"?"
 
 
@@ -435,6 +466,30 @@ func _guion_de_cadena(con_recarga: bool) -> Array:
 	]
 
 
+## MONTA UN WALL KICK: llegar al muro escalable, mirando hacia `mirada`, y saltar.
+##
+## La habilidad de trepar se quita a proposito. Con ella puesta, insistir contra
+## el muro acaba en `Climb` y `StateClimb` escribe `velocity = ZERO` cada frame
+## (regla dura #30): lo que se mediria entonces seria la escalada, no la patada.
+func _montar_wallkick(mirada: Vector3) -> void:
+	_lanzar(Vector3(24.0, 6.0, 21.4), Vector3.FORWARD * 9.0, false)
+	_p.puede_escalar = false
+	_mirar_dir = mirada
+	_mirar_activo = true
+	_vy_antes_salto = 0.0
+	_vy_tras_salto = -99.0
+	_v_tras_salto = -1.0
+	# Tiempo de sobra para tocar el muro y que `pared.reciente()` este vivo.
+	_saltar_tras = 16
+
+
+func _linea_wallkick() -> String:
+	if _vy_tras_salto < -98.0:
+		return "NO llego a saltar   estados: %s" % _traza()
+	return "vy %5.1f   plano %5.1f m/s   %s" % [
+		_vy_tras_salto, _v_tras_salto, _traza()]
+
+
 ## Pone la camara DETRAS del jugador y mirando al objetivo, cada frame. Asi el
 ## ancla cae siempre centrada en el cono y lo que se mide es la otra mitad.
 func _mirar_a(objetivo: Vector3) -> void:
@@ -445,6 +500,8 @@ func _mirar_a(objetivo: Vector3) -> void:
 func _colocar_camara() -> void:
 	if not _mirar_activo or _cam == null or _p == null:
 		return
+	if not _mirar_dir.is_zero_approx():
+		_mirar_obj = _p.global_position + _mirar_dir.normalized() * 10.0
 	var dir := _mirar_obj - _p.global_position
 	if dir.length() < 0.5:
 		return
@@ -536,6 +593,7 @@ func _physics_process(delta: float) -> void:
 		_contando_salto += 1
 		if _contando_salto == 4:
 			_vy_tras_salto = _p.superficie.vertical(_p.velocity)
+			_v_tras_salto = _p.superficie.plano(_p.velocity).length()
 
 	var estado := _p.fsm.nombre_actual()
 	if estado != _estado_prev:

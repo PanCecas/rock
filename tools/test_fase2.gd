@@ -787,6 +787,31 @@ func _construir_guion() -> void:
 			"surfear tiene que notarse claramente por encima de correr"),
 
 		# no saltaba ninguna.
+		# EL ABANICO DEL WALL KICK. «El angulo con el que sales de una pared es el
+		# reflejo del angulo al que estabas mirando al tocarla»: perpendicular da
+		# ALTURA, rasante da DISTANCIA. Medido antes de existir, las tres miradas
+		# contra el mismo muro daban `vy 10.5 / plano 9.0` — el angulo era un dato
+		# que el juego ignoraba.
+		#
+		# **Se comprueba por la MAGNITUD, no por el estado** (regla dura #31): que
+		# se entre en `Jump` desde una pared ya lo cubre `TestFase1`; lo que aqui
+		# se afirma es que las dos magnitudes se mueven en SENTIDOS CONTRARIOS.
+		# Si crecieran las dos a la vez esto no seria una eleccion del jugador,
+		# seria un premio por mirar a un sitio.
+		_chequeo_("el wall kick es un ABANICO, no un vector fijo", 0.3,
+			func() -> void:
+				_soltar_todo()
+				_reponer(),
+			func() -> bool:
+				# El muro del wall-run en x=+1.8: su cara mira a -X, asi que mirar
+				# hacia +X es mirarlo de frente y hacia -Z es mirarlo rasante.
+				var frontal := _saltar_mirando(Vector3.RIGHT)
+				var rasante := _saltar_mirando(Vector3.FORWARD)
+				if frontal == Vector2.ZERO or rasante == Vector2.ZERO:
+					return false
+				return (frontal.x > rasante.x + 1.0) and (rasante.y > frontal.y + 1.0),
+			"sin abanico el wall kick es un boton con un solo resultado"),
+
 		_chequeo_("los verbos de pared no se pisan ni dejan hueco", 0.4,
 			func() -> void:
 				_soltar_todo()
@@ -1229,6 +1254,58 @@ func _distancia_plana(origen: Vector3) -> float:
 	var d := _p.global_position - origen
 	d.y = 0.0
 	return d.length()
+
+
+## UN WALL KICK MIRANDO HACIA `dir`. Devuelve (vertical, rapidez plana).
+##
+## **Mueve la camara REAL y en el acto**, en vez de pedirle un yaw al rig: el rig
+## coloca la camara en su `_process`, asi que pedirle el giro y saltar en la misma
+## llamada leeria la camara del frame anterior — y lo que decide el angulo de
+## salida es justo esa lectura. El rig recupera el mando en el frame siguiente.
+##
+## Llama a `saltar_de_pared()` directamente y no por la tecla, a proposito: que se
+## PUEDA llegar al wall-jump pulsando ya lo comprueba `TestFase1`; lo que se mide
+## aqui es la funcion del angulo, y meterla por el buffer añadiria dos frames de
+## latencia entre apuntar y saltar sin probar nada nuevo.
+func _saltar_mirando(dir: Vector3) -> Vector2:
+	var cam := _p.camara()
+	if cam == null:
+		return Vector2.ZERO
+	# SE DEVUELVE TODO COMO ESTABA. Esta medida teletransporta al jugador y mueve
+	# la camara REAL, y los chequeos que vienen detras son direccionales: la
+	# primera version dejaba la camara movida y tumbaba tres comprobaciones que no
+	# tenian nada que ver — 96 pasaron a 93. Un chequeo que ensucia a los
+	# siguientes no esta midiendo, esta rompiendo.
+	var cam_tf := cam.global_transform
+	var pos := _p.global_position
+	var vel := _p.velocity
+
+	var d := dir.normalized()
+	_p.global_position = Vector3(0.95, 3.0, -34.0)
+	_p.velocity = Vector3.RIGHT * 6.0
+	cam.global_position = _p.global_position - d * 5.0 + Vector3.UP * 1.5
+	cam.look_at(_p.global_position + d * 5.0, Vector3.UP)
+	# Y EL BLOQUEO SE LEVANTA ENTRE LAS DOS MIRADAS. `saltar_de_pared()` llama a
+	# `bloquear_actual()` para que no te reenganches al mismo muro, y las dos
+	# pasan en el MISMO frame: sin esto la segunda encontraba el muro bloqueado,
+	# devolvia cero, y el chequeo culpaba al abanico de lo que hacia el bloqueo.
+	_p.pared.set("_bloqueo", 0.0)
+	_p.pared.set("_pared_bloqueada", null)
+	_p.pared.sondear(Vector3.RIGHT)
+
+	var r := Vector2.ZERO
+	if _p.pared.hay_pared:
+		_p.saltar_de_pared()
+		r = Vector2(
+			_p.superficie.vertical(_p.velocity),
+			_p.superficie.plano(_p.velocity).length())
+
+	cam.global_transform = cam_tf
+	_p.global_position = pos
+	_p.velocity = vel
+	_p.pared.set("_bloqueo", 0.0)
+	_p.pared.set("_pared_bloqueada", null)
+	return r
 
 
 ## Fija el yaw de la camara para que `move_forward` apunte a una direccion

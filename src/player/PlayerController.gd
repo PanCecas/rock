@@ -679,7 +679,30 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 	if normal.is_zero_approx():
 		normal = -direccion_frontal()
 
+	# EL ABANICO. Ver `walljump_abanico`: el angulo con el que SALES es funcion del
+	# angulo al que MIRAS. Perpendicular -> altura; rasante -> distancia.
+	#
+	# `mezcla` va de -1 (rasante) a +1 (frontal) y las dos magnitudes se mueven en
+	# SENTIDOS CONTRARIOS: si las dos crecieran a la vez esto no seria una eleccion,
+	# seria un premio por mirar a un sitio.
+	var mezcla := (_incidencia_pared(normal) - 0.5) * 2.0
+	var vertical := tuning.walljump_vertical * (1.0 + mezcla * tuning.walljump_abanico)
+	var lateral := tuning.walljump_lateral * (1.0 - mezcla * tuning.walljump_abanico)
+
 	# Velocidad paralela al muro: la parte que hay que respetar.
+	#
+	# **Y AQUI NO SE REFLEJA LO QUE VA CONTRA EL MURO, aunque el documento de
+	# referencia lo pida.** Se probo —`Vector3.bounce()`, que es el reflejo de
+	# espejo correcto— y el banco dijo que no cambiaba ni un numero: cuando se
+	# pulsa saltar ya se ha pasado por al menos un frame de `StateWallSlide`, que
+	# reescribe la velocidad entera, asi que **no queda componente entrante que
+	# reflejar**. Codigo cuyo efecto no se puede enseñar es codigo que sobra.
+	#
+	# Y la friccion que el documento queria arreglar con eso —«el wall kick mata
+	# el momentum horizontal previo»— aqui ya esta resuelta en otro sitio y
+	# medida: `StateWallSlide` conserva la componente a lo largo del muro con
+	# rozamiento en vez de borrarla (regla dura #29), y rozar un muro a 30 m/s
+	# conserva el 92-98%.
 	var a_lo_largo := superficie.plano(velocity)
 	a_lo_largo -= normal * a_lo_largo.dot(normal)
 
@@ -691,11 +714,11 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 
 	pared.bloquear_actual()
 	var salida := (
-		normal * tuning.walljump_lateral * fuerza
-		+ intencion * tuning.walljump_lateral * tuning.walljump_intencion
+		normal * lateral * fuerza
+		+ intencion * lateral * tuning.walljump_intencion
 		+ a_lo_largo * tuning.walljump_conserva
 	)
-	velocity = superficie.con_vertical(salida, tuning.walljump_vertical * fuerza)
+	velocity = superficie.con_vertical(salida, vertical * fuerza)
 
 	bloquear_control_aereo(tuning.walljump_bloqueo)
 	orientar_a(salida)
@@ -704,6 +727,29 @@ func saltar_de_pared(fuerza: float = 1.0) -> void:
 	# La cámara se pone detrás del rebote: sin esto acabas volando de espaldas a
 	# donde miras y encadenar el siguiente muro es a ciegas.
 	EventBus.camara_realinear.emit(salida, tuning.camara_realinea_walljump)
+
+
+## CUAN DE FRENTE MIRAS AL MURO: 1 = perpendicular, 0 = rasante.
+##
+## **Lo decide la CAMARA, y no el avance.** Son dos criterios distintos a
+## proposito y no choca con la regla dura #20: aquella decide QUE VERBO te da una
+## pared —trepar, resbalar, correr— y por eso se mide con el movimiento real;
+## esto decide el ANGULO DE SALIDA de uno de esos verbos, y eso es intencion.
+## El propio documento de referencia lo pide en su regla 5: *«en un juego donde el
+## angulo de mirada define el angulo de salida de la patada, robarle la camara al
+## jugador es robarle la mecanica»*.
+##
+## Sin camara devuelve 0.5, que es el centro del abanico: el salto de pared de
+## siempre. Un valor por defecto tiene que ser el comportamiento conocido, no un
+## extremo.
+func _incidencia_pared(normal: Vector3) -> float:
+	var cam := camara()
+	if cam == null:
+		return 0.5
+	var mirada := superficie.plano(-cam.global_basis.z)
+	if mirada.is_zero_approx():
+		return 0.5
+	return clampf(mirada.normalized().dot(-normal), 0.0, 1.0)
 
 
 ## Dirección hacia la que "mira" el jugador para los sensores: la de movimiento si
