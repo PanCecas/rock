@@ -8,6 +8,12 @@ extends RefCounted
 enum Resultado { IMPACTO, BLOQUEADO, PARRY, PARRY_PERFECTO, INMUNE }
 
 var atacante: Node3D
+## A QUIEN LE DIO. La rellena la `Hurtbox`, que es la unica que lo sabe.
+##
+## Existe porque un impacto se comunica congelando a los DOS —«hitstop» quiere
+## decir que el golpe para el mundo, no que para al que pega— y sin esta
+## referencia el atacante no tiene forma de nombrar a su victima.
+var victima: Node = null
 var datos: AttackData
 var punto: Vector3
 ## Dirección del golpe en el mundo, del atacante hacia la víctima.

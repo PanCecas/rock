@@ -29,6 +29,15 @@ func nuevo_swing() -> void:
 
 
 ## Ejecuta la consulta. Devuelve cuántos objetivos NUEVOS ha tocado.
+## EL ULTIMO GOLPE QUE SALIO DE AQUI, o null.
+##
+## La señal `impacto` ya lo publica, pero un estado que llama a `golpear()` y
+## reacciona en la misma linea no puede conectarse a una señal para enterarse de
+## lo que acaba de provocar el. Y el contador de impactos no vale: **para
+## comunicar un golpe hace falta DONDE fue y a QUIEN**, no cuantos hubo.
+var ultimo: Golpe = null
+
+
 func golpear(datos: AttackData, adelante: Vector3) -> int:
 	if dueno == null or datos == null:
 		return 0
@@ -77,6 +86,7 @@ func golpear(datos: AttackData, adelante: Vector3) -> int:
 		var punto := hb.global_position
 		var golpe := Golpe.new(dueno, datos, punto, (punto - dueno.global_position).normalized())
 		hb.recibir(golpe)
+		ultimo = golpe
 		impacto.emit(golpe)
 		golpes += 1
 		if golpes >= datos.max_objetivos:

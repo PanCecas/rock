@@ -134,11 +134,27 @@ func _al_conectar(datos: AttackData) -> void:
 		return
 	_conectado = true
 	player.recargar_moveset()
-	HitstopManager.golpe(datos.hitstop, [player])
+
+	# EL GOLPE PARA A LOS DOS, no solo al que pega.
+	#
+	# Estaba pasando solo `[player]` y era el unico sitio del proyecto que lo
+	# hacia: el dano recibido, el parry y la embestida pasan siempre los dos. Con
+	# la victima fuera, el enemigo seguia moviendose mientras tu te congelabas, y
+	# eso no se lee como un impacto: se lee como que te ha pasado algo A TI.
+	var golpe: Golpe = player.hitbox.ultimo
+	var victima: Node = golpe.victima if golpe != null else null
+	var participantes: Array[Node] = [player]
+	if victima != null and is_instance_valid(victima):
+		participantes.append(victima)
+	HitstopManager.golpe(datos.hitstop, participantes)
 	EventBus.camara_shake.emit(datos.shake, 0.16)
-	var pos := player.global_position + Vector3.UP * 0.9
-	CombatFX.impacto(player.get_parent(), pos, player.color_de(datos.color_vfx), 1.4)
-	CombatFX.onda(player.get_parent(), pos, player.color_de(&"oro_palido"), 2.0)
+
+	# Y SE DIBUJA DONDE PASO, no donde estas. El impacto salia del pecho del
+	# jugador, o sea a un metro largo de lo que acababa de golpear — y con el pogo
+	# es peor todavia, porque lo que pisas esta DEBAJO.
+	var pos := golpe.punto if golpe != null else player.global_position + Vector3.UP * 0.9
+	CombatFX.impacto(player.get_parent(), pos, player.color_de(datos.color_vfx), 2.2)
+	CombatFX.onda(player.get_parent(), pos, player.color_de(&"oro_palido"), 2.6)
 
 	motor.set_vertical(tuning.patada_rebote)
 	# HANG TIME: gravedad cero un instante. Sin esto el rebote es un empujón y ya;

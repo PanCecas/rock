@@ -29,6 +29,7 @@ func _ready() -> void:
 
 ## Llamado por la Hitbox. Devuelve el Golpe.Resultado.
 func recibir(golpe: Golpe) -> int:
+	golpe.victima = dueno
 	if dueno != null and dueno.has_method("recibir_golpe"):
 		golpe.resultado = dueno.recibir_golpe(golpe)
 	golpe_recibido.emit(golpe)

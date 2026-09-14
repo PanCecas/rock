@@ -47,6 +47,18 @@ var _estado_prev: StringName = &""
 var _estado_tras_salto: StringName = &""
 var _vy_tras_impacto: float = -99.0
 var _cargas_tras_impacto: int = -1
+## EL IMPACTO, QUE ES LO QUE SE REPORTO COMO «no se siente que conecte».
+##
+## Dos numeros y nada mas, porque el golpe de un juego sin animaciones todavia
+## solo se puede comunicar de dos formas: **parando el mundo** y **moviendo a la
+## victima**. Congelar un `AnimationTree` que no existe no se ve.
+var _frames_pausa: int = 0
+var _victima_helada: bool = false
+## Y SI SEGUIA EXISTIENDO. Sin esto la linea decia «victima SIGUE VIVA» cuando lo
+## que pasaba era lo contrario: **muere en el frame del golpe**, asi que cuando el
+## banco preguntaba si estaba congelada ya no habia a quien preguntar. Un latch
+## que no puede distinguir «no paso» de «no pude mirar» es un latch que miente.
+var _victima_al_impacto: String = "sin tocar"
 
 # --- LA CADENA. Con mas de una carga, lo que se mide deja de ser un gesto suelto
 #     y pasa a ser cuanto aire compras encadenando.
@@ -123,9 +135,10 @@ func _construir() -> void:
 				_cargas_tras_impacto = -1
 				_atacar = 4,
 			func() -> String:
-				return "vy justo tras el impacto %6.1f   cargas %s" % [
+				return "vy %6.1f   cargas %s   PAUSA %d frames   victima: %s" % [
 					_vy_tras_impacto,
-					"?" if _cargas_tras_impacto < 0 else str(_cargas_tras_impacto)]),
+					"?" if _cargas_tras_impacto < 0 else str(_cargas_tras_impacto),
+					_frames_pausa, _victima_al_impacto]),
 
 		# 5) LA CADENA, y su FILA DE CONTROL. Sin la caida a secas al lado, el
 		#    numero de la cadena no dice nada: hay que saber cuanto aire tenias ya.
@@ -222,6 +235,9 @@ func _colocar(pos: Vector3, rapidez: float) -> void:
 	_recorrido = 0.0
 	_frames = 0
 	_estado_tras_salto = &"—"
+	_frames_pausa = 0
+	_victima_helada = false
+	_victima_al_impacto = "sin tocar"
 
 
 func _physics_process(delta: float) -> void:
@@ -253,6 +269,12 @@ func _physics_process(delta: float) -> void:
 			Input.action_release(&"jump")
 		elif _saltar == 0:
 			_estado_tras_salto = _p.fsm.nombre_actual()
+
+	if HitstopManager.global_activo():
+		_frames_pausa += 1
+	if _victima != null and is_instance_valid(_victima):
+		if HitstopManager.esta_congelado(_victima):
+			_victima_helada = true
 
 	var estado := _p.fsm.nombre_actual()
 	var plano := _p.superficie.plano(_p.velocity).length()
@@ -288,6 +310,14 @@ func _physics_process(delta: float) -> void:
 		if _vy_tras_impacto < -98.0 and _cargas_tras_impacto < 0:
 			_vy_tras_impacto = vy
 			_cargas_tras_impacto = _leer_cargas()
+			if _victima == null or not is_instance_valid(_victima):
+				_victima_al_impacto = "MURIO en el acto"
+			elif _victima_helada:
+				_victima_al_impacto = "congelada"
+			elif not _victima.salud.vivo:
+				_victima_al_impacto = "MURIO en el acto"
+			else:
+				_victima_al_impacto = "sigue en pie y SIN congelar"
 
 	_vel_anterior = plano
 	_vy_anterior = vy

@@ -62,6 +62,11 @@ var _v_antes: float = 0.0
 var _v_plano_prev: float = 0.0
 ## Vertical mas alta vista DESPUES de conectar. Es el rebote.
 var _vy_rebote: float = -99.0
+## Frames que el juego se ha quedado PARADO durante el escenario. Es lo unico de
+## un impacto que hoy se ve: `HitstopManager.congelar()` para `AnimationTree`s y
+## este juego se prueba con capsulas grises (regla dura #7), asi que no hay
+## animacion que parar. Si esto vale cero, conectar no se siente — y valia cero.
+var _frames_pausa: int = 0
 
 
 func _ready() -> void:
@@ -212,6 +217,16 @@ func _construir() -> void:
 			func() -> void: pass,
 			func() -> bool: return _vy_rebote > _p.tuning.patada_rebote * 0.7,
 			"sin rebote, golpear es el final de una linea en vez de un eslabon"),
+
+		# Y EL GOLPE PARA EL JUEGO. Regla dura #31: el chequeo de arriba mira la
+		# MAGNITUD del rebote, pero el rebote puede estar perfecto y el golpe no
+		# sentirse igualmente. Medido antes de arreglarlo: **0 frames de pausa**.
+		# La pausa se pedia de un frame y se descontaba en el mismo tick en que se
+		# pedia, asi que no llegaba a existir para nadie.
+		_chequeo_("y PARA el juego un instante", 0.1,
+			func() -> void: pass,
+			func() -> bool: return _frames_pausa >= 3,
+			"un golpe que no para nada no se siente; es lo unico que hoy se ve"),
 
 		# LOS TRES RECURSOS AEREOS SON UN PRESUPUESTO, NO TRES CUENTAS.
 		#
@@ -366,6 +381,7 @@ func _colocar(pos: Vector3) -> void:
 	_v_primera = 0.0
 	_v_antes = 0.0
 	_vy_rebote = -99.0
+	_frames_pausa = 0
 	_stick_tras = -1
 	_saltar_tras = -1
 
@@ -456,6 +472,8 @@ func _physics_process(delta: float) -> void:
 	elif _estado_prev == &"Kick":
 		_v_salida = plano_ahora
 		_vy_rebote = maxf(_vy_rebote, _p.superficie.vertical(_p.velocity))
+	if HitstopManager.global_activo():
+		_frames_pausa += 1
 	_v_plano_prev = plano_ahora
 	_estado_prev = estado
 
