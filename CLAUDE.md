@@ -443,6 +443,7 @@ disponible durante `pared_coyote` segundos tras perder el contacto.
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado. 17 comprobaciones. |
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
+| `tools/Moveset.tscn` | **EL CIRCUITO DEL MOVESET, y el unico sitio donde el criterio de exito se puede COMPROBAR jugando.** Cuatro hitos en fila y obligatorios —cuerda, patada, pared, cuerda— y **nada de suelo entre ellos**: la condicion «sin tocar el suelo» deja de ser una regla que vigilar y pasa a ser la forma del sitio. Lleva el marcador puesto: el panel dice que eslabones llevas y si has pisado algo. **F4 reinicia** y caerse tambien. `-- auto` lo corre solo con sus filas de control —¿se cruza el hueco pateando? ¿y sin patear?— y `-- foto` guarda el plano general en `user://moveset/`. `godot --path . --resolution 1280x720 tools/Moveset.tscn` |
 | `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo, y se encadena la cuerda?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Ademas **encadena ancla -> ancla** por el camino real —la tecla, el cono y el buffer, con la camara conducida a mano porque el cono es parte de la mecanica— y dice cuantos TOQUES hicieron falta: `2 enganches tras 0 toques` es la cadena limpia. Y mide el salto desde el arco **imprimiendo el estado en el que se pulsa** (regla dura #31). Con filas de control. `godot --headless --path . tools/MedirCadena.tscn` |
 | `tools/CapturaEscalada.tscn` | **Cuatro fotos del candado de escalada**: el mismo gesto contra el mismo muro con la habilidad y sin ella, y un roce a 26 m/s. Necesita GPU. `godot --path . --resolution 1280x720 tools/CapturaEscalada.tscn` |
 | `tools/MedirPatada.tscn` | **Cronometra la patada**, que es donde se vio que no se sentia bien: que le hace a la velocidad que ya llevabas, que le hace a la vertical, si se puede salir de ella, que pasa al conectar y cuanto terreno cubre. Las cinco lineas que dijeron los cuatro defectos de la primera version. `godot --headless --path . tools/MedirPatada.tscn` |
@@ -630,6 +631,36 @@ Etapa 1: **LA CUERDA ES UN ARCO** (`StateGrapple`, `src/world/Ancla.gd`).
 - **Una por tiempo de vuelo**, y la recarga vive en UN solo sitio: en
   `_physics_process`, despues de mover, cuando hay suelo o pared. La condicion se
   lee igual que la regla.
+
+Etapa 3: **EL CIRCUITO** (`tools/Moveset.tscn`). El criterio de exito del parche
+esta escrito como una frase —«encadeno cuerda -> patada -> pared -> cuerda sin
+tocar el suelo»— y hasta ahora no habia ningun sitio donde comprobarla: el Gym
+tiene las piezas sueltas, pero una cadena que se puede esquivar no prueba nada.
+
+- **No hay suelo.** Solo tres sitios donde se aterriza —SALIDA, PARED y META— y
+  entre ellos vacio. La condicion «sin tocar el suelo» no es una regla que haya
+  que vigilar: es la forma del sitio.
+- **EL HUECO SALE DE `-- auto`, NO DE UNA CUENTA.** La cuenta a mano daba 22 m y
+  era optimista: medido, con 22 la fila sin patear se quedaba a **4.2 m** de la
+  pared, o sea que una suelta un poco mejor lo cruzaba sin patear y el eslabon
+  dejaba de ser obligatorio. Con 26 las tres filas dicen lo que tienen que decir
+  —pateando toca la pared, sin patear se queda a 8.2 m, y sin la pared delante
+  sobran 9.5 m—. **La tercera fila existe porque las otras dos no bastan**: con la
+  pared puesta el vuelo se PARA en ella, asi que "toca la pared" no distingue
+  llegar justo de llegar de sobra.
+- **EL CIRCUITO DA LA VUELTA, y no por gusto.** La primera version ponia el cuarto
+  ancla detras de la pared y el banco dijo `cadena 3/4`: se llega a la pared a
+  **y=17.4** y la pared mide 22, asi que la linea de vision a cualquier cosa
+  detras entra en el muro y el filtro la descarta —correctamente—. Y subir a verla
+  tampoco vale, porque **un pendulo no gana altura**: el arco devuelve como mucho
+  lo que caiste. Un circuito que lo pidiera seria imposible y pareceria un bug del
+  jugador. Con el ancla en ESTE lado sale `cadena 4/4 sin pisar`, y ademas mejora:
+  obliga a girar la camara en el aire, que es la habilidad de verdad.
+- **Y el cartel de la salida dice el gesto que funciona, no el que uno supone.**
+  De pie sobre la plataforma la Z engancha pero el arco no arranca —el suelo te
+  sostiene y la restriccion no EMPUJA, solo impide alejarse—. Lo cazo `-- auto` en
+  su primera pasada: la traza decia `Grapple > Idle` y x=2.5. El gesto es mantener
+  la Z y **andar al vacio**.
 
 Etapa 2: **LA PATADA** (`StateKick`, `content/data/attacks/patada.tres`). Un solo
 movimiento ofensivo donde habia doce entradas de combate y 26 `AttackData`.

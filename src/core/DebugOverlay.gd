@@ -7,7 +7,16 @@ extends CanvasLayer
 
 const CADUCIDAD := 0.4  ## Segundos sin actualizar tras los que una línea se borra.
 
-var visible_panel: bool = true
+## ¿Se ve el panel? **Es un setter y no una variable suelta a proposito.** Antes
+## esto solo apagaba la ACTUALIZACION: el panel se quedaba en pantalla con el
+## contenido de hace un momento, asi que apagarlo desde codigo —lo que hacen las
+## capturas— dejaba una caja oscura congelada en la esquina de la foto. El estado
+## vivia en dos sitios y solo la tecla F3 los movia los dos.
+var visible_panel: bool = true:
+	set(v):
+		visible_panel = v
+		if _panel != null:
+			_panel.visible = v
 
 var _lineas: Dictionary = {}      # clave -> {texto, orden, t}
 var _orden_siguiente: int = 0
@@ -66,7 +75,6 @@ func _construir() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(InputActions.DEBUG_TOGGLE):
 		visible_panel = not visible_panel
-		_panel.visible = visible_panel
 		EventBus.debug_toggled.emit(visible_panel)
 		get_viewport().set_input_as_handled()
 

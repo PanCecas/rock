@@ -118,6 +118,42 @@ son un camino. `MedirCadena` cuenta la separación real leyéndola del mundo:
 `visible_en_juego = false` apaga el testigo esférico, para anclas que ya tengan su
 propio modelo colgando —una argolla, una rama—. El testigo es de blockout.
 
+### 2.0 Dónde se prueba todo esto junto
+
+**`tools/Moveset.tscn`** — el circuito del moveset.
+
+```bash
+godot --path . --resolution 1280x720 tools/Moveset.tscn
+```
+
+Cuatro hitos en fila y obligatorios, y **nada de suelo entre ellos**: SALIDA →
+ancla → hueco → pared → ancla → META. El panel lleva el marcador puesto y dice
+qué eslabones llevas y si has pisado algo por el camino. **F4** reinicia, y
+caerse también.
+
+El gesto de salida no es el que uno supone: **de pie sobre la plataforma la Z
+engancha pero el arco no arranca**, porque el suelo te sostiene y la cuerda no
+empuja, solo impide alejarse. Se mantiene la Z y **se anda al vacío**.
+
+Y se corre solo, que es como se sabe si sigue siendo posible después de tocar un
+número:
+
+```bash
+godot --headless --path . tools/Moveset.tscn -- auto    # ¿se cruza el hueco?
+godot --path . --resolution 1280x720 tools/Moveset.tscn -- foto
+```
+
+```
+cruzar el hueco PATEANDO      x=37.6 de 38.0   TOCA LA PARED   cadena 4/4 sin pisar
+el mismo hueco SIN patear     x=29.8 de 38.0   se queda corto  cadena 1/4
+pateando, sin la pared        x=47.5           sobran 9.5 m
+```
+
+Si bajas `patada_cargas` o tocas `cuerda_salida_mult`, esto te dice si el
+circuito sigue siendo cruzable antes de que te lo encuentres jugando.
+
+---
+
 ### 2.1 Dónde se tocan estos números
 
 **Todos los valores del jugador son públicos y se editan sin escribir código.**
