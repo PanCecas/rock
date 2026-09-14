@@ -47,6 +47,13 @@ extends CharacterBody3D
 ## LA lanza. Una sola, y por eso es una referencia y no una lista: la escasez es
 ## lo que hace que decidir donde la clavas sea una decision (`docs/03 §4`).
 var lanza: Spear = null
+## LA espada. Tambien una sola, y por la misma razon.
+##
+## **Y no compite con la lanza: hacen trabajos distintos.** La lanza SE QUEDA
+## donde la clavas —plataforma, ancla, punto fijo— y la espada SIEMPRE VUELVE.
+## Una se tira para dejarla puesta; la otra se tira para recogerla. Si las dos
+## hicieran lo mismo, la segunda sobraria.
+var espada: Sword = null
 ## ¿QUEDA CUERDA? Una por tiempo de vuelo, y se recarga al tocar suelo o pared.
 ##
 ## Es la moneda del moveset entero. Sin ella la cuerda vuelve a ser lo que era —
@@ -221,6 +228,7 @@ func _physics_process(delta: float) -> void:
 	var cam := camara()
 	targeting.actualizar(-cam.global_basis.z if cam != null else frente)
 	_input_lanza()
+	_input_espada()
 	suelo.sondear()
 	pared.sondear(frente)
 	techo.sondear(_altura_base * _altura_actual, _altura_base)
@@ -441,6 +449,65 @@ func _input_lanza() -> void:
 	# con lo de siempre.
 	if buffer.consume(InputActions.SWAP_WEAPON):
 		lanza.alternar_empunada()
+
+
+## CORTAR Y TIRAR LA ESPADA.
+##
+## Vive aqui y no en los grupos de la FSM por la misma razon que `_input_lanza()`
+## —cortar NO cambia el estado del jugador: sigues corriendo, cayendo o colgado
+## del arco mientras lo haces— y ademas por una que es propia de este boton:
+## **una accion compartida que vive en los grupos hay que declararla en los TRES
+## y con su guardia** (regla dura #13), y ese es el fallo que mas veces ha
+## aparecido en este proyecto. La cuerda se olvido de `Attached` y la Z estuvo
+## muerta un parche entero; la patada se olvido del mismo sitio y colgado del
+## arco el boton de ataque no hacia nada. Aqui hay UN sitio y no puede olvidarse.
+##
+## **El guardia sigue existiendo, y es uno solo:** `maneja_ataques()`. Se le
+## pregunta al estado activo, que es lo que permite que nadar siga sin dejarte
+## pegar sin tener que repetir la excepcion en ningun otro lado.
+func _input_espada() -> void:
+	if espada == null or not is_instance_valid(espada):
+		return
+
+	# UN SOLO BOTON PARA LA ESPADA FUERA: si la llevas la tiras, si no, vuelve.
+	# Mismo trato que la lanza, y no hay ambiguedad que aprender porque cual de
+	# las dos toca SE VE: o el arma esta en la mano o no esta.
+	#
+	# **Y AQUI TAMPOCO SE CONSUME A CIEGAS.** Hay un tercer sitio donde el arma no
+	# esta ni fuera ni lista —EN MITAD DE UN CORTE— y consumiendo antes de mirar,
+	# la pulsacion que caia en esos 16 frames desaparecia: `lanzar()` decia que no
+	# y nadie se enteraba. Lo cazo el banco con una traza de estados:
+	# `Wielded > Swing > Wielded` durante la fila del tiro, y ni un solo `InFlight`.
+	#
+	# Asi, pedir el tiro a mitad de un corte no se pierde: espera en el buffer y
+	# la espada sale volando en cuanto el corte termina.
+	if espada.esta_fuera():
+		if buffer.consume(InputActions.THROW_SWORD):
+			espada.recuperar()
+	elif espada.puede_lanzar():
+		if buffer.consume(InputActions.THROW_SWORD):
+			espada.lanzar(espada.punto_de_mano(), _direccion_de_tiro())
+
+	# EL CORTE. Detras del tiro a proposito: si el jugador pulsa los dos casi a la
+	# vez, tirarla es la decision mas cara de las dos y la que quiso de verdad.
+	if fsm.actual != null and fsm.actual.maneja_ataques():
+		return
+
+	# **SE MIRA SI PUEDE ANTES DE CONSUMIR**, igual que `intentar_cuerda()` con el
+	# ancla y por la misma razon escrita alli: *una pulsacion tragada sin efecto
+	# es indistinguible de un boton que no responde*.
+	#
+	# Lo cazo el banco, y con su fila de control: machacando el boton un segundo
+	# salian **2 cortes** donde el `.tres` permite 3.8. Consumiendo a ciegas, cada
+	# pulsacion que caia dentro de los 10 frames de recuperacion desaparecia, asi
+	# que encadenar dos cortes seguidos exigia soltar y volver a pulsar en la
+	# ventana exacta — lo contrario del buffer de entrada que este proyecto tiene
+	# desde el primer dia. Ahora la pulsacion espera en el buffer y sale sola en
+	# cuanto la espada vuelve a la mano.
+	if not espada.puede_cortar():
+		return
+	if buffer.consume(InputActions.ATTACK_LIGHT):
+		espada.cortar(_direccion_de_tiro())
 
 
 ## Hacia donde sale la lanza: al frente de la CAMARA, no del cuerpo.
@@ -1237,6 +1304,8 @@ func _debug() -> void:
 	DebugOverlay.set_line("objetivo", targeting.debug_line())
 	if lanza != null and is_instance_valid(lanza):
 		DebugOverlay.set_line("lanza", lanza.debug_line())
+	if espada != null and is_instance_valid(espada):
+		DebugOverlay.set_line("espada", espada.debug_line())
 	# Y EL ANCLA VETADA SE DICE. Un veto invisible es indistinguible de un boton
 	# que no responde, que es el sintoma que este parche venia a quitar.
 	var veto := ""

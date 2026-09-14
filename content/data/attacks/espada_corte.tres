@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/AttackData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+anim = &"combat/atk_espada"
+nombre = "Corte"
+; NO lleva `perforante` a proposito. La llave del punto debil es la PATADA, y si
+; la espada tambien abriera colosos el gesto de la patada perderia su unico
+; trabajo exclusivo. Aqui se pega; alli se abre.
+etiquetas = Array[StringName]([])
+; STARTUP CERO (ley 1 del 4.00): el corte empieza en el frame en que se pulsa.
+; Los 10 de recuperacion son lo unico que impide que machacar el boton sea un
+; zumbido: mientras duran, la espada no esta en `Wielded` y `cortar()` dice no.
+frames_windup = 0
+frames_activo = 6
+frames_recuperacion = 10
+; 30 DE DANO, Y EL NUMERO LO ELIGIO EL BANCO.
+;
+; Empezo en 60 y la primera pasada dijo `victima: MURIO en el acto` cortandole una
+; vez a un Guardian Lancero — que tiene exactamente 60 de vida. Con eso la espada
+; hacia lo mismo que la patada (derrotar de un golpe) sin costar una carga, y la
+; patada se quedaba sin su unico trabajo exclusivo.
+;
+; Con 30, contra los tres Guardianes: Vigia 2 cortes, Lancero 2, Escudo 4. La
+; patada sigue siendo la EJECUCION —200 y `perforante`, una por tiempo de vuelo— y
+; el corte es lo que haces cuando la patada no toca.
+dano = 30.0
+dano_poise = 34.0
+empuje = Vector3(0, 0, 6)
+lanzamiento = 0.0
+stagger = 0.25
+fuerza_muerte = 12.0
+torque_muerte = 8.0
+rompe_guardia = false
+alcance = 2.2
+radio = 1.2
+; ALTURA CERO, y no es lo mismo que en los demas ataques.
+;
+; `AttackData.altura` se documenta como "altura del centro de la hitbox sobre los
+; PIES", y eso vale cuando el dueño de la hitbox es el cuerpo. El dueño de esta
+; es la ESPADA, que ya esta a la altura de la mano: sumarle un metro mas ponia el
+; centro del corte a 2.85 m del suelo. Medido — con `altura = 1.0` el banco decia
+; `victima: SIN TOCAR (60/60 de vida)` cortandole a un enemigo a 1.9 m de morros.
+;
+; Es la misma razon por la que `lanza_vuelo.tres` tambien lleva cero.
+altura = 0.0
+arco_grados = 80.0
+max_objetivos = 3
+; CERO AVANCE Y CERO AUTOENCARADO. El corte no te mueve ni te gira: es lo que le
+; deja correr ENCIMA del moveset sin pelearse con el estado que te lleva ni con
+; el unico escritor de la orientacion visual (regla dura #17).
+avance = 0.0
+movilidad = 1.0
+autoencarar = false
+estocada = false
+hitstop = 0.05
+shake = 0.22
+color_vfx = &"blanco_tiza"
+frame_cadena = 999

@@ -63,7 +63,9 @@ func _correr() -> void:
 	_situar(Vector3(-10.0, 3.0, 14.0), Vector3.RIGHT * 24.0)
 	_p.call("orientar_a", Vector3.RIGHT)
 	_camara(Vector3(-4.0, 6.5, 24.0), Vector3(-4.0, 2.5, 14.0))
-	_pulsar(&"attack_light", 4)
+	# EL ESPACIO, no el click: desde el 4.06 la patada solo cuelga del salto
+	# y `attack_light` es de la espada.
+	_pulsar(&"jump", 4)
 	await _frames(11)
 	await _foto("04_estela_de_la_patada")
 

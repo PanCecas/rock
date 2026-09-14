@@ -98,13 +98,14 @@ func shared_update(delta: float) -> void:
 			fsm.cambiar(&"Slide")
 			return
 
-	# Combate. El parry va ANTES que el ataque: si el jugador pulsa las dos casi a
-	# la vez, casi siempre estaba reaccionando a algo que venia.
+	# Combate. Solo queda el parry, que SI es una transicion: te planta y te deja
+	# quieto durante su ventana.
+	#
+	# El corte de espada no esta aqui y no es un olvido: no cambia de estado, asi
+	# que lo resuelve el controlador. Y la patada tampoco: en el suelo el Espacio
+	# salta, y patear es lo que hace el Espacio EN EL AIRE.
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
-		return
-
-	if intentar_patada():
 		return
 
 	if buffer.consume(InputActions.LOCK_ON):

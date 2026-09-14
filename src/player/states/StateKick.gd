@@ -151,16 +151,18 @@ func _al_conectar(datos: AttackData) -> void:
 	# LA RECARGA ES POR TOCAR EL MUNDO, NO POR TOCAR TUS PROPIAS COSAS.
 	#
 	# La ley 4 dice que los aereos vuelven al tocar suelo, pared o enemigo — tres
-	# cosas que pone el NIVEL. Tu lanza la pones tu, asi que recargar el moveset
-	# pateandola seria una maquina de movimiento perpetuo con dos pasos: la tiras,
-	# la pateas, recargas, la recuperas, la tiras. El rebote SI se lo queda: eso es
-	# lo que hace que tirarla valga la pena.
-	var suya: bool = (
-		player.lanza != null
-		and is_instance_valid(player.lanza)
-		and player.hitbox.ultimo != null
-		and player.hitbox.ultimo.victima == player.lanza
-	)
+	# cosas que pone el NIVEL. Tus armas las pones tu, asi que recargar el moveset
+	# pateandolas seria una maquina de movimiento perpetuo con dos pasos: la tiras,
+	# la pateas, recargas, la recuperas, la tiras. El rebote SI se lo quedan: eso
+	# es lo que hace que tirarlas valga la pena.
+	#
+	# **Y desde el 4.06 son DOS, la lanza y la espada.** Preguntar solo por la
+	# lanza habria dejado la puerta abierta por el arma nueva, que ademas VUELVE
+	# sola a la mano — o sea que el bucle perpetuo saldria mas barato todavia.
+	var golpeado: Node = (
+		player.hitbox.ultimo.victima if player.hitbox.ultimo != null else null)
+	var suya: bool = golpeado != null and (
+		golpeado == player.lanza or golpeado == player.espada)
 	if not suya:
 		player.recargar_moveset()
 
@@ -226,12 +228,16 @@ func techo_velocidad() -> float:
 	return maxf(_rapidez, tuning.patada_velocidad)
 
 
-## El estado se queda la pulsación de ataque: el grupo corre ANTES que la hoja, y
-## sin esto machacar el botón reentraría en la patada cada frame y la actual no
-## llegaría a terminar nunca. Regla dura #13 — y es literalmente el spam que este
-## rediseño venía a quitar.
-func maneja_ataques() -> bool:
-	return true
+## AQUI SE RECLAMABA EL BOTON DE ATAQUE, y en el 4.06 dejo de hacer falta.
+##
+## El guardia existia porque el grupo entraba en `Kick` desde `attack_light`: sin
+## el, machacar el boton reentraba en la patada cada frame y la actual no
+## terminaba nunca. Ahora la patada entra por el SALTO —y ese camino ya se corta
+## solo, en el paso 2 de `physics_update`— y `attack_light` es de la espada.
+##
+## Al no reclamarlo, **se puede cortar a media patada**, y es a proposito: el
+## corte no toca la FSM ni el movimiento, asi que componer los dos verbos no
+## rompe ninguno de los dos. Es la ley del moveset aplicada: encadenar limpio suma.
 
 
 ## NADA DE AGARRE AUTOMÁTICO A MEDIA PATADA. Regla dura #20: el agarre automático

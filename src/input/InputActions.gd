@@ -19,9 +19,17 @@ const GRAB := &"grab"
 const ROPE := &"rope"
 
 # Combate
-## UN SOLO BOTON OFENSIVO desde el parche 4.00. `attack_heavy` se retiro del
-## InputMap con los once verbos que lo usaban: un boton que no hace nada es peor
-## que un boton que no existe, porque se prueba y no contesta.
+## EL CORTE DE ESPADA. Desde el 4.06 este boton es de la ESPADA y de nada mas.
+##
+## Durante el 4.00 aqui vivia la patada, y a la vez el Espacio tambien la
+## lanzaba: el mismo verbo en dos teclas, o sea que moverse por el aire y pegar
+## eran lo mismo y no habia forma de hacer uno sin el otro. Se pidio separarlos
+## —*«que la patada sea en el espacio, no en el ataque, ya que vamos es a atacar
+## con la espada»*— y eso es exactamente lo que este nombre significa ahora.
+##
+## `attack_heavy` se retiro en el 4.00 con los once verbos que lo usaban: un
+## boton que no hace nada es peor que un boton que no existe, porque se prueba y
+## no contesta.
 const ATTACK_LIGHT := &"attack_light"
 const PARRY := &"parry"
 const DODGE := &"dodge"
@@ -29,6 +37,11 @@ const DODGE := &"dodge"
 # Armas
 const AIM := &"aim"
 const THROW_SPEAR := &"throw_spear"
+## TIRAR Y LLAMAR LA ESPADA. Un boton, las dos mitades: si la llevas la tiras, si
+## esta fuera vuelve. Mismo trato que la lanza, y por el mismo motivo escrito
+## alli — no son dos verbos peleandose por una tecla, son las dos mitades del
+## mismo, y cual toca SE VE porque el arma esta o no esta en la mano.
+const THROW_SWORD := &"throw_sword"
 const RECALL_SPEAR := &"recall_spear"
 const SWAP_WEAPON := &"swap_weapon"
 
@@ -42,7 +55,7 @@ const DEBUG_RESET := &"debug_reset"
 const BUFFERED: Array[StringName] = [
 	JUMP, DASH, GLIDE, GRAB, ROPE,
 	ATTACK_LIGHT, PARRY, DODGE,
-	THROW_SPEAR, RECALL_SPEAR, SWAP_WEAPON,
+	THROW_SPEAR, THROW_SWORD, RECALL_SPEAR, SWAP_WEAPON,
 	INTERACT, LOCK_ON, CROUCH,
 ]
 

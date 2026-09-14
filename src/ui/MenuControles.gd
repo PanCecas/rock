@@ -113,17 +113,32 @@ func _secciones() -> Array:
 			{"nombre": "Subir desde un canto", "acciones": [InputActions.MOVE_FORWARD], "cuando": "colgado"},
 		]},
 
-		{"titulo": "PELEAR — un solo movimiento", "filas": [
-			{"nombre": "PATADA — derrota de un golpe", "acciones": [InputActions.ATTACK_LIGHT],
-				"cuando": "impulso corto y dirigido · cruza huecos aunque no golpee nada"},
+		{"titulo": "PELEAR", "filas": [
+			{"nombre": "CORTE de espada", "acciones": [InputActions.ATTACK_LIGHT],
+				"cuando": "no te frena ni te gira: se corta corriendo, cayendo o colgado"},
+			{"nombre": "PATADA — derrota de un golpe", "acciones": [InputActions.JUMP],
+				"cuando": "EN EL AIRE · es el salto aéreo, no un ataque · cruza huecos aunque no golpee nada"},
 			{"nombre": "Dirigirla", "acciones": [InputActions.MOVE_FORWARD],
 				"cuando": "el stick manda durante todo el gesto"},
-			{"nombre": "Acertar RECARGA", "acciones": [InputActions.ATTACK_LIGHT],
+			{"nombre": "Acertar RECARGA", "acciones": [InputActions.JUMP],
 				"cuando": "conectar te devuelve la cuerda Y la patada: el enemigo es plataforma"},
-			{"nombre": "Fallar la gasta", "acciones": [InputActions.ATTACK_LIGHT],
-				"cuando": "una por tiempo de vuelo · vuelve al TOCAR suelo o pared"},
+			{"nombre": "Fallar la gasta", "acciones": [InputActions.JUMP],
+				"cuando": "tres por tiempo de vuelo · vuelven al TOCAR suelo o pared"},
 			{"nombre": "Parry", "acciones": [InputActions.PARRY],
 				"cuando": "justo antes del golpe es perfecto, y te devuelve las dos cargas"},
+		]},
+
+		{"titulo": "LA ESPADA — vuelve sola", "filas": [
+			{"nombre": "Tirarla · y llamarla de vuelta", "acciones": [InputActions.THROW_SWORD],
+				"cuando": "el mismo botón: si la llevas la tiras, si está fuera vuelve"},
+			{"nombre": "Vuelve sola", "acciones": [InputActions.THROW_SWORD],
+				"cuando": "se aleja, da la vuelta y regresa · y corta en las dos pasadas"},
+			{"nombre": "PATEARLA en vuelo", "acciones": [InputActions.JUMP],
+				"cuando": "va al ENEMIGO MÁS CERCANO · sin nadie cerca, hacia donde pateaste"},
+			{"nombre": "Te rebota, no te recarga", "acciones": [InputActions.JUMP],
+				"cuando": "tus armas las pones tú: el moveset lo devuelve tocar el mundo"},
+			{"nombre": "Sin espada no hay corte", "acciones": [InputActions.ATTACK_LIGHT],
+				"cuando": "mientras está fuera, el botón de corte no tiene con qué"},
 		]},
 
 		{"titulo": "LA LANZA", "filas": [

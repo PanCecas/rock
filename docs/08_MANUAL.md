@@ -259,6 +259,84 @@ alcance, imantado y tamaño de la plataforma.
 
 ---
 
+## 2 ter. La espada
+
+**Dónde:** `src/weapons/Sword.tscn`.
+
+Misma receta que la lanza —vive en el MUNDO, no colgada del jugador—, con dos
+`AttackData` en vez de uno:
+
+```gdscript
+# En el _ready de tu nivel. `jugador` es el PlayerController.
+var e := preload("res://src/weapons/Sword.tscn").instantiate() as Sword
+e.palette = GameState.palette
+e.ataque = load("res://content/data/attacks/espada_corte.tres")        # el tajo
+e.ataque_vuelo = load("res://content/data/attacks/espada_vuelo.tres")  # la hoja girando
+add_child(e)                     # al MUNDO, no al jugador
+e.dueno = jugador                # decide el equipo de la hitbox y dónde está la mano
+e.global_position = jugador.global_position + Vector3.UP
+jugador.set("espada", e)
+```
+
+**Son DOS `AttackData` a propósito.** Un tajo tiene un arco delante de ti (80°) y
+una hoja que gira corta todo lo que roza (180°). Compartir el `.tres` obligaría a
+elegir un arco que miente en uno de los dos casos.
+
+**Y no compite con la lanza: hacen trabajos distintos.**
+
+| | la lanza | la espada |
+|---|---|---|
+| al tirarla | **se queda** donde se clava | **siempre vuelve** |
+| para qué | plataforma, pértiga, ancla de cuerda | proyectil y arma de mano |
+| al patearla | va **hacia donde pateas** | va **al enemigo más cercano** |
+| cuántas pasadas pateables | una | **dos**: la ida y la vuelta |
+
+Si las dos hicieran lo mismo, la segunda sobraría. Esa tabla es la justificación
+de que existan las dos.
+
+### 2 ter.1 El corte NO es un estado del jugador
+
+Es la decisión de diseño de toda el arma y conviene tenerla clara antes de tocar
+nada: **`Swing` vive en la FSM del ARMA**, no en la del jugador.
+
+La patada sí es un estado del jugador, porque te lleva 0.25 s por el aire con su
+propia física. Un corte no: sigues corriendo, deslizando, cayendo o colgado del
+arco mientras lo das. Dos consecuencias prácticas:
+
+- **Se corta desde cualquier sitio** sin que ningún grupo tenga que declararlo. La
+  trampa de la regla dura #13 —una acción compartida que hay que repetir en los
+  tres grupos, y siempre se olvida uno— no existe para este botón.
+- **Si añades un estado nuevo al jugador, el corte ya funciona en él.** Lo único
+  que puede apagarlo es que ese estado declare `maneja_ataques()`, como hacen
+  `StateSwim` y `StateUnderwater`.
+
+El input vive en `PlayerController._input_espada()`, al lado del de la lanza.
+
+### 2 ter.2 Los números que vas a querer tocar
+
+Todos en `SwordTuning` (`src/weapons/SwordTuning.gd`):
+
+| Número | Qué cambia |
+|---|---|
+| `alcance` (14 m) | **el que define el arma**: a qué distancia da la vuelta |
+| `velocidad` (26) / `velocidad_retorno` (30) | la vuelta es más rápida que la ida a propósito: lo interesante es la ida |
+| `busqueda_rango` (22 m) | a qué distancia busca enemigo al patearla |
+| `busqueda_giro` (420 °/s) | **no es un teletransporte**: la curva es lo que deja leer a dónde va |
+| `busqueda_vida` (2.5 s) | cuánto persigue antes de rendirse y volver |
+| `patada_empuje` (40) | a cuánto sale cuando NO hay a quién ir |
+| `corte_max` (1 s) | techo de seguridad; la duración real la dice el `.tres` en frames |
+
+Los tiempos del tajo NO están aquí: van en `espada_corte.tres`, en frames
+(`0 + 6 + 10`). Los 10 de recuperación son lo único que impide que machacar el
+botón sea un zumbido.
+
+**Y una trampa concreta si tocas ese `.tres`:** `AttackData.altura` se mide *desde
+los pies*, y el dueño de esta hitbox es la **mano**, que ya está a 0.95 m. Por eso
+lleva `altura = 0.0`. Con 1.0, el centro del corte queda a 2.85 m del suelo y no
+toca a un enemigo que tengas a dos metros de morros — medido.
+
+---
+
 ## 3. Un enemigo
 
 **Dónde:** `src/enemies/` — `Guardian.tscn`, `Embestidor.tscn`, `Volador.tscn`,

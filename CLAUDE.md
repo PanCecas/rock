@@ -383,8 +383,19 @@ despues de que se retirara—. Si las dos discrepan, gana el menu y se corrige a
 | | *si conecta, DERROTA, te REBOTA arriba y recarga las dos cargas* | |
 | | *y PARA el juego 4 frames — es lo unico de un golpe que hoy se ve* | |
 | | *NO hay doble salto: en el aire, Espacio patea. Las Sun Greaves de* Pseudoregalia *SON el salto aereo* | |
+| | ***Y SOLO en el Espacio, desde el 4.06***: el click es de la espada. Hasta entonces el mismo verbo colgaba de los dos botones, o sea que moverse por el aire y pegar eran la misma pulsacion | |
 | | *describe un ARCO: sube, se dobla y cae. Con la gravedad apagada del todo parecia que volabas* | |
 | | *TRES por tiempo de vuelo. Vuelven al TOCAR suelo, pared o enemigo —al tocar, no mientras tocas* | |
+| **ESPADA: CORTAR** | **Click izq.** | RB |
+| | *no te frena ni te gira: se corta corriendo, cayendo o colgado del arco* | |
+| | *no es un estado del jugador — es un gesto que corre ENCIMA de lo que hagas* | |
+| | *startup cero; lo que limita el machaque es la recuperacion del `.tres`* | |
+| **ESPADA: TIRARLA / LLAMARLA** | **Click der.** | RT |
+| | *el mismo boton: si la llevas la tiras, si esta fuera vuelve* | |
+| | ***y SIEMPRE VUELVE SOLA***: se aleja 14 m, da la vuelta y regresa | |
+| | *corta en las DOS pasadas, la de ida y la de vuelta* | |
+| | ***pateala en vuelo y VA AL ENEMIGO MAS CERCANO*** — sin nadie cerca, hacia donde pateaste | |
+| | *mientras esta fuera no hay corte. Ese es el precio, y se ve* | |
 | Parry | Q | LT |
 | | *el perfecto quiebra al atacante y te devuelve las dos cargas* | |
 | Fijar objetivo | Click medio | R3 |
@@ -519,6 +530,8 @@ le esta robando la mecanica.
 | `tools/TestFase2.tscn` | Test funcional de postura, agua, escalada, locomocion, la particion de los verbos de pared, el parry, el dano recibido, el CANDADO DE ESCALADA, que rozar un muro conserva la linea y que **el wall kick es un ABANICO y no un vector fijo** —comprobado por la magnitud y no por el estado, regla dura #31—. 97 comprobaciones. |
 | `tools/TestEnemigos.tscn` | Test funcional de los tres enemigos: cono de vision, carga que no persigue, rafaga, zigzag, torso escalable, apuntado en 3D, las invariantes del arrastre y el punto debil, la carga que va HACIA el jugador sin perseguirle, la patrulla, los dos arquetipos, y que una lanza clavada viaja con el cuerpo. 31 comprobaciones. |
 | `tools/TestLanza.tscn` | Test funcional de la lanza (Fase 3): vuelo, clavado, plataforma, recuperacion, empunar y desempunar, pertiga e imantado, **y que el vuelo termina FLOTANDO y caduca solo**. 19 comprobaciones. |
+| `tools/TestEspada.tscn` | **Test de la espada.** Los tres verbos por su camino de entrada real: que una pulsacion saca UN corte y mantenerla no auto-repite, que machacar llega al techo del `.tres` y ni uno mas, que cortar no te cambia de estado ni te quita velocidad, que se corta colgado del arco y NO en el agua, que **el click ya no patea** y el Espacio si, que se tira y vuelve sola, que ningun boton se traga una pulsacion, que la hurtbox se apaga en la mano, que no se golpea a si misma, y —la del encargo— que **pateandola va al enemigo mas cercano**, rebota y NO recarga. 19 comprobaciones. |
+| `tools/MedirEspada.tscn` | **Banco de la espada.** Seis preguntas de feel con su fila de control: si el corte te frena (no: 19.9→17.3 sin cortar contra 20.0→17.5 cortando), cuanto dura, cuantos cortes por segundo salen machacando, si conectar PARA el mundo, si vuelve sola y cuanto tarda (13.6 m y 1.38 s), y si al patearla va al enemigo —**70 grados ANTES → 0 DESPUES**, contra una fila de control sin enemigos que gira 76 grados hacia donde pateaste—. Imprime ademas una **TRAZA de estados fila por fila**, que es lo que caza que un experimento no llego a ocurrir. `godot --headless --path . tools/MedirEspada.tscn` |
 | `tools/TestPatada.tscn` | **Test del unico ataque.** Ademas de lo suyo, que conectar **PARA el juego** (regla dura #31: la magnitud, no el estado) y el bucle del pogo — que la lanza tirada se queda flotando, que se le puede patear, y que eso NO recarga el moveset. 26 comprobaciones. Que el boton patea sin anticipacion, que dura lo que dice y termina sola, que **entrando lanzado NO te quita velocidad**, que el stick la dirige A MITAD del gesto, que saltar la corta, que conectar DERROTA y te REBOTA arriba, que se puede patear DESDE el arco de la cuerda, que hay una por tiempo de vuelo, que en el agua no existe, y —la que importa— que **patear a ras de suelo NO la recarga**: la recarga es un flanco de contacto, no un nivel. 21 comprobaciones. |
 | `tools/Moveset.tscn` | **EL CIRCUITO DEL MOVESET, y el unico sitio donde el criterio de exito se puede COMPROBAR jugando.** Cuatro hitos en fila y obligatorios —cuerda, patada, pared, cuerda— y **nada de suelo entre ellos**: la condicion «sin tocar el suelo» deja de ser una regla que vigilar y pasa a ser la forma del sitio. Lleva el marcador puesto: el panel dice que eslabones llevas y si has pisado algo. **F4 reinicia** y caerse tambien. `-- auto` lo corre solo con sus filas de control —¿se cruza el hueco pateando? ¿y sin patear?— y `-- foto` guarda el plano general en `user://moveset/`. `godot --path . --resolution 1280x720 tools/Moveset.tscn` |
 | `tools/MedirCadena.tscn` | **¿Sobrevive la velocidad al tocar el mundo, y se encadena la cuerda?** Llega lanzado a un muro de frente, rozandolo a 16 y a 35 grados, y a un canto, y dice a que estado te manda el contacto y que queda de la rapidez. Ademas **encadena ancla -> ancla** por el camino real —la tecla, el cono y el buffer, con la camara conducida a mano porque el cono es parte de la mecanica— y dice cuantos TOQUES hicieron falta: `2 enganches tras 0 toques` es la cadena limpia. Y mide el salto desde el arco **imprimiendo el estado en el que se pulsa** (regla dura #31). Con filas de control. `godot --headless --path . tools/MedirCadena.tscn` |
@@ -889,6 +902,77 @@ primera version cumplia el encargo sobre el papel y se sentia mal. El banco
 	jugador a distancia cero, y como `max_objetivos` es 1 el enemigo no llegaba a
 	existir para el golpe. `monitorable` solo decide si otras areas la detectan
 	monitorizando; `intersect_shape` encuentra cualquier area por su capa.
+**Parche 4.06 — LA ESPADA, y el click deja de patear.**
+
+Se pidio asi: *«crea una espada para esto que al patearla vaya al enemigo mas
+cercano, la patada tiene mucho momentum y que sea en el espacio, no en el ataque,
+ya que vamos es a atacar con la espada»*. Son dos cosas y las dos entran.
+
+- **EL CLICK YA NO PATEA, y era un duplicado.** Desde el 4.03 el Espacio ya
+  pateaba en el aire, asi que el mismo verbo colgaba de dos botones: moverse por
+  el aire y pegar eran la misma pulsacion y no habia forma de hacer una sin la
+  otra. `intentar_patada()` se retiro de los tres grupos y queda UNA puerta —
+  `GroupAirborne`, paso 7, por `consumir_salto()`.
+  Corolario medido: **desde el arco, el Espacio SALTA** (`StateGrapple` lo
+  reclama), asi que la cadena del criterio de exito pasa a ser
+  `cuerda -> salto -> patada -> pared -> cuerda`. Un gesto mas y mas control.
+- **EL CORTE NO ES UN ESTADO DEL JUGADOR**, y esa es la decision de diseño de
+  toda el arma. `Swing` vive en la FSM del ARMA: cortar corriendo te deja
+  corriendo, y de paso desaparece entera la trampa de la regla dura #13 para este
+  boton —no hay accion compartida que repartir entre tres grupos ni guardia que
+  olvidar—. El unico guardia que queda es `maneja_ataques()`, preguntado al
+  estado activo desde `PlayerController._input_espada()`, en un sitio.
+  Medido con su fila de control: **sin cortar 19.9 -> 17.3 m/s, cortando
+  20.0 -> 17.5**. El corte no toca la linea.
+- **Y SIEMPRE VUELVE.** Es lo unico que separa la espada de la lanza, y es de
+  trabajo y no de numeros: la lanza SE QUEDA donde la clavas —plataforma,
+  pertiga, ancla— y la espada es un bumeran. Una se tira para dejarla puesta; la
+  otra se tira para recogerla. Efecto secundario: **cada tirada da DOS pasadas
+  pateables**, la de ida y la de vuelta, y no hay que ir a recoger nada al suelo.
+  Medido: se aleja 13.6 m de 14 y vuelve en 1.38 s.
+- **PATEARLA EN VUELO LA MANDA AL ENEMIGO MAS CERCANO.** Lo que la separa de
+  patear la lanza —que solo REDIRIGE hacia donde pateaste— es que aqui la espada
+  ELIGE: tu decides cuando, ella decide a quien. Medido contra su control:
+  **70 grados hacia el enemigo ANTES -> 0 DESPUES**, mientras la fila sin
+  enemigos gira 76 grados hacia donde pateaste. Y gira, no se teletransporta
+  (`busqueda_giro`): clavarle el rumbo de golpe seria un salto en la imagen.
+- **El rebote SI, la recarga NO**, igual que la lanza. `StateKick` pregunta ahora
+  por las DOS armas: con la espada fuera de la cuenta, el bucle perpetuo salia
+  mas barato todavia que con la lanza, porque esta vuelve sola a la mano.
+- **DOS BOTONES SE TRAGABAN LA PULSACION, Y LOS DOS LOS CAZO EL BANCO.**
+  · El CORTE durante la recuperacion: `2 cortes por segundo` donde el `.tres`
+	permite 3.8. Cada pulsacion que caia en los 10 frames de recuperacion se
+	consumia sin poder ejecutarse y desaparecia.
+  · El TIRO durante un corte: la traza de estados decia `Wielded > Swing >
+	Wielded` en la fila del tiro, sin un solo `InFlight`.
+  Los dos se arreglan igual y como ya hacia `intentar_cuerda()` con el ancla:
+  **se pregunta si se puede ANTES de consumir** (`puede_cortar()`,
+  `puede_lanzar()`). Lo que no cambia es la ventana del buffer: una pulsacion
+  sigue caducando a los 0.15 s, y eso es correcto.
+- **EL DAÑO LO ELIGIO EL BANCO.** Empezo en 60 y un Guardian Lancero tiene
+  exactamente 60: la espada derrotaba de un golpe igual que la patada sin costar
+  una carga, y la patada se quedaba sin su unico trabajo exclusivo. Con 30 hacen
+  falta 2 cortes para un Lancero y 4 para un Escudo.
+- **Y `AttackData.altura` cuenta desde los PIES**, pero el dueño de esta hitbox
+  es la MANO, que ya esta a 0.95 m. Con 1.0 el centro del corte quedaba a 2.85 m
+  del suelo y no tocaba a un enemigo a 1.9 m de morros —`victima: SIN TOCAR
+  (60/60 de vida)`—. Lleva cero, por la misma razon que `lanza_vuelo.tres`.
+- **Y una leccion de BANCO, que es la regla dura #31 vista del otro lado.** El
+  contador de cortes decia **1 por segundo donde salian 4**, y el juego estaba
+  bien: un corte termina y el siguiente empieza DENTRO del mismo frame —el arma
+  vuelve a `Wielded` en su `_physics_process` y el jugador la saca en el suyo,
+  que corre despues— asi que un muestreo por frame no ve nunca la casilla
+  intermedia. No basta con no fiarse del nombre del estado al que llegas:
+  **tampoco se puede contar cuantas veces lo ves.** Se cuenta por SEÑAL. De ahi
+  sale tambien la TRAZA de estados que `MedirEspada` imprime fila por fila.
+
+**Y esto contradice a `docs/09_RUMBO.md`, que hay que decirlo.** Esa nota dice
+*«no entra un verbo nuevo hasta que exista el coloso #1»*, y aqui entran tres. Se
+pidieron expresamente y estaban en marcha antes de escribir la regla; queda
+anotado para que la proxima vez que se lea el rumbo se sepa que la excepcion fue
+una decision y no un despiste. La cuenta que el rumbo da —**1 nivel y es el
+gimnasio, 0 colosos, 0 minutos de juego**— no ha cambiado con este parche.
+
 - **La patada es la LLAVE del punto debil** (`etiquetas = [perforante]`). Con un
   solo ataque tiene que serlo, o un coloso seria invencible. Y por eso el
   `ColosoMediano` pasa de 400 de vida a **3000**: con la llave la patada hace

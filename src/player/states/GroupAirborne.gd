@@ -144,14 +144,11 @@ func shared_update(delta: float) -> void:
 	if intentar_cuerda():
 		return
 
-	# 5) Combate aereo, que ahora es UN verbo y ademas es traversal: la patada
-	#    cruza huecos aunque no haya nada que golpear, y si golpea, recarga.
+	# 5) Parry aereo. La patada NO esta aqui: entra por el salto, en el paso 7.
 	if buffer.consume(InputActions.PARRY):
 		fsm.cambiar(&"Parry")
 		return
 
-	if intentar_patada():
-		return
 	if buffer.consume(InputActions.LOCK_ON):
 		player.targeting.alternar_fijado()
 

@@ -34,6 +34,10 @@ var _guion: Array = []
 var _fallos: PackedStringArray = []
 var _visto: Dictionary = {}
 var _atacar: int = 0
+## Machaque del Espacio: pulsa y suelta sin parar durante la comprobacion.
+var _machacar_salto: bool = false
+## Cuantas veces se ha ENTRADO en `Kick` dentro de la comprobacion actual.
+var _patadas_contadas: int = 0
 var _stick: float = 0.0
 ## Frames que faltan para empujar el stick, contados DENTRO del gesto.
 var _stick_tras: int = -1
@@ -41,6 +45,7 @@ var _stick_tras: int = -1
 var _saltar_tras: int = -1
 var _cuerda: int = 0
 var _ancla_viva: bool = false
+var _ciclo_salto: int = 0
 
 # --- Latches. Se miden MIENTRAS pasa: al cerrar la ventana el gesto ya acabó.
 var _t_patada: float = 0.0
@@ -350,22 +355,32 @@ func _construir() -> void:
 			"si no se recargara al aterrizar sería de un solo uso por partida"),
 
 		# --- EL ANTI-SPAM -----------------------------------------------------
-		_chequeo_("patear a ras de suelo NO la recarga", 0.9,
+		#
+		# **ESTA COMPROBACION SE REESCRIBIO EN EL 4.06, y no por gusto.** Antes
+		# pateaba A RAS DE SUELO machacando el boton de ataque, y esa situacion ya
+		# no se puede montar: en el suelo el Espacio SALTA. La ley que protegia
+		# —*la recarga es un FLANCO de contacto, no un nivel*— sigue siendo la
+		# misma y sigue importando, asi que lo que cambia es donde se pregunta: en
+		# el AIRE, machacando, el presupuesto tiene que agotarse y no rellenarse.
+		#
+		# Su pareja, «tocar suelo la devuelve», cubre la otra mitad: el flanco SI
+		# recarga. Las dos juntas dicen lo mismo que decia la vieja sola.
+		_chequeo_("machacando en el aire el presupuesto SE AGOTA", 1.0,
 			func() -> void:
 				_soltar_todo()
-				_p.global_position = Vector3(0.0, 0.3, 20.0)
+				# Alto y sin nada que rozar: cualquier recarga que salga aqui es
+				# una recarga inventada.
+				_p.global_position = Vector3(0.0, 30.0, 20.0)
 				_p.velocity = Vector3.ZERO
-				_p.fsm.cambiar(&"Idle")
-				# UNA a mano, no `tuning.patada_cargas`: lo que se mide es que el
-				# contacto continuo del suelo no devuelve la carga, y eso no puede
-				# depender de cuantas haya configuradas.
-				_p.patada_cargas = 1
+				_p.fsm.cambiar(&"Fall")
+				_p.recargar_moveset()
+				_patadas_contadas = 0
 				_visto.clear()
-				_atacar = 4,
+				_machacar_salto = true,
 			func() -> bool:
-				# Se pateó —y por tanto se gastó— y el contacto continuo del suelo
-				# NO la ha devuelto: hace falta salir y volver.
-				return _visto.has(&"Kick") and _p.patada_cargas <= 0,
+				return (_patadas_contadas == _p.tuning.patada_cargas
+					and _p.patada_cargas <= 0)
+				,
 			"con la recarga como NIVEL, machacar el botón sería un dash continuo"),
 
 		_chequeo_("pero saltar y caer sí", 1.8,
@@ -500,6 +515,8 @@ func _soltar_todo() -> void:
 			Input.action_release(a)
 	_p.buffer.clear()
 	_atacar = 0
+	_machacar_salto = false
+	_ciclo_salto = 0
 	_stick = 0.0
 	_stick_tras = -1
 	_saltar_tras = -1
@@ -528,11 +545,25 @@ func _physics_process(delta: float) -> void:
 	# nada. Mismo motivo que en `TestCuerda`.
 	if _ancla_viva and _p.fsm.nombre_actual() != &"Grapple":
 		_recolocar_ancla()
+	if _machacar_salto:
+		# Dos frames pulsado y dos sueltos: sin el hueco,
+		# `is_action_just_pressed` no vuelve a dispararse.
+		_ciclo_salto = (_ciclo_salto + 1) % 4
+		if _ciclo_salto < 2:
+			Input.action_press(&"jump")
+		else:
+			Input.action_release(&"jump")
+	# LA PATADA SE PIDE CON EL SALTO, no con el boton de ataque.
+	#
+	# Es el cambio del 4.06: `attack_light` es de la espada y en el aire el Espacio
+	# patea. El test se conducia con el click y con eso media un boton que ya no
+	# hace nada — 13 de 27 en rojo y todas con `patada=0.00s`, que es como se lee
+	# "el gesto no llego a existir".
 	if _atacar > 0:
-		Input.action_press(&"attack_light")
+		Input.action_press(&"jump")
 		_atacar -= 1
 		if _atacar == 0:
-			Input.action_release(&"attack_light")
+			Input.action_release(&"jump")
 	if _cuerda > 0:
 		Input.action_press(&"rope")
 		_cuerda -= 1
@@ -595,6 +626,8 @@ func _physics_process(delta: float) -> void:
 				_rumbo_cambio = true
 	if HitstopManager.global_activo():
 		_frames_pausa += 1
+	if estado == &"Kick" and _estado_prev != &"Kick":
+		_patadas_contadas += 1
 	_v_plano_prev = plano_ahora
 	_estado_prev = estado
 

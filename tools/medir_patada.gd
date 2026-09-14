@@ -327,14 +327,18 @@ func _physics_process(delta: float) -> void:
 		# no vuelve a dispararse y la segunda patada no llegaria a pedirse nunca.
 		_ciclo = (_ciclo + 1) % 4
 		if _ciclo < 2 and _p.patada_cargas > 0 and _p.fsm.nombre_actual() != &"Kick":
-			Input.action_press(&"attack_light")
+			Input.action_press(&"jump")
 		else:
-			Input.action_release(&"attack_light")
+			Input.action_release(&"jump")
 	elif _atacar > 0:
-		Input.action_press(&"attack_light")
+		# EL ESPACIO, no el click: desde el 4.06 la patada solo cuelga del salto
+		# y `attack_light` es de la espada. Conducir el banco con el boton viejo
+		# mediria un boton que ya no hace nada, y las cinco filas saldrian en cero
+		# sin que nada dijera por que.
+		Input.action_press(&"jump")
 		_atacar -= 1
 		if _atacar == 0:
-			Input.action_release(&"attack_light")
+			Input.action_release(&"jump")
 	if _saltar > 0:
 		_saltar -= 1
 		if _saltar == 8:

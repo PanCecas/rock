@@ -83,6 +83,7 @@ const VOLADOR := preload("res://src/enemies/Volador.tscn")
 const COLOSO := preload("res://src/enemies/ColosoMediano.tscn")
 const PROYECTIL := preload("res://src/enemies/Proyectil.tscn")
 const LANZA := preload("res://src/weapons/Spear.tscn")
+const ESPADA := preload("res://src/weapons/Sword.tscn")
 const PASTO := preload("res://src/world/Pasto.gd")
 const LUCIERNAGAS := preload("res://src/world/Luciernagas.gd")
 const BANDADA := preload("res://src/world/Bandada.gd")
@@ -425,6 +426,7 @@ func _muro_lanza() -> void:
 func _equipar(jugador: Node3D) -> void:
 	jugador.set("puede_escalar", con_escalada)
 	_dar_lanza(jugador)
+	_dar_espada(jugador)
 
 
 func _dar_lanza(jugador: Node3D) -> void:
@@ -440,6 +442,25 @@ func _dar_lanza(jugador: Node3D) -> void:
 	l.dueno = jugador
 	l.global_position = jugador.global_position + Vector3.UP
 	jugador.set("lanza", l)
+
+
+## Crea LA espada. Cuelga del mismo sitio que la lanza y por la misma razon: es
+## un objeto del MUNDO que a veces esta en la mano, no un hijo del jugador. Si
+## fuera hijo suyo, tirarla obligaria a reparentarla en mitad del vuelo.
+func _dar_espada(jugador: Node3D) -> void:
+	if jugador == null or _raiz == null or not is_instance_valid(_raiz):
+		return
+	if jugador.get("espada") != null:
+		return
+	var e := ESPADA.instantiate() as Sword
+	e.name = "Espada"
+	e.palette = palette
+	e.ataque = load("res://content/data/attacks/espada_corte.tres")
+	e.ataque_vuelo = load("res://content/data/attacks/espada_vuelo.tres")
+	_raiz.add_child(e)
+	e.dueno = jugador
+	e.global_position = jugador.global_position + Vector3.UP
+	jugador.set("espada", e)
 
 
 

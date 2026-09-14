@@ -146,7 +146,9 @@ func _camara(desde: Vector3, hacia: Vector3) -> void:
 
 
 func _patear() -> void:
-	_pulsar(&"attack_light", 4)
+	# EL ESPACIO, no el click: desde el 4.06 la patada solo cuelga del salto
+	# y `attack_light` es de la espada.
+	_pulsar(&"jump", 4)
 
 
 ## Mantiene una acción pulsada unos frames y la suelta sola. El buffer es el único

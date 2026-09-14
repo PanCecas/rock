@@ -508,10 +508,15 @@ func _correr_auto(_delta: float) -> void:
 		# LAS TRES CARGAS, porque el circuito se dimensiona contra el presupuesto
 		# COMPLETO y no contra medio. Con dos, la fila de patadas llegaba a la
 		# pared por 30 cm y eso no es un margen, es una casualidad.
+		# EL ESPACIO, no el click. Desde el 4.06 la patada solo cuelga del salto:
+		# el boton de ataque es de la espada. La fila de patadas de `-- auto` se
+		# conducia con el click, o sea que desde entonces media un boton que ya no
+		# hace nada — y una fila de control que no ejecuta el verbo no dice que el
+		# verbo sobre, dice que el banco dejo de preguntarlo.
 		if d == 8 or d == 26 or d == 44:
-			Input.action_press(&"attack_light")
+			Input.action_press(&"jump")
 		elif d == 10 or d == 28 or d == 46:
-			Input.action_release(&"attack_light")
+			Input.action_release(&"jump")
 
 	_t += _delta
 	_seguir_cadena()
